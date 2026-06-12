@@ -1,0 +1,16 @@
+{
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.108.1",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
+    "diff": "^9.0.0",
+    "drizzle-orm": "^0.45.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/diff": "^7.0.2",
+    "drizzle-kit": "^0.31.10"
+  }
+}
