@@ -1,0 +1,82 @@
+{
+  "name": "neo-bug-forge",
+  "displayName": "Neo Bug Forge",
+  "description": "Instantly fix code bugs using Claude AI — paste broken code, get fixed code in seconds.",
+  "version": "1.0.0",
+  "publisher": "neo-bug-forge",
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other", "Machine Learning", "Programming Languages"],
+  "keywords": ["ai", "bug", "fix", "claude", "anthropic", "debug", "repair"],
+  "activationEvents": ["onCommand:neo-bug-forge.openPanel", "onCommand:neo-bug-forge.fixSelection"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "neo-bug-forge.openPanel",
+        "title": "Neo Bug Forge: Open Panel"
+      },
+      {
+        "command": "neo-bug-forge.fixSelection",
+        "title": "Neo Bug Forge: Fix Selected Code"
+      },
+      {
+        "command": "neo-bug-forge.setApiKey",
+        "title": "Neo Bug Forge: Set API Key"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "neo-bug-forge.fixSelection",
+          "when": "editorHasSelection",
+          "group": "1_modification@1"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "neo-bug-forge.fixSelection",
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f",
+        "when": "editorHasSelection"
+      }
+    ],
+    "configuration": {
+      "title": "Neo Bug Forge",
+      "properties": {
+        "neo-bug-forge.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your Anthropic API key. Get one at https://console.anthropic.com"
+        },
+        "neo-bug-forge.model": {
+          "type": "string",
+          "default": "claude-sonnet-4-20250514",
+          "description": "Claude model to use for bug fixing."
+        },
+        "neo-bug-forge.autoApply": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically apply fixes to the editor without confirmation."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.0"
+  }
+}

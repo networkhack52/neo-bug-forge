@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Neo Bug Forge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #05050d; --bg2: #0d0d1a; --border: #1e1e35;
+      --accent2: #a78bfa; --cyan: #06b6d4;
+      --text: #e2e8f0; --muted: #94a3b8;
+      --font: 'Space Grotesk', sans-serif;
+    }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); line-height: 1.7; }
+
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 2.5rem;
+      background: rgba(5,5,13,0.9);
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-size: 1.15rem; font-weight: 800;
+      background: linear-gradient(135deg, #a78bfa, #06b6d4);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      text-decoration: none;
+    }
+    .back { color: var(--muted); text-decoration: none; font-size: .875rem; }
+    .back:hover { color: var(--text); }
+
+    .container { max-width: 760px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+
+    .page-label {
+      font-size: .75rem; font-weight: 700; letter-spacing: .14em;
+      text-transform: uppercase; color: var(--cyan); margin-bottom: .75rem;
+    }
+    h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: .5rem; }
+    .last-updated { color: var(--muted); font-size: .875rem; margin-bottom: 3rem; }
+
+    h2 { font-size: 1.1rem; font-weight: 700; margin: 2.5rem 0 .75rem; color: var(--accent2); }
+    p  { color: var(--muted); font-size: .95rem; margin-bottom: 1rem; }
+    ul { color: var(--muted); font-size: .95rem; padding-left: 1.5rem; margin-bottom: 1rem; }
+    ul li { margin-bottom: .4rem; }
+    a  { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { font-family: monospace; font-size: .88em; color: var(--accent2); }
+
+    .highlight-box {
+      background: rgba(16,185,129,.06); border: 1px solid rgba(16,185,129,.2);
+      border-radius: 10px; padding: 1.25rem 1.5rem; margin: 1.5rem 0;
+    }
+    .highlight-box p { color: #34d399; margin: 0; font-weight: 500; }
+
+    .info-box {
+      background: rgba(124,108,252,.06); border: 1px solid rgba(124,108,252,.2);
+      border-radius: 10px; padding: 1.25rem 1.5rem; margin: 1.5rem 0;
+    }
+    .info-box p { color: var(--accent2); margin: 0; font-size: .9rem; }
+
+    table {
+      width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem;
+      font-size: .875rem;
+    }
+    th {
+      text-align: left; padding: .6rem 1rem;
+      background: rgba(124,108,252,.08); color: var(--accent2);
+      font-weight: 600; border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: .65rem 1rem; color: var(--muted);
+      border-bottom: 1px solid rgba(30,30,53,.8);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    .divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+    footer {
+      text-align: center; padding: 2rem 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted); font-size: .82rem;
+    }
+    footer a { color: var(--muted); }
+    footer a:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo">NeoBugForge</a>
+  <a href="index.html" class="back">← Back to home</a>
+</nav>
+
+<div class="container">
+  <div class="page-label">Legal</div>
+  <h1>Privacy Policy</h1>
+  <p class="last-updated">Last updated: June 12, 2026</p>
+
+  <p>This Privacy Policy describes how Neo Bug Forge ("we", "us", or "our") collects, uses, and protects information when you use our Service at <a href="https://neo-bug-forge.vercel.app">neo-bug-forge.vercel.app</a> and related tools. It complies with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018.</p>
+
+  <div class="highlight-box">
+    <p>✓ Your code is never used to train AI models. We do not sell your data to third parties.</p>
+  </div>
+
+  <!-- ─── 1. DATA CONTROLLER ─────────────────────────────── -->
+  <h2>1. Data Controller</h2>
+  <p>The data controller responsible for your personal data is:</p>
+  <ul>
+    <li><strong>Name:</strong> Neo Bug Forge</li>
+    <li><strong>Contact:</strong> <a href="mailto:ya7308312@gmail.com">ya7308312@gmail.com</a></li>
+    <li><strong>Jurisdiction:</strong> United Kingdom</li>
+  </ul>
+  <p>As the data controller, we determine the purposes and means of processing your personal data. If you have any questions about how your data is handled, contact us at the address above.</p>
+
+  <!-- ─── 2. INFORMATION WE COLLECT ──────────────────────── -->
+  <h2>2. Information We Collect</h2>
+  <p>We collect the following categories of personal data:</p>
+  <ul>
+    <li><strong>Code submissions</strong> — code snippets and error messages you submit for fixing</li>
+    <li><strong>API key metadata</strong> — your key hash (never the raw key), tier, usage count, and timestamps</li>
+    <li><strong>Usage data</strong> — number of fixes, tokens used, language detected, and confidence scores</li>
+    <li><strong>Email address</strong> — if you create a paid account</li>
+  </ul>
+  <p>We do not collect passwords, payment card details (handled by our payment processor), or any data beyond what is necessary to operate the Service.</p>
+
+  <!-- ─── 3. LEGAL BASIS FOR PROCESSING ─────────────────── -->
+  <h2>3. Legal Basis for Processing (UK GDPR Article 6)</h2>
+  <p>We only process your personal data where we have a lawful basis to do so. The table below sets out each processing activity and its legal basis:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Processing Activity</th>
+        <th>Legal Basis</th>
+        <th>Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Processing bug fix requests</td>
+        <td><strong>Contract</strong> (Art. 6(1)(b))</td>
+        <td>Necessary to perform the service you requested</td>
+      </tr>
+      <tr>
+        <td>Quota tracking & enforcement</td>
+        <td><strong>Contract</strong> (Art. 6(1)(b))</td>
+        <td>Necessary to deliver your subscribed plan</td>
+      </tr>
+      <tr>
+        <td>Billing & payment</td>
+        <td><strong>Contract</strong> (Art. 6(1)(b))</td>
+        <td>Required to process your subscription</td>
+      </tr>
+      <tr>
+        <td>Abuse detection & security</td>
+        <td><strong>Legitimate interests</strong> (Art. 6(1)(f))</td>
+        <td>Protecting the platform and other users from misuse</td>
+      </tr>
+      <tr>
+        <td>Storing fix history</td>
+        <td><strong>Legitimate interests</strong> (Art. 6(1)(f))</td>
+        <td>Allows you to retrieve past fixes; you may request deletion at any time</td>
+      </tr>
+      <tr>
+        <td>Service improvement (aggregated stats)</td>
+        <td><strong>Legitimate interests</strong> (Art. 6(1)(f))</td>
+        <td>Anonymised data only; cannot be linked back to you</td>
+      </tr>
+      <tr>
+        <td>Account communications</td>
+        <td><strong>Contract / Legitimate interests</strong></td>
+        <td>Essential account notifications and billing emails</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="info-box">
+    <p>We do not rely on <strong>consent</strong> as a legal basis for processing because our processing is necessary to deliver the Service under our contract with you. You always have the right to object to processing based on legitimate interests — see Section 10.</p>
+  </div>
+
+  <!-- ─── 4. HOW WE USE YOUR INFORMATION ────────────────── -->
+  <h2>4. How We Use Your Information</h2>
+  <ul>
+    <li>To process your bug fix requests and return results</li>
+    <li>To track and enforce quota limits on your plan</li>
+    <li>To detect abuse, unusual usage patterns, or policy violations</li>
+    <li>To improve the Service (aggregated, anonymised usage statistics only)</li>
+    <li>To communicate with you about your account or billing</li>
+  </ul>
+
+  <!-- ─── 5. CODE STORAGE ────────────────────────────────── -->
+  <h2>5. Code Storage</h2>
+  <p>Submitted code and fix results are stored in our database linked to your API key. This allows you to retrieve past fixes via the <code>/v1/fix/{id}</code> endpoint. You may request deletion of your stored fixes at any time by contacting us.</p>
+  <p>We do not share your code with third parties, except that it is transmitted to Anthropic's Claude API to generate the fix. Anthropic's use of API-submitted data is governed by <a href="https://www.anthropic.com/legal/privacy" target="_blank">Anthropic's Privacy Policy</a>.</p>
+
+  <!-- ─── 6. API KEYS ───────────────────────────────────── -->
+  <h2>6. API Keys</h2>
+  <p>Your API key is stored as a SHA-256 hash — we never store the raw key. Even in the event of a database breach, your actual key cannot be recovered from our records.</p>
+
+  <!-- ─── 7. DATA SHARING & THIRD PARTIES ───────────────── -->
+  <h2>7. Data Sharing &amp; Third-Party Processors</h2>
+  <p>We do not sell, rent, or share your personal data with third parties except with the following processors, each bound by data processing agreements:</p>
+  <ul>
+    <li><strong>Anthropic (USA)</strong> — your code is sent to Claude AI to generate fixes. See their <a href="https://www.anthropic.com/legal/privacy" target="_blank">Privacy Policy</a>.</li>
+    <li><strong>Supabase (USA)</strong> — our database provider which stores your usage data and fix history. See their <a href="https://supabase.com/privacy" target="_blank">Privacy Policy</a>.</li>
+    <li><strong>Payment processor</strong> — handles billing for paid plans. We never receive or store your card details.</li>
+    <li><strong>Law enforcement</strong> — only if required by applicable law or to protect our legal rights.</li>
+  </ul>
+
+  <!-- ─── 8. INTERNATIONAL DATA TRANSFERS ───────────────── -->
+  <h2>8. International Data Transfers</h2>
+  <p>As a UK-based business, your data is processed under UK GDPR. Some of our third-party processors are located in the United States, which means your personal data is transferred outside the UK. We ensure these transfers are lawful through the following safeguards:</p>
+  <ul>
+    <li><strong>Anthropic</strong> — transfers rely on UK International Data Transfer Agreements (IDTAs) or equivalent adequacy mechanisms</li>
+    <li><strong>Supabase</strong> — transfers rely on Standard Contractual Clauses (SCCs) adopted under UK GDPR and their EU-US Data Privacy Framework commitments</li>
+  </ul>
+  <p>You may request a copy of the relevant transfer safeguards by contacting us at <a href="mailto:ya7308312@gmail.com">ya7308312@gmail.com</a>.</p>
+
+  <!-- ─── 9. DATA RETENTION ─────────────────────────────── -->
+  <h2>9. Data Retention</h2>
+  <p>We retain different categories of data for different periods, based on operational need and legal requirements:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Data Category</th>
+        <th>Retention Period</th>
+        <th>Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Fix history (code + results)</td>
+        <td>90 days after submission, or until account deletion</td>
+        <td>Allows you to retrieve recent fixes; not needed long-term</td>
+      </tr>
+      <tr>
+        <td>API key metadata (hash, tier, usage counts)</td>
+        <td>Duration of account + 30 days after deletion</td>
+        <td>Required to operate and close your account cleanly</td>
+      </tr>
+      <tr>
+        <td>Email address</td>
+        <td>Duration of account + 30 days after deletion</td>
+        <td>Required for account management and billing communications</td>
+      </tr>
+      <tr>
+        <td>Billing records</td>
+        <td>7 years from transaction date</td>
+        <td>UK legal requirement under the Companies Act and HMRC guidelines</td>
+      </tr>
+      <tr>
+        <td>Anonymised usage statistics</td>
+        <td>Indefinitely</td>
+        <td>Cannot be linked to any individual; used for product improvement only</td>
+      </tr>
+      <tr>
+        <td>Abuse / security logs</td>
+        <td>12 months</td>
+        <td>Required to investigate and defend against misuse claims</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>After the applicable retention period, data is securely deleted or irreversibly anonymised. You may request earlier deletion of your personal data (excluding legally required retention) at any time — see Section 10.</p>
+
+  <!-- ─── 10. YOUR RIGHTS ───────────────────────────────── -->
+  <h2>10. Your Rights Under UK GDPR</h2>
+  <p>As a data subject, you have the following rights:</p>
+  <ul>
+    <li><strong>Right of access (Art. 15)</strong> — request a copy of all personal data we hold about you</li>
+    <li><strong>Right to rectification (Art. 16)</strong> — request correction of inaccurate or incomplete data</li>
+    <li><strong>Right to erasure (Art. 17)</strong> — request deletion of your personal data ("right to be forgotten")</li>
+    <li><strong>Right to restriction (Art. 18)</strong> — request that we limit processing of your data in certain circumstances</li>
+    <li><strong>Right to data portability (Art. 20)</strong> — receive your data in a machine-readable format</li>
+    <li><strong>Right to object (Art. 21)</strong> — object to processing based on legitimate interests</li>
+    <li><strong>Right to withdraw consent</strong> — where processing is based on consent (currently none), withdraw at any time</li>
+  </ul>
+  <p>To exercise any of these rights, contact us at <a href="mailto:ya7308312@gmail.com">ya7308312@gmail.com</a>. We will respond within <strong>30 days</strong> as required by UK GDPR. If you are unsatisfied with our response, you have the right to lodge a complaint with the <strong>Information Commissioner's Office (ICO)</strong> at <a href="https://ico.org.uk" target="_blank">ico.org.uk</a>.</p>
+
+  <!-- ─── 11. SECURITY ─────────────────────────────────── -->
+  <h2>11. Security</h2>
+  <p>We use industry-standard security practices including API key hashing (SHA-256), HTTPS-only transmission, and role-based access controls on our database. However, no system is 100% secure and we cannot guarantee absolute security. In the event of a personal data breach that poses a risk to your rights and freedoms, we will notify the ICO within 72 hours and affected users without undue delay, as required by UK GDPR Article 33–34.</p>
+
+  <!-- ─── 12. COOKIES ──────────────────────────────────── -->
+  <h2>12. Cookies</h2>
+  <p>The Neo Bug Forge web app does not use tracking, advertising, or analytics cookies. We do not use any cookies that require consent under UK PECR (Privacy and Electronic Communications Regulations).</p>
+
+  <!-- ─── 13. CHILDREN'S PRIVACY ───────────────────────── -->
+  <h2>13. Children's Privacy</h2>
+  <p>The Service is not directed at children under 13. We do not knowingly collect personal data from children. If you believe a child has provided us with their data, contact us and we will delete it promptly.</p>
+
+  <!-- ─── 14. GOVERNING LAW ────────────────────────────── -->
+  <h2>14. Governing Law &amp; Jurisdiction</h2>
+  <p>This Privacy Policy and any disputes arising from it are governed by the laws of <strong>England and Wales</strong>. Any legal proceedings shall be subject to the exclusive jurisdiction of the courts of England and Wales, except where applicable consumer protection law in your country of residence grants you additional rights that cannot be waived by contract.</p>
+  <p>If you are located in the European Union, you benefit from the same protections under EU GDPR and may lodge a complaint with your local supervisory authority.</p>
+
+  <!-- ─── 15. CHANGES ──────────────────────────────────── -->
+  <h2>15. Changes to This Policy</h2>
+  <p>We may update this Privacy Policy from time to time. We will notify you of significant changes by updating the "Last updated" date above and, where required by UK GDPR, by email if the changes materially affect your rights. Continued use of the Service after changes are posted constitutes acceptance of the revised policy.</p>
+
+  <!-- ─── 16. CONTACT ──────────────────────────────────── -->
+  <h2>16. Contact &amp; Complaints</h2>
+  <p>For privacy questions, data requests, or to exercise your rights:</p>
+  <ul>
+    <li><strong>Email:</strong> <a href="mailto:ya7308312@gmail.com">ya7308312@gmail.com</a></li>
+  </ul>
+  <p>If you are not satisfied with our response, you may contact the <strong>Information Commissioner's Office (ICO)</strong>:</p>
+  <ul>
+    <li>Website: <a href="https://ico.org.uk" target="_blank">ico.org.uk</a></li>
+    <li>Helpline: 0303 123 1113</li>
+  </ul>
+
+  <hr class="divider" />
+  <p style="font-size:.85rem;">See also: <a href="terms.html">Terms of Service</a></p>
+</div>
+
+<footer>
+  <p>© 2026 Neo Bug Forge &nbsp;·&nbsp; <a href="terms.html">Terms</a> &nbsp;·&nbsp; <a href="privacy.html">Privacy</a></p>
+</footer>
+
+</body>
+</html>

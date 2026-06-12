@@ -1,0 +1,45 @@
+# ── Secrets ──────────────────────────────────────────
+.env
+.env.*
+!.env.example
+!.env.development
+!.env.production
+
+# ── Python ───────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+env/
+dist/
+build/
+*.egg-info/
+
+# ── Node / VS Code Extension ──────────────────────────
+node_modules/
+out/
+*.vsix
+npm-debug.log*
+
+# ── Vite / React ──────────────────────────────────────
+web/dist/
+web/.vite/
+
+# ── SEO generated output ──────────────────────────────
+seo/dist/
+
+# ── OS ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDEs ──────────────────────────────────────────────
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+
+# ── Logs ──────────────────────────────────────────────
+*.log
+logs/

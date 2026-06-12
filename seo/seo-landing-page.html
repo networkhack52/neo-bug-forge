@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <!-- ═══ SEO META — dynamically swap per error type ═══ -->
+  <title>Fix Python ZeroDivisionError: division by zero — Neo Bug Forge</title>
+  <meta name="description" content="Getting 'ZeroDivisionError: division by zero' in Python? Paste your code and fix it in seconds with AI. Free, no signup. See common causes, examples, and instant fixes."/>
+  <meta name="keywords" content="ZeroDivisionError, Python ZeroDivisionError fix, division by zero python, python error fix, debug python"/>
+  <link rel="canonical" href="https://neobugforge.io/fix/python/ZeroDivisionError"/>
+
+  <!-- Open Graph -->
+  <meta property="og:title"       content="Fix Python ZeroDivisionError — Neo Bug Forge"/>
+  <meta property="og:description" content="Instant AI-powered fix for Python ZeroDivisionError. Free, no signup required."/>
+  <meta property="og:url"         content="https://neobugforge.io/fix/python/ZeroDivisionError"/>
+  <meta property="og:type"        content="website"/>
+  <meta property="og:image"       content="https://neobugforge.io/og/python-ZeroDivisionError.png"/>
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="summary_large_image"/>
+  <meta name="twitter:title"       content="Fix Python ZeroDivisionError — Neo Bug Forge"/>
+  <meta name="twitter:description" content="Instant AI-powered fix for ZeroDivisionError. Paste broken code → get fixed code."/>
+
+  <!-- ═══ Structured Data (FAQ + HowTo schema for rich snippets) ═══ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What causes ZeroDivisionError in Python?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "ZeroDivisionError occurs when Python attempts to divide a number by zero, either literally (x / 0) or when a variable holds the value 0 at runtime. Common causes include: empty lists passed to average functions, database values that are unexpectedly zero, and missing guard clauses."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I fix ZeroDivisionError?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Add a guard clause before the division: check if the denominator is zero and handle it explicitly. Use 'if denominator != 0: result = numerator / denominator' or catch the exception with a try/except block."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How can I fix ZeroDivisionError automatically?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Paste your broken code into Neo Bug Forge at neobugforge.io. The AI analyzes your specific code, finds the root cause, and returns fixed code plus a unit test — in under 3 seconds, for free."
+            }
+          }
+        ]
+      },
+      {
+        "@type": "HowTo",
+        "name": "How to fix ZeroDivisionError in Python",
+        "step": [
+          { "@type": "HowToStep", "text": "Copy the broken code and the full error traceback." },
+          { "@type": "HowToStep", "text": "Paste both into Neo Bug Forge at neobugforge.io." },
+          { "@type": "HowToStep", "text": "Click Fix My Bug — receive fixed code, a diff, and a test case instantly." },
+          { "@type": "HowToStep", "text": "Copy the fixed code back into your editor." }
+        ]
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "Neo Bug Forge",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Web",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "description": "AI-powered code bug fixer. Paste broken code and error message, get fixed code instantly."
+      }
+    ]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+  <style>
+    /* ══════════════════════════════════════════════════════════════
+       Aesthetic: Editorial newspaper meets code terminal.
+       Off-white paper + deep ink black + one sharp red accent.
+       High contrast, zero fluff. Built for skimmers AND readers.
+    ══════════════════════════════════════════════════════════════ */
+
+    :root {
+      --paper:    #f5f2ec;
+      --paper2:   #ede9e1;
+      --ink:      #0d0d0d;
+      --ink2:     #3a3a3a;
+      --ink3:     #7a7a7a;
+      --rule:     #d0c9bb;
+      --red:      #d63b2f;
+      --red-dim:  #b02e24;
+      --red-bg:   #d63b2f0d;
+      --green:    #1a7a4a;
+      --green-bg: #1a7a4a0d;
+      --code-bg:  #1a1a1a;
+      --code-text:#e8e8e8;
+      --serif:    'Instrument Serif', Georgia, serif;
+      --mono:     'Geist Mono', 'Courier New', monospace;
+      --sans:     'Geist', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-weight: 300;
+      line-height: 1.6;
+    }
+
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-track { background: var(--paper2); }
+    ::-webkit-scrollbar-thumb { background: var(--rule); }
+
+    /* ── Layout ── */
+    .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+    .wide      { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+    /* ── Masthead ── */
+    .masthead {
+      border-bottom: 3px double var(--ink);
+      padding: 14px 0 10px;
+    }
+    .masthead-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 10px;
+    }
+    .masthead-logo {
+      font-family: var(--mono);
+      font-size: 18px; font-weight: 700;
+      letter-spacing: -0.02em; color: var(--ink);
+      text-decoration: none;
+    }
+    .masthead-logo span { color: var(--red); }
+    .masthead-nav { display: flex; gap: 20px; }
+    .masthead-link {
+      font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--ink3);
+      text-decoration: none; transition: color 0.12s;
+    }
+    .masthead-link:hover { color: var(--red); }
+    .masthead-cta {
+      font-family: var(--mono); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 7px 16px; background: var(--ink); color: var(--paper);
+      border: none; border-radius: 2px; cursor: pointer; text-decoration: none;
+      transition: background 0.15s;
+    }
+    .masthead-cta:hover { background: var(--red); }
+
+    /* ── Breadcrumb ── */
+    .breadcrumb {
+      padding: 10px 0;
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 0.06em; color: var(--ink3);
+      border-bottom: 1px solid var(--rule);
+    }
+    .breadcrumb a { color: var(--ink3); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--red); }
+    .breadcrumb span { margin: 0 6px; }
+
+    /* ── Hero / Headline block ── */
+    .hero-block {
+      padding: 40px 0 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    .error-kicker {
+      font-family: var(--mono); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--red); margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .error-kicker::before {
+      content: ''; width: 24px; height: 2px; background: var(--red);
+    }
+    .hero-headline {
+      font-family: var(--serif);
+      font-size: clamp(32px, 5vw, 54px);
+      line-height: 1.1; font-weight: 400;
+      color: var(--ink); letter-spacing: -0.01em;
+      margin-bottom: 16px;
+    }
+    .hero-headline em { font-style: italic; color: var(--red); }
+    .hero-deck {
+      font-size: 17px; font-weight: 300; color: var(--ink2);
+      max-width: 640px; line-height: 1.65; margin-bottom: 24px;
+    }
+
+    /* ── Stats row ── */
+    .stat-row {
+      display: flex; gap: 0;
+      border: 1px solid var(--rule);
+      border-radius: 2px; overflow: hidden;
+      margin-bottom: 32px; width: fit-content;
+    }
+    .stat-item {
+      padding: 10px 20px; border-right: 1px solid var(--rule);
+      text-align: center;
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1; }
+    .stat-l { font-size: 9px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink3); margin-top: 3px; }
+
+    /* ── Inline fix widget ── */
+    .fix-widget {
+      background: var(--ink);
+      border-radius: 4px; overflow: hidden;
+      margin: 32px 0; box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+    }
+    .widget-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; background: #1a1a1a;
+      border-bottom: 1px solid #2a2a2a;
+    }
+    .widget-title {
+      font-family: var(--mono); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase; color: #888;
+    }
+    .widget-badge {
+      font-family: var(--mono); font-size: 9px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 3px 9px; border-radius: 2px;
+      background: #d63b2f20; color: #ff6b5b; border: 1px solid #d63b2f40;
+    }
+    .widget-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .widget-label {
+      font-family: var(--mono); font-size: 9px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase; color: #666;
+      margin-bottom: 6px;
+    }
+    .widget-textarea {
+      width: 100%; background: #111; border: 1px solid #2a2a2a;
+      border-radius: 3px; color: #e8e8e8;
+      font-family: var(--mono); font-size: 12px; line-height: 1.65;
+      padding: 10px 12px; resize: vertical; outline: none;
+      transition: border-color 0.15s;
+    }
+    .widget-textarea:focus { border-color: #d63b2f; }
+    .widget-textarea::placeholder { color: #444; }
+    .code-ta { min-height: 130px; }
+    .error-ta { min-height: 52px; }
+    .widget-fix-btn {
+      width: 100%; padding: 12px;
+      font-family: var(--mono); font-size: 13px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      background: var(--red); color: #fff; border: none; border-radius: 3px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .widget-fix-btn:hover { background: var(--red-dim); }
+    .widget-fix-btn:disabled { background: #2a2a2a; color: #555; cursor: not-allowed; }
+    .widget-note {
+      text-align: center; font-family: var(--mono); font-size: 9px;
+      font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+      color: #444;
+    }
+    .widget-note strong { color: #d63b2f; }
+
+    /* Widget result area */
+    .widget-result {
+      display: none; background: #0f0f0f;
+      border-top: 1px solid #2a2a2a; padding: 16px;
+    }
+    .widget-result.show { display: block; animation: fadeIn 0.3s ease; }
+    .result-meta {
+      display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .result-badge {
+      font-family: var(--mono); font-size: 9px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 3px 9px; border-radius: 2px;
+    }
+    .rb-green { background: #1a7a4a20; color: #2ecc71; border: 1px solid #1a7a4a40; }
+    .rb-blue  { background: #1a4a7a20; color: #4da6ff; border: 1px solid #1a4a7a40; }
+    .result-expl {
+      font-family: var(--sans); font-size: 13px; color: #aaa;
+      line-height: 1.7; margin-bottom: 12px;
+      padding: 10px 12px; background: #1a1a1a;
+      border-left: 3px solid var(--red); border-radius: 0 3px 3px 0;
+    }
+    .result-code-wrap { background: #111; border: 1px solid #2a2a2a; border-radius: 3px; overflow: hidden; }
+    .result-code-hdr {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 10px; background: #1a1a1a; border-bottom: 1px solid #222;
+    }
+    .result-code-lang { font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #555; }
+    .copy-btn-sm {
+      font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 2px; background: transparent;
+      color: #555; border: 1px solid #2a2a2a; cursor: pointer; transition: all 0.12s;
+    }
+    .copy-btn-sm:hover { border-color: #d63b2f; color: #d63b2f; }
+    .copy-btn-sm.ok { border-color: #2ecc71; color: #2ecc71; }
+    .result-code-pre { padding: 12px; font-family: var(--mono); font-size: 11.5px; line-height: 1.65; color: #e8e8e8; overflow-x: auto; }
+    .result-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .ra-btn {
+      flex: 1; padding: 8px; border-radius: 3px;
+      font-family: var(--mono); font-size: 9px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      cursor: pointer; border: 1px solid #2a2a2a; background: transparent;
+      color: #888; transition: all 0.15s;
+    }
+    .ra-btn:hover { border-color: #555; color: #ccc; }
+    .ra-btn.primary { background: var(--red); color: #fff; border-color: var(--red); }
+    .ra-btn.primary:hover { background: var(--red-dim); }
+
+    /* Loading */
+    .widget-loading { display: none; padding: 24px 16px; text-align: center; }
+    .widget-loading.show { display: block; }
+    .spin-ring {
+      width: 32px; height: 32px; margin: 0 auto 12px;
+      border: 2px solid #2a2a2a; border-top-color: var(--red);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    .loading-text { font-family: var(--mono); font-size: 10px; color: #555; letter-spacing: 0.08em; }
+
+    /* Error state */
+    .widget-error { display: none; padding: 12px 16px; }
+    .widget-error.show { display: block; }
+    .we-inner {
+      background: #d63b2f15; border: 1px solid #d63b2f40;
+      border-radius: 3px; padding: 10px 12px;
+      font-family: var(--mono); font-size: 11px; color: #ff6b5b; line-height: 1.6;
+    }
+
+    /* ── Content body ── */
+    .content-grid {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 48px; padding: 40px 0;
+      align-items: start;
+    }
+    @media (max-width: 720px) { .content-grid { grid-template-columns: 1fr; } }
+
+    /* ── Article prose ── */
+    .prose h2 {
+      font-family: var(--serif); font-size: 26px; font-weight: 400;
+      color: var(--ink); margin: 36px 0 14px;
+      padding-top: 36px; border-top: 1px solid var(--rule);
+    }
+    .prose h2:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+    .prose h3 {
+      font-family: var(--mono); font-size: 13px; font-weight: 700;
+      letter-spacing: 0.04em; color: var(--ink); margin: 24px 0 10px;
+    }
+    .prose p { font-size: 15px; color: var(--ink2); line-height: 1.75; margin-bottom: 14px; }
+    .prose ul, .prose ol {
+      font-size: 15px; color: var(--ink2); line-height: 1.75;
+      margin-bottom: 14px; padding-left: 20px;
+    }
+    .prose li { margin-bottom: 6px; }
+    .prose code {
+      font-family: var(--mono); font-size: 12px; font-weight: 500;
+      background: var(--paper2); border: 1px solid var(--rule);
+      border-radius: 2px; padding: 1px 5px; color: var(--red);
+    }
+    .prose strong { font-weight: 600; color: var(--ink); }
+
+    /* ── Code examples ── */
+    .code-example { margin: 20px 0; border-radius: 4px; overflow: hidden; }
+    .ce-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 14px; background: #1a1a1a;
+    }
+    .ce-label { font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+    .ce-label.bad  { color: #ff6b5b; }
+    .ce-label.good { color: #2ecc71; }
+    .ce-copy {
+      font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 2px; background: transparent;
+      color: #555; border: 1px solid #333; cursor: pointer; transition: all 0.12s;
+    }
+    .ce-copy:hover { border-color: #888; color: #aaa; }
+    .ce-copy.ok { border-color: #2ecc71; color: #2ecc71; }
+    .ce-body { background: var(--code-bg); }
+    .ce-body pre { padding: 14px; font-family: var(--mono); font-size: 12px; line-height: 1.65; color: var(--code-text); overflow-x: auto; }
+    .line-bad  { color: #ff6b5b; }
+    .line-good { color: #2ecc71; }
+    .line-comment { color: #666; font-style: italic; }
+
+    /* ── Callout boxes ── */
+    .callout {
+      padding: 14px 18px; border-radius: 2px; margin: 20px 0;
+      font-size: 14px; line-height: 1.7;
+    }
+    .callout-tip   { background: var(--green-bg); border-left: 3px solid var(--green); color: var(--ink2); }
+    .callout-warn  { background: var(--red-bg);   border-left: 3px solid var(--red);   color: var(--ink2); }
+    .callout strong { font-weight: 600; color: var(--ink); }
+
+    /* ── FAQ section ── */
+    .faq-item {
+      border-bottom: 1px solid var(--rule); padding: 18px 0;
+    }
+    .faq-q {
+      font-family: var(--serif); font-size: 18px; font-weight: 400;
+      color: var(--ink); margin-bottom: 10px; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: start; gap: 12px;
+    }
+    .faq-q .toggle {
+      font-family: var(--mono); font-size: 14px; color: var(--red);
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .faq-a { font-size: 14px; color: var(--ink2); line-height: 1.75; }
+
+    /* ── Related errors sidebar ── */
+    .sidebar { position: sticky; top: 24px; }
+    .sidebar-card {
+      background: var(--paper2); border: 1px solid var(--rule);
+      border-radius: 3px; overflow: hidden; margin-bottom: 16px;
+    }
+    .sidebar-hdr {
+      padding: 10px 14px; border-bottom: 1px solid var(--rule);
+      font-family: var(--mono); font-size: 9px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink3);
+    }
+    .sidebar-body { padding: 10px 14px; }
+    .sidebar-link {
+      display: block; font-family: var(--mono); font-size: 11px;
+      color: var(--ink2); text-decoration: none; padding: 5px 0;
+      border-bottom: 1px solid var(--rule); transition: color 0.12s;
+    }
+    .sidebar-link:last-child { border-bottom: none; }
+    .sidebar-link:hover { color: var(--red); }
+    .sidebar-link .lang-tag {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 1px 6px; border-radius: 2px; margin-right: 6px;
+      background: var(--paper); border: 1px solid var(--rule);
+    }
+
+    /* ── CTA strip ── */
+    .cta-strip {
+      background: var(--ink); color: var(--paper);
+      padding: 36px; border-radius: 4px; margin: 48px 0;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 20px;
+    }
+    .cta-strip-title { font-family: var(--serif); font-size: 28px; font-weight: 400; line-height: 1.2; }
+    .cta-strip-sub { font-size: 13px; color: #888; margin-top: 6px; font-weight: 300; }
+    .cta-strip-btn {
+      font-family: var(--mono); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 13px 28px; background: var(--red); color: #fff;
+      border: none; border-radius: 3px; cursor: pointer; white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .cta-strip-btn:hover { background: var(--red-dim); }
+
+    /* ── Footer ── */
+    .page-footer {
+      border-top: 3px double var(--ink);
+      padding: 28px 0;
+    }
+    .footer-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 14px;
+    }
+    .footer-logo { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--ink3); }
+    .footer-logo span { color: var(--red); }
+    .footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+    .footer-link { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink3); text-decoration: none; }
+    .footer-link:hover { color: var(--red); }
+    .footer-copy { font-size: 11px; color: var(--ink3); }
+
+    /* ── Animations ── */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes spin   { to { transform: rotate(360deg); } }
+
+    .page-load { animation: fadeIn 0.5s ease both; }
+    .stagger-1 { animation: fadeIn 0.5s 0.05s ease both; }
+    .stagger-2 { animation: fadeIn 0.5s 0.1s  ease both; }
+    .stagger-3 { animation: fadeIn 0.5s 0.15s ease both; }
+  </style>
+</head>
+<body>
+
+<!-- ══ MASTHEAD ══ -->
+<header>
+  <div class="wide">
+    <div class="masthead">
+      <div class="masthead-inner">
+        <a class="masthead-logo" href="/">Neo Bug<span>Forge</span></a>
+        <nav class="masthead-nav">
+          <a class="masthead-link" href="/fix/python">Python</a>
+          <a class="masthead-link" href="/fix/javascript">JavaScript</a>
+          <a class="masthead-link" href="/fix/typescript">TypeScript</a>
+          <a class="masthead-link" href="/errors">All Errors</a>
+          <a class="masthead-link" href="/api">API</a>
+        </nav>
+        <a class="masthead-cta" href="/#fix">Fix a Bug →</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ══ BREADCRUMB ══ -->
+<div class="container">
+  <div class="breadcrumb">
+    <a href="/">Home</a><span>/</span>
+    <a href="/fix/python">Python Errors</a><span>/</span>
+    ZeroDivisionError
+  </div>
+</div>
+
+<!-- ══ HERO BLOCK ══ -->
+<div class="container page-load">
+  <div class="hero-block">
+    <div class="error-kicker">Python · RuntimeError</div>
+    <h1 class="hero-headline">
+      Fix <em>ZeroDivisionError</em>:<br/>division by zero
+    </h1>
+    <p class="hero-deck">
+      Python throws <code>ZeroDivisionError</code> when your code divides by zero — often because a variable holds an unexpected zero at runtime. Paste your code below for an instant AI fix, or read the guide to fix it yourself.
+    </p>
+
+    <!-- Stats row -->
+    <div class="stat-row stagger-1">
+      <div class="stat-item">
+        <div class="stat-n">4,821</div>
+        <div class="stat-l">Fixed this week</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-n">96%</div>
+        <div class="stat-l">Fix accuracy</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-n">2.3s</div>
+        <div class="stat-l">Avg fix time</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ INLINE FIX WIDGET ══ -->
+<div class="container stagger-2">
+  <div class="fix-widget">
+    <div class="widget-header">
+      <span class="widget-title">⚡ Instant Fix — Powered by Claude AI</span>
+      <span class="widget-badge">Free · No Signup</span>
+    </div>
+
+    <div class="widget-body" id="widget-form">
+      <div>
+        <div class="widget-label">Your Broken Code</div>
+        <textarea class="widget-textarea code-ta" id="w-code"
+          placeholder="def calculate_average(nums):&#10;    return sum(nums) / len(nums)&#10;&#10;result = calculate_average([])  # → ZeroDivisionError"></textarea>
+      </div>
+      <div>
+        <div class="widget-label">Error Message</div>
+        <textarea class="widget-textarea error-ta" id="w-error"
+          placeholder="ZeroDivisionError: division by zero"></textarea>
+      </div>
+      <button class="widget-fix-btn" id="w-fix-btn" onclick="submitFix()">
+        ⚡ Fix My ZeroDivisionError
+      </button>
+      <div class="widget-note"><strong>10 free fixes</strong> · No account needed</div>
+    </div>
+
+    <!-- Loading -->
+    <div class="widget-loading" id="w-loading">
+      <div class="spin-ring"></div>
+      <div class="loading-text" id="w-loading-text">Analyzing error context...</div>
+    </div>
+
+    <!-- Error -->
+    <div class="widget-error" id="w-error-box">
+      <div class="we-inner" id="w-error-msg"></div>
+    </div>
+
+    <!-- Result -->
+    <div class="widget-result" id="w-result">
+      <div class="result-meta">
+        <span class="result-badge rb-green" id="w-conf-badge">96% confident</span>
+        <span class="result-badge rb-blue"  id="w-cause-tag">null reference</span>
+      </div>
+      <div class="result-expl" id="w-explanation"></div>
+      <div class="result-code-wrap">
+        <div class="result-code-hdr">
+          <span class="result-code-lang">python</span>
+          <button class="copy-btn-sm" id="w-copy-btn" onclick="copyFixed()">⧉ Copy</button>
+        </div>
+        <pre class="result-code-pre" id="w-fixed-code"></pre>
+      </div>
+      <div class="result-actions">
+        <button class="ra-btn primary" onclick="copyFixed()">⧉ Copy Fixed Code</button>
+        <button class="ra-btn" onclick="resetWidget()">↺ Try Another</button>
+        <button class="ra-btn" onclick="window.location.href='/#fix'">Open Full App →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONTENT + SIDEBAR ══ -->
+<div class="container">
+  <div class="content-grid">
+
+    <!-- LEFT: Article -->
+    <article class="prose stagger-3">
+
+      <h2>What is ZeroDivisionError?</h2>
+      <p>
+        <code>ZeroDivisionError</code> is a Python built-in exception raised when the second operand
+        of a division or modulo operation is zero. It applies to <code>/</code>, <code>//</code>
+        (floor division), and <code>%</code> (modulo). Python raises it at runtime — not at
+        parse time — so it only appears when the zero value is actually reached.
+      </p>
+      <div class="callout callout-warn">
+        <strong>Key insight:</strong> The zero is almost never a literal <code>0</code> in your source code. It's usually a variable, a database field, or the result of a computation that unexpectedly evaluates to zero at runtime.
+      </div>
+
+      <h2>Common Causes</h2>
+
+      <h3>1. Empty list passed to an average function</h3>
+      <p>The most frequent trigger. <code>len([])</code> is <code>0</code>, so dividing by it crashes.</p>
+      <div class="code-example">
+        <div class="ce-header">
+          <span class="ce-label bad">✗ Broken</span>
+          <button class="ce-copy" onclick="copyCode(this, 'bad1')">Copy</button>
+        </div>
+        <div class="ce-body">
+          <pre id="bad1"><span class="line-bad">def average(nums):</span>
+<span class="line-bad">    return sum(nums) / len(nums)  # ZeroDivisionError if nums is []</span></pre>
+        </div>
+      </div>
+      <div class="code-example">
+        <div class="ce-header">
+          <span class="ce-label good">✓ Fixed</span>
+          <button class="ce-copy" onclick="copyCode(this, 'good1')">Copy</button>
+        </div>
+        <div class="ce-body">
+          <pre id="good1"><span class="line-good">def average(nums):</span>
+<span class="line-good">    if not nums:</span>
+<span class="line-good">        return 0  # or raise ValueError("Cannot average an empty list")</span>
+<span class="line-good">    return sum(nums) / len(nums)</span></pre>
+        </div>
+      </div>
+
+      <h3>2. Database / API value that's unexpectedly zero</h3>
+      <p>You query a <code>total_sales</code> column and assume it's always non-zero. It isn't.</p>
+      <div class="code-example">
+        <div class="ce-header">
+          <span class="ce-label bad">✗ Broken</span>
+          <button class="ce-copy" onclick="copyCode(this, 'bad2')">Copy</button>
+        </div>
+        <div class="ce-body">
+          <pre id="bad2"><span class="line-bad">margin = (profit / total_sales) * 100  # ZeroDivisionError if total_sales == 0</span></pre>
+        </div>
+      </div>
+      <div class="code-example">
+        <div class="ce-header">
+          <span class="ce-label good">✓ Fixed</span>
+          <button class="ce-copy" onclick="copyCode(this, 'good2')">Copy</button>
+        </div>
+        <div class="ce-body">
+          <pre id="good2"><span class="line-good">margin = (profit / total_sales) * 100 if total_sales else 0</span></pre>
+        </div>
+      </div>
+
+      <h3>3. Modulo with dynamic denominator</h3>
+      <div class="code-example">
+        <div class="ce-header">
+          <span class="ce-label bad">✗ Broken</span>
+          <button class="ce-copy" onclick="copyCode(this, 'bad3')">Copy</button>
+        </div>
+        <div class="ce-body">
+          <pre id="bad3"><span class="line-bad">index = item_count % page_size  # ZeroDivisionError if page_size == 0</span></pre>
+        </div>
+      </div>
+      <div class="code-example">
+        <div class="ce-header">
+          <span class="ce-label good">✓ Fixed</span>
+          <button class="ce-copy" onclick="copyCode(this, 'good3')">Copy</button>
+        </div>
+        <div class="ce-body">
+          <pre id="good3"><span class="line-good">if page_size <= 0:</span>
+<span class="line-good">    raise ValueError(f"page_size must be positive, got {page_size}")</span>
+<span class="line-good">index = item_count % page_size</span></pre>
+        </div>
+      </div>
+
+      <h2>The Three Fix Patterns</h2>
+      <p>Every ZeroDivisionError fix falls into one of three patterns:</p>
+      <ol>
+        <li><strong>Guard clause</strong> — check before dividing: <code>if denominator != 0:</code></li>
+        <li><strong>Ternary guard</strong> — inline one-liner: <code>x / y if y else default</code></li>
+        <li><strong>try/except</strong> — catch and handle: <code>except ZeroDivisionError: return 0</code></li>
+      </ol>
+      <div class="callout callout-tip">
+        <strong>Best practice:</strong> Prefer the guard clause over try/except for ZeroDivisionError. Using exceptions for expected conditions (like an empty list) is slower and obscures intent. Reserve try/except for truly unexpected failures.
+      </div>
+
+      <h2>The Test Case That Catches It</h2>
+      <p>The bug would have been caught in CI with a single test:</p>
+      <div class="code-example">
+        <div class="ce-header">
+          <span class="ce-label good">Unit Test</span>
+          <button class="ce-copy" onclick="copyCode(this, 'test1')">Copy</button>
+        </div>
+        <div class="ce-body">
+          <pre id="test1"><span class="line-good">import pytest</span>
+
+<span class="line-good">def test_average_empty_list():</span>
+<span class="line-good">    """average([]) must not raise ZeroDivisionError."""</span>
+<span class="line-good">    assert average([]) == 0  # or check for ValueError if that's your contract</span>
+
+<span class="line-good">def test_average_normal():</span>
+<span class="line-good">    assert average([1, 2, 3]) == 2.0</span></pre>
+        </div>
+      </div>
+
+      <!-- FAQ -->
+      <h2>Frequently Asked Questions</h2>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Why does Python raise ZeroDivisionError instead of returning infinity?
+          <span class="toggle">+</span>
+        </div>
+        <div class="faq-a" style="display:none">
+          Python integers and floats behave differently. For floats, Python actually <em>does</em> return <code>inf</code> in some cases via IEEE 754 — but for integer division with <code>/</code>, <code>//</code>, or <code>%</code>, it raises <code>ZeroDivisionError</code>. The design decision is that silently producing infinity for integer math would mask more bugs than it solves.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          How do I see the full traceback to find which line caused it?
+          <span class="toggle">+</span>
+        </div>
+        <div class="faq-a" style="display:none">
+          Run your script from the terminal (not an IDE run button) and Python will print the full traceback. Look for the line marked <code>ZeroDivisionError: division by zero</code> — the line just above it in the traceback is the exact division operation that failed.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Does this happen in Python 2 and Python 3?
+          <span class="toggle">+</span>
+        </div>
+        <div class="faq-a" style="display:none">
+          Yes, ZeroDivisionError exists in both. However, in Python 2, <code>5 / 2</code> performs integer division (returns <code>2</code>), while Python 3 always returns a float (<code>2.5</code>). The ZeroDivisionError behaviour is identical in both versions.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Can I suppress ZeroDivisionError with <code>numpy</code>?
+          <span class="toggle">+</span>
+        </div>
+        <div class="faq-a" style="display:none">
+          Yes. NumPy divides elementwise and returns <code>nan</code> or <code>inf</code> instead of raising, by default. Use <code>np.errstate(divide='ignore', invalid='ignore')</code> to suppress warnings. For pure Python, use a guard clause instead.
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="cta-strip">
+        <div>
+          <div class="cta-strip-title">Still stuck?<br/>Let AI fix it for you.</div>
+          <div class="cta-strip-sub">Paste your exact code → get fixed code + test case in 2 seconds.</div>
+        </div>
+        <button class="cta-strip-btn" onclick="document.querySelector('.fix-widget').scrollIntoView({behavior:'smooth'})">
+          ⚡ Fix My Code Now
+        </button>
+      </div>
+
+    </article>
+
+    <!-- RIGHT: Sidebar -->
+    <aside class="sidebar stagger-3">
+
+      <div class="sidebar-card">
+        <div class="sidebar-hdr">Related Python Errors</div>
+        <div class="sidebar-body">
+          <a class="sidebar-link" href="/fix/python/TypeError"><span class="lang-tag">PY</span>TypeError</a>
+          <a class="sidebar-link" href="/fix/python/AttributeError"><span class="lang-tag">PY</span>AttributeError</a>
+          <a class="sidebar-link" href="/fix/python/KeyError"><span class="lang-tag">PY</span>KeyError</a>
+          <a class="sidebar-link" href="/fix/python/IndexError"><span class="lang-tag">PY</span>IndexError</a>
+          <a class="sidebar-link" href="/fix/python/ValueError"><span class="lang-tag">PY</span>ValueError</a>
+          <a class="sidebar-link" href="/fix/python/NameError"><span class="lang-tag">PY</span>NameError</a>
+          <a class="sidebar-link" href="/fix/python/ImportError"><span class="lang-tag">PY</span>ImportError</a>
+          <a class="sidebar-link" href="/fix/python/RecursionError"><span class="lang-tag">PY</span>RecursionError</a>
+        </div>
+      </div>
+
+      <div class="sidebar-card">
+        <div class="sidebar-hdr">Same Error, Other Languages</div>
+        <div class="sidebar-body">
+          <a class="sidebar-link" href="/fix/javascript/division-by-zero"><span class="lang-tag">JS</span>Division by zero</a>
+          <a class="sidebar-link" href="/fix/java/ArithmeticException"><span class="lang-tag">JV</span>ArithmeticException</a>
+          <a class="sidebar-link" href="/fix/rust/attempt-to-divide-by-zero"><span class="lang-tag">RS</span>divide by zero</a>
+          <a class="sidebar-link" href="/fix/go/integer-divide-by-zero"><span class="lang-tag">GO</span>integer divide by zero</a>
+        </div>
+      </div>
+
+      <div class="sidebar-card">
+        <div class="sidebar-hdr">Tools</div>
+        <div class="sidebar-body">
+          <a class="sidebar-link" href="/vscode">VS Code Extension</a>
+          <a class="sidebar-link" href="/api">REST API</a>
+          <a class="sidebar-link" href="/pricing">Pricing</a>
+        </div>
+      </div>
+
+    </aside>
+  </div>
+</div>
+
+<!-- ══ FOOTER ══ -->
+<footer class="page-footer">
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-logo">Neo Bug<span>Forge</span></div>
+      <div class="footer-links">
+        <a class="footer-link" href="/errors">All Errors</a>
+        <a class="footer-link" href="/api">API</a>
+        <a class="footer-link" href="/vscode">VS Code</a>
+        <a class="footer-link" href="/pricing">Pricing</a>
+        <a class="footer-link" href="/blog">Blog</a>
+      </div>
+      <div class="footer-copy">© 2026 Neo Bug Forge · Powered by Claude AI</div>
+    </div>
+  </div>
+</footer>
+
+<!-- ══ SCRIPT ══ -->
+<script>
+  /* ── FAQ accordion ── */
+  function toggleFaq(el) {
+    const ans = el.nextElementSibling;
+    const tog = el.querySelector('.toggle');
+    const open = ans.style.display !== 'none';
+    ans.style.display = open ? 'none' : 'block';
+    tog.textContent = open ? '+' : '−';
+  }
+
+  /* ── Code copy buttons ── */
+  function copyCode(btn, id) {
+    const pre = document.getElementById(id);
+    navigator.clipboard.writeText(pre.innerText).then(() => {
+      btn.textContent = '✓ Copied';
+      btn.classList.add('ok');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('ok'); }, 1500);
+    });
+  }
+
+  /* ── Widget state ── */
+  let fixedCodeGlobal = '';
+
+  const LOADER_MSGS = [
+    'Analyzing error context...',
+    'Identifying root cause...',
+    'Generating fix...',
+    'Writing test case...',
+    'Finalizing response...',
+  ];
+
+  function showEl(id)  { document.getElementById(id).classList.add('show'); }
+  function hideEl(id)  { document.getElementById(id).classList.remove('show'); }
+  function setDisplay(id, v) { document.getElementById(id).style.display = v; }
+
+  async function submitFix() {
+    const code  = document.getElementById('w-code').value.trim();
+    const error = document.getElementById('w-error').value.trim();
+    if (!code) { alert('Please paste your broken code first.'); return; }
+
+    // Hide form, show loading
+    setDisplay('widget-form', 'none');
+    hideEl('w-error-box');
+    hideEl('w-result');
+    showEl('w-loading');
+
+    // Step through loading messages
+    let step = 0;
+    const timer = setInterval(() => {
+      step = Math.min(step + 1, LOADER_MSGS.length - 1);
+      document.getElementById('w-loading-text').textContent = LOADER_MSGS[step];
+    }, 700);
+
+    try {
+      const result = await callClaude(code, error);
+      clearInterval(timer);
+      hideEl('w-loading');
+      renderResult(result);
+    } catch(e) {
+      clearInterval(timer);
+      hideEl('w-loading');
+      document.getElementById('w-error-msg').textContent = '✗ ' + (e.message || 'Something went wrong. Please try again.');
+      showEl('w-error-box');
+      setDisplay('widget-form', 'flex');
+    }
+  }
+
+  function renderResult(r) {
+    fixedCodeGlobal = r.fixed_code;
+    const conf = r.confidence;
+    const pill = document.getElementById('w-conf-badge');
+    pill.textContent = conf + '% confident';
+    pill.className = 'result-badge ' + (conf >= 80 ? 'rb-green' : conf >= 50 ? 'result-badge' : 'result-badge');
+    document.getElementById('w-cause-tag').textContent = (r.root_cause || '').replace(/_/g, ' ');
+    document.getElementById('w-explanation').textContent = r.explanation;
+    document.getElementById('w-fixed-code').textContent = r.fixed_code;
+    showEl('w-result');
+  }
+
+  function copyFixed() {
+    if (!fixedCodeGlobal) return;
+    navigator.clipboard.writeText(fixedCodeGlobal).then(() => {
+      const btn = document.getElementById('w-copy-btn');
+      btn.textContent = '✓ Copied'; btn.classList.add('ok');
+      setTimeout(() => { btn.textContent = '⧉ Copy'; btn.classList.remove('ok'); }, 1500);
+    });
+  }
+
+  function resetWidget() {
+    hideEl('w-result'); hideEl('w-error-box');
+    setDisplay('widget-form', 'flex');
+    document.getElementById('w-code').value  = '';
+    document.getElementById('w-error').value = '';
+    fixedCodeGlobal = '';
+  }
+
+  async function callClaude(code, errorMsg) {
+    const prompt = `You are an expert Python debugger.
+
+Fix this broken Python code. Return ONLY raw JSON, no markdown.
+
+JSON shape:
+{"fixed_code":"...","explanation":"...","root_cause":"null_reference|type_mismatch|off_by_one|async_race|scope_error|logic_error|syntax_error|import_error|index_error|other","confidence":90}
+
+--- BROKEN CODE ---
+${code}
+
+--- ERROR ---
+${errorMsg || 'ZeroDivisionError: division by zero'}`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e?.error?.message || 'API error ' + res.status);
+    }
+
+    const data = await res.json();
+    const raw = data.content.map(b => b.text || '').join('').trim()
+      .replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    return JSON.parse(raw);
+  }
+</script>
+</body>
+</html>

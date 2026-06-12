@@ -1,0 +1,2 @@
+"db:push": "drizzle-kit push",
+"db:studio": "drizzle-kit studio"

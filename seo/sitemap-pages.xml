@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://neobugforge.io/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://neobugforge.io/fix/python</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://neobugforge.io/fix/javascript</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://neobugforge.io/fix/typescript</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://neobugforge.io/fix/rust</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://neobugforge.io/fix/go</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://neobugforge.io/fix/java</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://neobugforge.io/api</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://neobugforge.io/pricing</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://neobugforge.io/vscode</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+</urlset>
