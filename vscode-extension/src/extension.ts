@@ -96,7 +96,7 @@ export function deactivate() {
 
 // ─── Core fix function (called by the panel via message passing) ──────────────
 
-const API_BASE = "https://neo-bug-forge-api.onrender.com";
+const API_BASE = "https://api.neobugforge.io";
 
 export async function runBugForge(
   context: vscode.ExtensionContext,
