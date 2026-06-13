@@ -3,7 +3,13 @@
   "displayName": "Neo Bug Forge",
   "description": "Instantly fix code bugs using Claude AI — paste broken code, get fixed code in seconds.",
   "version": "1.0.0",
-  "publisher": "neo-bug-forge",
+  "publisher": "neobugforge",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/networkhack52/neo-bug-forge"
+  },
+  "homepage": "https://neobugforge.io",
+  "license": "MIT",
   "icon": "media/icon.png",
   "engines": {
     "vscode": "^1.85.0"
