@@ -2,7 +2,7 @@
   "name": "neo-bug-forge",
   "displayName": "Neo Bug Forge",
   "description": "Instantly fix code bugs using Claude AI — paste broken code, get fixed code in seconds.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "neobugforge",
   "repository": {
     "type": "git",
