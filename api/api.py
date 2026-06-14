@@ -30,6 +30,7 @@ from datetime import datetime
 from typing import Optional, Literal
 from contextlib import asynccontextmanager
 
+import httpx
 import anthropic
 from fastapi import FastAPI, HTTPException, Depends, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,6 +48,8 @@ load_dotenv()
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 API_SECRET_KEY    = os.environ.get("API_SECRET_KEY", "dev-secret-change-in-prod")
 ENVIRONMENT       = os.environ.get("ENVIRONMENT", "development")
+SUPABASE_URL      = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY      = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 MODEL             = "claude-haiku-4-5-20251001"
 MAX_TOKENS        = 2048
 
@@ -139,6 +142,21 @@ def verify_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> dict:
         raise HTTPException(status_code=401, detail="API key not found or inactive.")
     return key_row
 
+
+async def verify_supabase_token(authorization: str) -> dict:
+    """Verify a Supabase JWT by calling the Supabase auth API."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Bearer token required.")
+    token = authorization.removeprefix("Bearer ").strip()
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers={"Authorization": f"Bearer {token}", "apikey": SUPABASE_KEY},
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid or expired Supabase token.")
+    return resp.json()  # contains id, email, etc.
+
 # ─── Prompt ───────────────────────────────────────────────────────────────────
 
 def build_prompt(code: str, error: str, language: str) -> str:
@@ -221,50 +239,89 @@ class UsageResponse(BaseModel):
 
 
 class CreateKeyRequest(BaseModel):
-    email: str = Field(..., min_length=5, max_length=200)
+    email: Optional[str] = None
+    label: Optional[str] = "default"
 
 class CreateKeyResponse(BaseModel):
-    api_key:     str
-    email:       str
-    tier:        str
+    api_key:    str
+    email:      str
+    tier:       str
     fixes_limit: int
-    message:     str
+    fixes_used: int
+    message:    str
 
 
 @app.post("/v1/keys", response_model=CreateKeyResponse, tags=["Keys"],
-          summary="Generate a new API key")
-@limiter.limit("5/hour")
-async def create_key(request: Request, body: CreateKeyRequest):
+          summary="Get or create an API key for the authenticated user")
+@limiter.limit("20/hour")
+async def create_key(request: Request, body: CreateKeyRequest,
+                     authorization: Optional[str] = Header(None)):
     import secrets
     from database import get_db, hash_key
 
-    raw_key = "nbf_" + secrets.token_urlsafe(32)
+    # Resolve user identity
+    if authorization and authorization.startswith("Bearer "):
+        user      = await verify_supabase_token(authorization)
+        user_email = user["email"]
+        user_id    = user["id"]
+    elif body.email:
+        user_email = body.email
+        user_id    = None
+    else:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+
     db = get_db()
 
-    # Check if email already has a key
-    existing = db.table("api_keys").select("id").eq("user_email", body.email).execute()
+    # Return existing key if present
+    existing = db.table("api_keys").select("*").eq("user_email", user_email).execute()
     if existing.data:
-        raise HTTPException(status_code=409, detail="An API key already exists for this email.")
+        row = existing.data[0]
+        return CreateKeyResponse(
+            api_key     = row.get("raw_key") or "nbf_" + row["key_hash"][:32],
+            email       = user_email,
+            tier        = row["tier"],
+            fixes_limit = row["fixes_limit"],
+            fixes_used  = row.get("fixes_used", 0),
+            message     = "Existing key retrieved.",
+        )
 
+    # Create new key
+    raw_key = "nbf_" + secrets.token_urlsafe(32)
     db.table("api_keys").insert({
-        "key_hash":    hash_key(raw_key),
-        "user_email":  body.email,
-        "tier":        "free",
-        "fixes_limit": 100,
+        "key_hash":          hash_key(raw_key),
+        "raw_key":           raw_key,
+        "user_email":        user_email,
+        "supabase_user_id":  user_id,
+        "tier":              "free",
+        "fixes_limit":       100,
     }).execute()
 
     return CreateKeyResponse(
         api_key     = raw_key,
-        email       = body.email,
+        email       = user_email,
         tier        = "free",
         fixes_limit = 100,
-        message     = "Save this key — it won't be shown again.",
+        fixes_used  = 0,
+        message     = "API key created.",
     )
 
 
 @app.get("/v1/usage", response_model=UsageResponse, tags=["Usage"],
          summary="Get current quota and usage for your API key")
-async def get_usage(key_row: dict = Depends(verify_api_key)):
+async def get_usage(authorization: Optional[str] = Header(None),
+                    x_api_key: Optional[str] = Header(None, alias="X-API-Key")):
+    from database import get_db
+    if authorization and authorization.startswith("Bearer "):
+        user    = await verify_supabase_token(authorization)
+        db      = get_db()
+        res     = db.table("api_keys").select("*").eq("user_email", user["email"]).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="No API key found for this user.")
+        key_row = res.data[0]
+    elif x_api_key:
+        key_row = verify_api_key(x_api_key)
+    else:
+        raise HTTPException(status_code=401, detail="Authentication required.")
     is_unlimited = key_row["tier"] == "team"
     fixes_limit  = key_row["fixes_limit"]
     fixes_used   = key_row["fixes_used"]

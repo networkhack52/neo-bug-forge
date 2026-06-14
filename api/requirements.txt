@@ -5,3 +5,4 @@ slowapi
 python-dotenv
 pydantic
 supabase
+httpx
