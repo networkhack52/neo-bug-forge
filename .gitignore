@@ -1,9 +1,12 @@
 # ── Secrets ──────────────────────────────────────────
 .env
 .env.*
+.env.local
+api/.env
+api/.env.*
 !.env.example
-!.env.development
-!.env.production
+!web/.env.development
+!web/.env.production
 
 # ── Python ───────────────────────────────────────────
 __pycache__/
