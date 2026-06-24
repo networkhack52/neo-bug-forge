@@ -1,26 +1,45 @@
-# Neo Bug Forge
+# Neo Bug Forge 🛠️
 
-> AI-powered code bug fixer. Paste broken code + error message → get fixed code, diff, explanation, and a test case in under 3 seconds.
+**The fastest AI-powered bug fixer for VS Code & Cursor**
 
-Powered by Claude (Anthropic). Built to ship.
+Select broken code → press `Ctrl+Shift+F` → get fixed code, a diff, and a test case. That's it.
+
+![Demo](https://github.com/networkhack52/neo-bug-forge/raw/main/media/demo.gif)
+
+[Install from VS Marketplace](https://marketplace.visualstudio.com/items?itemName=neobugforge.neo-bug-forge) · [neobugforge.io](https://neobugforge.io)
+
+---
+
+## ✨ Latest Features (v1.4.2)
+
+- **Lightbulb Quick Fix** — hover over any red squiggle → click ⚡ → fixed in seconds
+- **Smart Iterative Fixing** — "Try Again" passes the previous attempt to Claude so it tries a different approach
+- **Save Test File** — one-click save of the generated test case to your project
+- Deep workspace context awareness — automatically pulls in related files
+- Clean diff preview + one-click apply + Git stage
+- Works great inside **Cursor**
 
 ---
 
 ## Quick Start
 
-```bash
-# 1. Unzip and enter the project
-cd neo-bug-forge
+1. Open VS Code or Cursor
+2. Go to Extensions (`Ctrl+Shift+X`) and search **"Neo Bug Forge"**
+3. Install and add your API key via `Ctrl+Shift+P` → **Neo Bug Forge: Set API Key**
+4. Select broken code → press `Ctrl+Shift+F` (or click the lightbulb on any squiggle)
 
-# 2. Run setup (installs everything, generates secrets, smoke tests)
-chmod +x setup.sh && ./setup.sh
+---
 
-# 3. Run locally
-cd api && source venv/bin/activate && uvicorn api:app --reload &
-cd web && npm run dev
-# → API:  http://localhost:8000
-# → Web:  http://localhost:3000
-```
+## What you get back
+
+| | |
+|---|---|
+| ✅ Fixed code | Complete corrected version — ready to apply |
+| 🔍 Diff preview | Side-by-side diff before you commit to anything |
+| 🧠 Explanation | Plain-English: what was wrong and what changed |
+| 📊 Confidence | How certain the AI is (0–100%) |
+| 🏷 Root cause | null_reference · type_mismatch · off_by_one · logic_error · and more |
+| 🧪 Test case | Minimal unit test that would have caught this bug |
 
 ---
 
@@ -28,65 +47,16 @@ cd web && npm run dev
 
 ```
 neo-bug-forge/
-├── setup.sh                  ← Run this first
-├── .env.example              ← Copy to .env, add your API key
-├── .gitignore
-│
-├── api/                      ← FastAPI REST API
-│   ├── api.py                ← Main application
-│   ├── requirements.txt      ← Pinned Python deps
-│   ├── Procfile              ← Railway / Heroku start command
-│   ├── railway.toml          ← Railway deployment config
-│   └── Dockerfile            ← Container build
-│
-├── web/                      ← React web app
-│   ├── src/
-│   │   ├── App.jsx           ← Main UI component
-│   │   ├── api.js            ← API client (calls your backend)
-│   │   └── main.jsx          ← React entry point
-│   ├── index.html
-│   ├── vite.config.js
-│   ├── vercel.json           ← Vercel deployment config
-│   └── Dockerfile            ← Container build
-│
-├── vscode-extension/         ← VS Code extension
-│   ├── src/
-│   │   ├── extension.ts      ← Commands + Claude API
-│   │   └── panel.ts          ← Webview UI
-│   ├── media/                ← icon.png goes here (128x128)
-│   ├── package.json          ← Extension manifest
-│   ├── tsconfig.json
-│   ├── CHANGELOG.md
-│   └── generate_icon.py      ← Generates placeholder icon
-│
-├── seo/                      ← SEO landing pages
-│   ├── seo_generator.py      ← Generates all error pages
-│   ├── seo-landing-page.html ← Hand-crafted flagship page
-│   ├── sitemap.xml           ← Root sitemap index
-│   └── sitemap-pages.xml     ← Core pages sitemap
-│
-├── scripts/
-│   ├── verify-deployment.sh  ← Post-deploy checklist (5 checks)
-│   └── estimate_costs.py     ← Monthly cost calculator
-│
-└── monitoring/
-    ├── docker-compose.yml    ← Local dev with all services
-    └── uptime.md             ← Better Uptime + alerting guide
+├── vscode-extension/   ← VS Code extension (TypeScript)
+├── web/                ← React + Vite web app → app.neobugforge.io
+├── api/                ← FastAPI backend → api.neobugforge.io
+├── landing/            ← Static landing page → neobugforge.io
+└── scripts/            ← Cost estimator, deploy helpers
 ```
 
 ---
 
-## API Endpoints
-
-| Method | Endpoint | Auth | Rate limit |
-|---|---|---|---|
-| POST | `/v1/fix/public` | None | 10/day per IP |
-| POST | `/v1/fix` | X-API-Key header | 120/min |
-| GET | `/v1/fix/{fix_id}` | None | — |
-| GET | `/health` | None | — |
-| GET | `/docs` | None | Swagger UI |
-
-### Example request
+## API
 
 ```bash
 curl -X POST https://api.neobugforge.io/v1/fix/public \
@@ -98,130 +68,42 @@ curl -X POST https://api.neobugforge.io/v1/fix/public \
   }'
 ```
 
-### Example response
-
-```json
-{
-  "fix_id":      "a3f9c2b1",
-  "fixed_code":  "def avg(nums):\n    if not nums: return 0\n    return sum(nums) / len(nums)",
-  "explanation": "Added guard clause for empty list — len([]) is 0, causing division by zero.",
-  "root_cause":  "index_error",
-  "confidence":  97,
-  "diff":        "--- original\n+++ fixed\n...",
-  "test_case":   "def test_avg_empty(): assert avg([]) == 0",
-  "language":    "python",
-  "created_at":  "2026-06-06T08:00:00Z",
-  "share_url":   "https://neobugforge.io/fix/a3f9c2b1"
-}
-```
-
----
-
-## Deployment
-
-### API → Railway
-
-```bash
-cd api
-railway login
-railway new
-railway variables set ANTHROPIC_API_KEY=sk-ant-...
-railway variables set API_SECRET_KEY=$(openssl rand -hex 32)
-railway variables set ENVIRONMENT=production
-railway up
-```
-
-### Web App → Vercel
-
-```bash
-cd web
-# Set VITE_API_URL in Vercel dashboard to your Railway URL
-vercel --prod
-```
-
-### VS Code Extension → Marketplace
-
-```bash
-cd vscode-extension
-
-# Add 128x128 icon to media/icon.png
-python generate_icon.py   # or use your own
-
-# Compile and package
-npm run compile
-npm run package           # → neo-bug-forge-1.0.0.vsix
-
-# Test locally
-code --install-extension neo-bug-forge-1.0.0.vsix
-
-# Publish
-vsce login neo-bug-forge
-vsce publish
-```
-
-### SEO Pages → Vercel
-
-```bash
-cd seo
-python seo_generator.py       # generates dist/
-vercel deploy dist/ --prod
-# Submit sitemap to Google Search Console
-```
-
----
-
-## Verify Deployment
-
-```bash
-bash scripts/verify-deployment.sh https://your-api.up.railway.app
-```
-
-Runs 5 automated checks:
-1. Health endpoint returns `status: ok`
-2. Anthropic API key is loaded
-3. Public fix endpoint returns a valid fix
-4. Fix retrieval works by ID
-5. Rate limiter blocks request 11 (returns 429)
-
----
-
-## Cost Estimation
-
-```bash
-python scripts/estimate_costs.py --fixes 10000 --model sonnet
-```
-
-At 10,000 fixes/month on Sonnet 4: **~$19/month**
-At 10,000 fixes/month on Haiku 4:  **~$5/month**
-
-Recommendation: use Haiku for free-tier users, Sonnet for paying users.
-
----
-
-## QA Test Results
-
-All 4/4 hard test cases passing before launch:
-
-| # | Language | Bug | Result |
-|---|---|---|---|
-| 2 | Python | KeyError — dict access | ✅ Pass |
-| 4 | Python | List mutation in loop (silent) | ✅ Pass |
-| 7 | JavaScript | var hoisting closure (silent) | ✅ 7/7 |
-| 14 | Rust | Borrow after move | ✅ 8/8 |
+| Method | Endpoint | Auth |
+|---|---|---|
+| POST | `/v1/fix/public` | None (10/day per IP) |
+| POST | `/v1/fix` | X-API-Key header |
+| GET | `/v1/fix/{fix_id}` | None |
+| GET | `/health` | None |
 
 ---
 
 ## Tech Stack
 
-- **AI**: Claude claude-sonnet-4-20250514 (Anthropic)
-- **API**: FastAPI + uvicorn + slowapi
-- **Web**: React 18 + Vite
+- **AI**: Claude (Anthropic)
+- **API**: FastAPI + slowapi
+- **Web**: React 18 + Vite + Supabase Auth
 - **Extension**: VS Code API + TypeScript
-- **Deploy**: Railway (API) + Vercel (Web + SEO)
-- **Monitor**: Better Uptime + Railway logs
+- **Deploy**: Render (API) · Vercel (Web) · Cloudflare (DNS)
 
 ---
 
-## License
+## Roadmap
+
+- Multi-model support (GPT, Gemini, Grok)
+- Stripe payments (Pro/Team plans)
+- More language-specific fixes
+
+---
+
+## Support
+
+- ⭐ Star this repo if you find it useful
+- 💬 [Leave a review on the Marketplace](https://marketplace.visualstudio.com/items?itemName=neobugforge.neo-bug-forge&ssr=false#review-details)
+- 🐛 [Open an issue](https://github.com/networkhack52/neo-bug-forge/issues)
+- 📧 [hello@neobugforge.io](mailto:hello@neobugforge.io)
+
+---
+
+**Made with ❤️ by a solo dev for solo devs & indie hackers.**
 
 MIT © 2026 Neo Bug Forge
