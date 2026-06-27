@@ -31,6 +31,7 @@ from typing import Optional, Literal
 from contextlib import asynccontextmanager
 
 import httpx
+import stripe
 import anthropic
 from fastapi import FastAPI, HTTPException, Depends, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,6 +51,11 @@ API_SECRET_KEY    = os.environ.get("API_SECRET_KEY", "dev-secret-change-in-prod"
 ENVIRONMENT       = os.environ.get("ENVIRONMENT", "development")
 SUPABASE_URL      = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY      = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+STRIPE_SECRET_KEY    = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRICE_PRO  = os.environ.get("STRIPE_PRICE_PRO", "")   # price_xxx for Pro $12/mo
+STRIPE_PRICE_TEAM = os.environ.get("STRIPE_PRICE_TEAM", "")  # price_xxx for Team $49/mo
+ADMIN_EMAIL       = os.environ.get("ADMIN_EMAIL", "ya7308312@gmail.com")
 MODEL             = "claude-haiku-4-5-20251001"
 MAX_TOKENS        = 2048
 
@@ -443,6 +449,150 @@ async def _process_fix(body: FixRequest, key_row: dict | None = None) -> FixResp
     print(f"[fix/{fix_id}] lang={body.language or 'auto'} confidence={result['confidence']} tokens={tokens_used} elapsed={elapsed}s")
 
     return response
+
+# ─── Stripe ───────────────────────────────────────────────────────────────────
+
+class CheckoutRequest(BaseModel):
+    plan: Literal["pro", "team"]
+
+@app.post("/v1/stripe/checkout", tags=["Billing"],
+          summary="Create a Stripe Checkout Session")
+@limiter.limit("10/hour")
+async def create_checkout(request: Request, body: CheckoutRequest,
+                          authorization: Optional[str] = Header(None)):
+    user = await verify_supabase_token(authorization or "")
+    stripe.api_key = STRIPE_SECRET_KEY
+    price_id = STRIPE_PRICE_PRO if body.plan == "pro" else STRIPE_PRICE_TEAM
+    if not price_id:
+        raise HTTPException(status_code=500, detail="Stripe price not configured.")
+    app_url = "https://app.neobugforge.io"
+    session = stripe.checkout.Session.create(
+        mode="subscription",
+        line_items=[{"price": price_id, "quantity": 1}],
+        customer_email=user["email"],
+        metadata={"supabase_user_id": user["id"], "user_email": user["email"], "plan": body.plan},
+        success_url=f"{app_url}/dashboard?upgraded=1",
+        cancel_url=f"{app_url}/dashboard?cancelled=1",
+    )
+    return {"url": session.url}
+
+
+@app.post("/v1/stripe/webhook", tags=["Billing"],
+          summary="Stripe webhook — upgrades user tier on successful payment")
+async def stripe_webhook(request: Request):
+    payload  = await request.body()
+    sig      = request.headers.get("stripe-signature", "")
+    stripe.api_key = STRIPE_SECRET_KEY
+    try:
+        event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+    except stripe.error.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid webhook signature.")
+
+    if event["type"] == "checkout.session.completed":
+        obj = event.get("data", {}).get("object", {})
+        if not obj.get("customer_email") and not obj.get("metadata"):
+            full_event = stripe.Event.retrieve(event["id"])
+            obj = full_event["data"]["object"]
+
+        email = obj.get("customer_email") or obj.get("metadata", {}).get("user_email")
+        plan  = obj.get("metadata", {}).get("plan", "pro")
+        tier  = plan
+        fixes_limit = 500 if tier == "pro" else 999999
+        if email:
+            from database import get_db
+            db = get_db()
+            db.table("api_keys").update({
+                "tier": tier,
+                "fixes_limit": fixes_limit,
+            }).eq("user_email", email).execute()
+            print(f"[webhook] Upgraded {email} to {tier}")
+
+    return {"received": True}
+
+
+@app.post("/v1/stripe/verify", tags=["Billing"],
+          summary="Verify Stripe subscription and upgrade user tier")
+@limiter.limit("20/hour")
+async def verify_subscription(request: Request, authorization: Optional[str] = Header(None)):
+    """Called from the dashboard after successful checkout to sync the subscription."""
+    user = await verify_supabase_token(authorization or "")
+    stripe.api_key = STRIPE_SECRET_KEY
+
+    customers = stripe.Customer.list(email=user["email"], limit=1)
+    if not customers.data:
+        return {"upgraded": False, "tier": "free"}
+
+    subscriptions = stripe.Subscription.list(
+        customer=customers.data[0].id, status="active", limit=1
+    )
+    if not subscriptions.data:
+        return {"upgraded": False, "tier": "free"}
+
+    price_id = subscriptions.data[0]["items"]["data"][0]["price"]["id"]
+    if price_id == STRIPE_PRICE_PRO:
+        tier, fixes_limit = "pro", 500
+    elif price_id == STRIPE_PRICE_TEAM:
+        tier, fixes_limit = "team", 999999
+    else:
+        return {"upgraded": False, "tier": "free"}
+
+    from database import get_db
+    db = get_db()
+    db.table("api_keys").update({
+        "tier": tier,
+        "fixes_limit": fixes_limit,
+    }).eq("user_email", user["email"]).execute()
+    print(f"[verify] Upgraded {user['email']} to {tier}")
+
+    return {"upgraded": True, "tier": tier}
+
+
+# ─── Admin endpoints ──────────────────────────────────────────────────────────
+
+class AdminUpgradeRequest(BaseModel):
+    email: str
+    tier:  Literal["free", "pro", "team"]
+
+@app.post("/v1/admin/upgrade", tags=["Admin"])
+async def admin_upgrade(body: AdminUpgradeRequest,
+                        authorization: Optional[str] = Header(None)):
+    """Manually upgrade or downgrade any user's tier. Admin only."""
+    caller = await verify_supabase_token(authorization or "")
+    if caller["email"] != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Admin only.")
+
+    tier_limits = {"free": 100, "pro": 500, "team": 999999}
+    fixes_limit = tier_limits[body.tier]
+
+    from database import get_db
+    db  = get_db()
+    res = db.table("api_keys").update({
+        "tier": body.tier,
+        "fixes_limit": fixes_limit,
+    }).eq("user_email", body.email).execute()
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail=f"No user found with email {body.email}")
+
+    print(f"[admin] {caller['email']} upgraded {body.email} → {body.tier}")
+    return {"ok": True, "email": body.email, "tier": body.tier, "fixes_limit": fixes_limit}
+
+
+@app.get("/v1/admin/users", tags=["Admin"])
+async def admin_list_users(authorization: Optional[str] = Header(None)):
+    """List all users with their tier and usage. Admin only."""
+    caller = await verify_supabase_token(authorization or "")
+    if caller["email"] != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Admin only.")
+
+    from database import get_db
+    db  = get_db()
+    res = db.table("api_keys").select(
+        "user_email, tier, fixes_used, fixes_limit, created_at"
+    ).order("created_at", desc=True).execute()
+
+    return {"users": res.data, "total": len(res.data)}
+
 
 # ─── Global error handler ─────────────────────────────────────────────────────
 
