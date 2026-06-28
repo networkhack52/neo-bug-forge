@@ -1,4 +1,4 @@
-﻿fastapi
+fastapi
 uvicorn[standard]
 anthropic
 slowapi
@@ -6,3 +6,4 @@ python-dotenv
 pydantic
 supabase
 httpx
+stripe
