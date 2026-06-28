@@ -1,0 +1,33 @@
+name: Publish VS Code Extension
+
+on:
+  push:
+    tags:
+      - "v*"  # triggers on v1.5.0, v1.6.0, etc.
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./
+
+      - name: Compile TypeScript
+        run: npm run compile
+        working-directory: ./
+
+      - name: Publish to VS Code Marketplace
+        run: npx vsce publish --no-dependencies
+        working-directory: ./
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
