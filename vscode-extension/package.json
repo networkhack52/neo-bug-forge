@@ -1,8 +1,8 @@
 {
   "name": "neo-bug-forge",
   "displayName": "Neo Bug Forge",
-  "description": "Instantly fix code bugs using Claude AI — paste broken code, get fixed code in seconds.",
-  "version": "1.0.2",
+  "description": "AI bug fixer for VS Code & Cursor — click any red squiggle, get fixed code + diff + test in seconds.",
+  "version": "1.4.5",
   "publisher": "neobugforge",
   "repository": {
     "type": "git",
@@ -14,9 +14,26 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other", "Machine Learning", "Programming Languages"],
-  "keywords": ["ai", "bug", "fix", "claude", "anthropic", "debug", "repair"],
-  "activationEvents": ["onCommand:neo-bug-forge.openPanel", "onCommand:neo-bug-forge.fixSelection"],
+  "categories": [
+    "Other",
+    "Machine Learning",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "ai",
+    "bug",
+    "fix",
+    "cursor",
+    "claude",
+    "debug",
+    "repair",
+    "anthropic",
+    "error fixer",
+    "code fix"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -31,6 +48,10 @@
       {
         "command": "neo-bug-forge.setApiKey",
         "title": "Neo Bug Forge: Set API Key"
+      },
+      {
+        "command": "neo-bug-forge.fixDiagnostic",
+        "title": "Neo Bug Forge: Fix Diagnostic"
       }
     ],
     "menus": {
@@ -67,6 +88,34 @@
           "type": "boolean",
           "default": false,
           "description": "Automatically apply fixes to the editor without confirmation."
+        },
+        "neo-bug-forge.context.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically include related workspace files as context when fixing bugs."
+        },
+        "neo-bug-forge.context.maxFiles": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Maximum number of context files to include (1–10)."
+        },
+        "neo-bug-forge.diagnostics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show '⚡ Fix with Neo Bug Forge' in the lightbulb menu when VS Code detects a diagnostic error."
+        },
+        "neo-bug-forge.diagnostics.severityThreshold": {
+          "type": "string",
+          "enum": ["error", "warning", "all"],
+          "enumDescriptions": [
+            "Only show for errors (red squiggles)",
+            "Show for errors and warnings",
+            "Show for all diagnostics including hints"
+          ],
+          "default": "error",
+          "description": "Minimum diagnostic severity that triggers the Neo Bug Forge lightbulb."
         }
       }
     }
