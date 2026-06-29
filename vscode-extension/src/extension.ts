@@ -71,12 +71,29 @@ export function activate(context: vscode.ExtensionContext) {
   if (!hasSeenWelcome) {
     context.globalState.update("welcomeShown", true);
     vscode.window.showInformationMessage(
-      "👋 Welcome to Neo Bug Forge! Get a free API key to start fixing bugs with AI.",
-      "🚀 Get Free API Key",
+      "👋 Neo Bug Forge installed! Try it free — watch AI fix a real bug in seconds.",
+      "⚡ Fix a sample bug now",
       "I Have a Key"
     ).then(choice => {
-      if (choice === "🚀 Get Free API Key") {
-        vscode.env.openExternal(vscode.Uri.parse("https://app.neobugforge.io/signup?ref=extension-welcome"));
+      if (choice === "⚡ Fix a sample bug now") {
+        NeoBugForgePanel.createOrShow(context);
+        setTimeout(() => {
+          NeoBugForgePanel.currentPanel?.prefillAndSubmit({
+            code: `def calculate_average(numbers):
+    total = 0
+    for num in numbers:
+        total += num
+    return total / len(numbers)
+
+# Test
+print(calculate_average([10, 20, 30]))
+print(calculate_average([]))`,
+            error: "ZeroDivisionError: division by zero",
+            language: "python",
+            fileName: "example.py",
+            contextCount: 0,
+          });
+        }, 800);
       } else if (choice === "I Have a Key") {
         vscode.commands.executeCommand("neo-bug-forge.setApiKey");
       }
