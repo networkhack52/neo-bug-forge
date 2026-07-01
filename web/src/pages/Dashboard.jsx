@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 import { useNavigate, Link } from "react-router-dom";
 
+const ADMIN_EMAIL = "ya7308312@gmail.com";
+
 const API_BASE = import.meta.env.VITE_API_URL || "https://api.neobugforge.io";
 
 const STYLES = `
@@ -150,18 +152,53 @@ export default function Dashboard() {
   const [user, setUser]         = useState(null);
   const [keyRow, setKeyRow]     = useState(null);
   const [loading, setLoading]   = useState(true);
-  const [showKey, setShowKey]   = useState(false);
-  const [copied, setCopied]     = useState(false);
+  const [showKey, setShowKey]       = useState(false);
+  const [copied, setCopied]         = useState(false);
+  const [upgrading, setUpgrading]   = useState(null); // 'pro' | 'team' | null
   const navigate = useNavigate();
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { navigate("/login"); return; }
       setUser(session.user);
+
+      // After Stripe checkout, verify subscription and upgrade tier
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("upgraded") === "1") {
+        try {
+          await fetch(`${API_BASE}/v1/stripe/verify`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${session.access_token}` },
+          });
+        } catch (_) {}
+        // Clean URL
+        window.history.replaceState({}, "", "/dashboard");
+      }
+
       await loadOrCreateKey(session);
       setLoading(false);
     });
   }, []);
+
+  async function handleUpgrade(plan) {
+    setUpgrading(plan);
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`${API_BASE}/v1/stripe/checkout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ plan }),
+    });
+    if (res.ok) {
+      const { url } = await res.json();
+      window.location.href = url;
+    } else {
+      alert("Something went wrong. Please try again.");
+      setUpgrading(null);
+    }
+  }
 
   async function loadOrCreateKey(session) {
     // Call backend to get or create API key for this user
@@ -218,6 +255,11 @@ export default function Dashboard() {
         <a href="https://neobugforge.io" className="nav-logo">NeoBugForge</a>
         <div className="nav-right">
           <span className="nav-email">{user?.email}</span>
+          {user?.email === ADMIN_EMAIL && (
+            <Link to="/admin" style={{ fontSize: ".8rem", fontWeight: 600, color: "#ef4444", textDecoration: "none" }}>
+              ⚙ Admin
+            </Link>
+          )}
           <button className="btn-signout" onClick={handleSignOut}>Sign out</button>
         </div>
       </nav>
@@ -280,18 +322,52 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Upgrade CTA (only for free/pro) */}
-        {tier !== "team" && (
+        {/* Upgrade CTA */}
+        {tier === "free" && (
           <div className="upgrade-card">
-            <h2>{tier === "free" ? "Upgrade to Pro" : "Upgrade to Team"}</h2>
-            <p>
-              {tier === "free"
-                ? "Get 500 fixes/month, priority processing, and unlock the full power of Neo Bug Forge."
-                : "Unlimited fixes (fair use) and up to 10 seats for your team."}
-            </p>
-            <a href="https://neobugforge.io/#pricing" className="btn-upgrade">
-              View Plans →
-            </a>
+            <h2>Unlock more fixes</h2>
+            <p>You're on the Free plan (100 fixes/month). Upgrade anytime — cancel anytime.</p>
+            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+              <button
+                className="btn-upgrade"
+                onClick={() => handleUpgrade("pro")}
+                disabled={upgrading === "pro"}
+                style={{ opacity: upgrading === "pro" ? .6 : 1 }}
+              >
+                {upgrading === "pro" ? "Redirecting…" : "⚡ Upgrade to Pro — $12.99/mo"}
+              </button>
+              <button
+                className="btn-upgrade"
+                onClick={() => handleUpgrade("team")}
+                disabled={upgrading === "team"}
+                style={{
+                  opacity: upgrading === "team" ? .6 : 1,
+                  background: "linear-gradient(135deg, #059669, #10b981)",
+                  boxShadow: "0 0 16px rgba(16,185,129,.3)"
+                }}
+              >
+                {upgrading === "team" ? "Redirecting…" : "👥 Upgrade to Team — $49.99/mo"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tier === "pro" && (
+          <div className="upgrade-card">
+            <h2>Need more? Upgrade to Team</h2>
+            <p>Unlimited fixes (fair use) for up to 10 seats.</p>
+            <button
+              className="btn-upgrade"
+              onClick={() => handleUpgrade("team")}
+              disabled={upgrading === "team"}
+              style={{
+                opacity: upgrading === "team" ? .6 : 1,
+                background: "linear-gradient(135deg, #059669, #10b981)",
+                boxShadow: "0 0 16px rgba(16,185,129,.3)"
+              }}
+            >
+              {upgrading === "team" ? "Redirecting…" : "👥 Upgrade to Team — $49.99/mo"}
+            </button>
           </div>
         )}
 

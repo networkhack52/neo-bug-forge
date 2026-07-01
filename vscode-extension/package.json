@@ -21,15 +21,15 @@
   ],
   "keywords": [
     "ai",
-    "bug",
-    "fix",
-    "cursor",
-    "claude",
+    "bug fix",
+    "error fix",
     "debug",
-    "repair",
-    "anthropic",
+    "quick fix",
+    "code fix",
+    "ai debugger",
     "error fixer",
-    "code fix"
+    "claude",
+    "cursor"
   ],
   "activationEvents": [
     "onStartupFinished"

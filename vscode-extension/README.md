@@ -1,6 +1,19 @@
-# Neo Bug Forge — VS Code Extension
+# Neo Bug Forge — AI Bug Fixer for VS Code & Cursor
 
-**Fix bugs in seconds, right inside VS Code.** Select broken code, press `Ctrl+Shift+F`, get a fix with a full diff preview — without leaving your editor.
+**The fastest AI-powered bug fixer for VS Code and Cursor.** Turn red squiggles into working code in seconds — no copy-pasting into ChatGPT, no leaving your editor.
+
+## Key Features
+
+- ✨ **Lightbulb Quick Fix** — click any error or warning directly in the editor
+- 🧠 **Deep workspace context awareness** — understands your entire project
+- 🔄 **Smart iterative fixing** — remembers previous attempts and improves on feedback
+- 📝 **One-click Save Test File** + test generation
+- ✅ **Clean diff preview** with one-click apply + Git stage
+- ⚡ **Works seamlessly inside Cursor and VS Code**
+
+Perfect for solo devs, indie hackers, and anyone tired of manual debugging. Whether you're fixing KeyErrors, AttributeErrors, TypeErrors, or complex logic bugs — Neo Bug Forge handles it fast.
+
+**Try free — no credit card, no signup required. Just install and fix.**
 
 ![Neo Bug Forge Demo](media/demo.gif)
 
@@ -105,7 +118,7 @@ Python · JavaScript · TypeScript · Java · Rust · Go · C++ · C · C# · Ru
 |---|---|---|
 | Free | 100 | $0 — no credit card |
 | Pro | 500 | $12.99/mo |
-| Team | Unlimited | $49/mo |
+| Team | Unlimited | $49.99/mo |
 
 Get your key at **[neobugforge.io](https://neobugforge.io)**
 
