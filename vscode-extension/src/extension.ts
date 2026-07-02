@@ -100,6 +100,17 @@ print(calculate_average([]))`,
     });
   }
 
+  // ── Status bar item — always visible, one click to open panel ───────────────
+  const statusBar = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Right,
+    100
+  );
+  statusBar.text       = "⚡ Neo Bug Forge";
+  statusBar.tooltip    = "Fix bugs with AI — click to try free";
+  statusBar.command    = "neo-bug-forge.openPanel";
+  statusBar.show();
+  context.subscriptions.push(statusBar);
+
   // ── 0. Inline diagnostics — lightbulb quick fix ──────────────────────────────
   context.subscriptions.push(
     vscode.languages.registerCodeActionsProvider(
