@@ -19,13 +19,13 @@ class ShoppingCart:
         promo_discounts = {
             "SAVE10": 10,
             "SAVE20": 20,
-            "HALFOFF": 50,
+"HALFOFF": 50,
         }
 
-discount_pct = promo_discounts.get(promo_code, 0)        total = self.get_total()
+        discount_pct = promo_discounts.get(promo_code, 0)
+        total = self.get_total()
         discounted = calculate_discount(total, discount_pct)
         return format_price(discounted)
-
 
 # Demo
 cart = ShoppingCart()

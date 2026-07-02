@@ -1,29 +1,28 @@
 # Neo Bug Forge — AI Bug Fixer for VS Code & Cursor
 
-**The fastest AI-powered bug fixer for VS Code and Cursor.** Turn red squiggles into working code in seconds — no copy-pasting into ChatGPT, no leaving your editor.
-
-## Key Features
-
-- ✨ **Lightbulb Quick Fix** — click any error or warning directly in the editor
-- 🧠 **Deep workspace context awareness** — understands your entire project
-- 🔄 **Smart iterative fixing** — remembers previous attempts and improves on feedback
-- 📝 **One-click Save Test File** + test generation
-- ✅ **Clean diff preview** with one-click apply + Git stage
-- ⚡ **Works seamlessly inside Cursor and VS Code**
-
-Perfect for solo devs, indie hackers, and anyone tired of manual debugging. Whether you're fixing KeyErrors, AttributeErrors, TypeErrors, or complex logic bugs — Neo Bug Forge handles it fast.
-
-**Try free — no credit card, no signup required. Just install and fix.**
+**Tired of copy-pasting errors into ChatGPT?** Fix bugs without leaving VS Code — click any red squiggle, get fixed code + explanation in seconds.
 
 ![Neo Bug Forge Demo](media/demo.gif)
 
+## Key Features
+
+- ✨ **Lightbulb Quick Fix** — click any red squiggle → ⚡ Fix with AI
+- 🤖 **Auto-demo on install** — see it fix a real bug the moment you install
+- 🧠 **Deep workspace context** — understands your entire project
+- 🔄 **Smart retry** — remembers previous attempts, tries a different approach
+- 📝 **One-click Save Test File** + test generation
+- ✅ **Clean diff preview** with one-click apply + Git stage
+- ⚡ **Works in Cursor and VS Code**
+
+**Try free — no credit card, no signup. Just install and fix.**
+
 ---
 
-## What's new in v1.4
+## What's new in v1.5
 
-- **Lightbulb Quick Fix** — see a red squiggle? Click the ⚡ lightbulb and choose "Fix with Neo Bug Forge" — no need to select code manually
-- **Smart Retry** — when you hit "Try Again", Claude now sees your previous fix attempt and tries a different approach instead of repeating itself
-- **Save Test File** — save the generated test case directly to your project with one click
+- **Auto-demo on install** — first-time users see AI fix a real bug automatically, no setup needed
+- **Lightbulb on unsaved files** — works on new files before you even save them
+- **Improved lightbulb label** — now shows "⚡ Fix with AI — Neo Bug Forge" for clarity
 
 ---
 
