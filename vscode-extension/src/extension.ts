@@ -185,6 +185,27 @@ print(calculate_average([]))`,
   context.subscriptions.push(
     vscode.commands.registerCommand("neo-bug-forge.openPanel", () => {
       NeoBugForgePanel.createOrShow(context);
+      // First-time users: auto-run demo so they immediately see AI working
+      const fixCount = context.globalState.get<number>("fixCount", 0);
+      if (fixCount === 0) {
+        setTimeout(() => {
+          NeoBugForgePanel.currentPanel?.prefillAndSubmit({
+            code: `def calculate_average(numbers):
+    total = 0
+    for num in numbers:
+        total += num
+    return total / len(numbers)
+
+# Test
+print(calculate_average([10, 20, 30]))
+print(calculate_average([]))`,
+            error: "ZeroDivisionError: division by zero",
+            language: "python",
+            fileName: "example.py",
+            contextCount: 0,
+          });
+        }, 800);
+      }
     })
   );
 
