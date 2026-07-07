@@ -100,6 +100,43 @@ print(calculate_average([]))`,
     });
   }
 
+  // ── Re-engage existing users who never tried it (v1.5.8 nudge) ───────────────
+  const nudgeKey  = "nudge158Shown";
+  const fixCount  = context.globalState.get<number>("fixCount", 0);
+  const nudgeDone = context.globalState.get<boolean>(nudgeKey, false);
+  if (!nudgeDone && hasSeenWelcome && fixCount === 0) {
+    // Existing user, installed before, never ran a fix — show one-time nudge
+    context.globalState.update(nudgeKey, true);
+    setTimeout(() => {
+      vscode.window.showInformationMessage(
+        "⚡ Neo Bug Forge: see AI fix a real bug in 3 seconds — free, no setup needed.",
+        "Show me",
+        "Not now"
+      ).then(choice => {
+        if (choice === "Show me") {
+          NeoBugForgePanel.createOrShow(context);
+          setTimeout(() => {
+            NeoBugForgePanel.currentPanel?.prefillAndSubmit({
+              code: `def calculate_average(numbers):
+    total = 0
+    for num in numbers:
+        total += num
+    return total / len(numbers)
+
+# Test
+print(calculate_average([10, 20, 30]))
+print(calculate_average([]))`,
+              error: "ZeroDivisionError: division by zero",
+              language: "python",
+              fileName: "example.py",
+              contextCount: 0,
+            });
+          }, 800);
+        }
+      });
+    }, 3000); // 3s delay so VS Code finishes loading first
+  }
+
   // ── Status bar item — always visible, one click to open panel ───────────────
   const statusBar = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
