@@ -530,6 +530,11 @@ function _callApi(
       }
     );
     req.on("error", (e) => reject(new Error(`Network error: ${e.message}`)));
+    // 35s timeout — Render free tier has cold starts up to ~30s on first hit
+    req.setTimeout(35_000, () => {
+      req.destroy();
+      reject(new Error("Request timed out — the API is waking up. Please try again in a moment."));
+    });
     req.write(body);
     req.end();
   });

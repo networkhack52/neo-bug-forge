@@ -2,7 +2,7 @@
   "name": "neo-bug-forge",
   "displayName": "Neo Bug Forge",
   "description": "AI bug fixer for VS Code & Cursor — click any red squiggle, get fixed code + diff + test in seconds.",
-  "version": "1.5.8",
+  "version": "1.5.9",
   "publisher": "neobugforge",
   "repository": {
     "type": "git",

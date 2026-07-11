@@ -140,4 +140,15 @@ Get your key at **[neobugforge.io](https://neobugforge.io)**
 
 ---
 
+## 👨‍💻 Available for Hire
+
+Neo Bug Forge was built by **Yousef** — a full-stack developer specialising in AI-powered tools, VS Code extensions, FastAPI backends, and React apps.
+
+If you need help building something similar — a developer tool, VS Code extension, AI integration, or SaaS backend — I'm available for freelance work.
+
+- 🔗 [Hire me on Fiverr](https://www.fiverr.com/yousefesmail)
+- 📧 [ya7308312@gmail.com](mailto:ya7308312@gmail.com)
+
+---
+
 MIT © 2026 Neo Bug Forge
