@@ -329,6 +329,69 @@ print(calculate_average([]))`,
       }
     })
   );
+
+  // ── 4. Explain Code ──────────────────────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand("neo-bug-forge.explainCode", async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) { vscode.window.showWarningMessage("Neo Bug Forge: No active editor."); return; }
+      const sel  = editor.selection;
+      const code = editor.document.getText(sel.isEmpty ? undefined : sel);
+      if (!code.trim()) { vscode.window.showWarningMessage("Neo Bug Forge: Select some code to explain."); return; }
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: "Neo Bug Forge: Explaining…", cancellable: false },
+        async () => {
+          try {
+            const result = await _callReadApi(context, { code, language: editor.document.languageId });
+            const ch = vscode.window.createOutputChannel("Neo Bug Forge — Explain");
+            ch.clear();
+            ch.appendLine("━━━ CODE EXPLANATION ━━━━━━━━━━━━━━━━━━━━━━━\n");
+            ch.appendLine(`📝 Summary\n${result.summary}\n`);
+            ch.appendLine(`⚙️  What it does\n${result.what_it_does}\n`);
+            if (result.potential_issues?.length) {
+              ch.appendLine("⚠️  Potential issues");
+              result.potential_issues.forEach((issue: string) => ch.appendLine(`   • ${issue}`));
+              ch.appendLine("");
+            }
+            ch.appendLine(`📊 Complexity: ${result.complexity}   🔤 Language: ${result.language}`);
+            ch.show(true);
+          } catch (e: any) {
+            vscode.window.showErrorMessage(`Neo Bug Forge: ${e.message}`);
+          }
+        }
+      );
+    })
+  );
+
+  // ── 5. Write Test ─────────────────────────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand("neo-bug-forge.writeTest", async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) { vscode.window.showWarningMessage("Neo Bug Forge: No active editor."); return; }
+      const sel  = editor.selection;
+      const code = editor.document.getText(sel.isEmpty ? undefined : sel);
+      if (!code.trim()) { vscode.window.showWarningMessage("Neo Bug Forge: Select some code to test."); return; }
+
+      currentFixContext = {
+        originalUri:  editor.document.uri,
+        selection:    editor.selection,
+        originalText: code,
+        fullDocText:  editor.document.getText(),
+      };
+
+      NeoBugForgePanel.createOrShow(context);
+      setTimeout(() => {
+        NeoBugForgePanel.currentPanel?.prefillAndSubmit({
+          code,
+          error:        "Write comprehensive unit tests for this code. Include edge cases and clear test names.",
+          language:     editor.document.languageId,
+          fileName:     path.basename(editor.document.fileName),
+          contextCount: 0,
+        });
+      }, 600);
+    })
+  );
 }
 
 export function deactivate() {
@@ -457,11 +520,12 @@ export async function runBugForge(
     return result;
   }
 
-  // ── Authenticated fix ──────────────────────────────────────────────────────
+  // ── Authenticated fix ───────────────────────────────────────────�
+  // -- Authenticated fix
   return _callApi("/v1/fix", payload, apiKey);
 }
 
-// ─── Conversion prompt after anonymous fix ────────────────────────────────────
+// --- Conversion prompt after anonymous fix ---
 
 async function _promptSignupAfterPublicFix(context: vscode.ExtensionContext): Promise<void> {
   const count = (context.globalState.get<number>("publicFixCount", 0)) + 1;
@@ -471,23 +535,23 @@ async function _promptSignupAfterPublicFix(context: vscode.ExtensionContext): Pr
   if (![1, 3, 5].includes(count)) { return; }
 
   const msg = count === 1
-    ? "🎉 First fix done! Get a free account for 100 fixes/month."
-    : `You've used ${count} free fixes. Sign up for 100/month — free, no credit card.`;
+    ? "First fix done! Get a free account for 100 fixes/month."
+    : `You've used ${count} free fixes. Sign up for 100/month -- free, no credit card.`;
 
   const choice = await vscode.window.showInformationMessage(
     msg,
-    "🚀 Sign Up Free",
+    "Sign Up Free",
     "I Have a Key"
   );
 
-  if (choice === "🚀 Sign Up Free") {
+  if (choice === "Sign Up Free") {
     vscode.env.openExternal(vscode.Uri.parse("https://app.neobugforge.io/signup?ref=extension-trial"));
   } else if (choice === "I Have a Key") {
     vscode.commands.executeCommand("neo-bug-forge.setApiKey");
   }
 }
 
-// ─── Shared HTTP helper ───────────────────────────────────────────────────────
+// --- Shared HTTP helper ---
 
 function _callApi(
   path: string,
@@ -522,7 +586,7 @@ function _callApi(
         res.on("end",   () => {
           if (res.statusCode === 401) return reject(new Error('Invalid API key. Run "Neo Bug Forge: Set API Key" to update it.'));
           if (res.statusCode === 402) return reject(new Error("Quota exhausted. Upgrade at neobugforge.io"));
-          if (res.statusCode === 429) return reject(new Error("Daily free limit reached. Sign up for 100 fixes/month — free at neobugforge.io"));
+          if (res.statusCode === 429) return reject(new Error("Daily free limit reached. Sign up for 100 fixes/month -- free at neobugforge.io"));
           if (!res.statusCode || res.statusCode >= 400) return reject(new Error(`API error ${res.statusCode}: ${data}`));
           try   { resolve(JSON.parse(data)); }
           catch { reject(new Error("Failed to parse API response.")); }
@@ -530,10 +594,65 @@ function _callApi(
       }
     );
     req.on("error", (e) => reject(new Error(`Network error: ${e.message}`)));
-    // 35s timeout — Render free tier has cold starts up to ~30s on first hit
+    // 35s timeout -- Render free tier has cold starts up to ~30s on first hit
     req.setTimeout(35_000, () => {
       req.destroy();
-      reject(new Error("Request timed out — the API is waking up. Please try again in a moment."));
+      reject(new Error("Request timed out -- the API is waking up. Please try again in a moment."));
+    });
+    req.write(body);
+    req.end();
+  });
+}
+
+// --- Read API call (explain code) ---
+
+async function _callReadApi(
+  context: vscode.ExtensionContext,
+  payload: { code: string; language: string }
+): Promise<{ summary: string; what_it_does: string; potential_issues: string[]; complexity: string; language: string }> {
+  const apiKey  = await context.secrets.get("neo-bug-forge.apiKey");
+  const apiPath = apiKey ? "/v1/read" : "/v1/read/public";
+
+  const body = JSON.stringify({ code: payload.code, language: payload.language });
+  const headers: Record<string, string | number> = {
+    "Content-Type":   "application/json",
+    "Content-Length": Buffer.byteLength(body),
+  };
+  if (apiKey) { headers["X-API-Key"] = apiKey; }
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      { hostname: "api.neobugforge.io", path: apiPath, method: "POST", headers },
+      (res) => {
+        let data = "";
+        res.on("data",  (chunk) => (data += chunk));
+        res.on("end",   () => {
+          if (res.statusCode === 429) return reject(new Error("Daily free limit reached. Sign up at neobugforge.io"));
+          if (!res.statusCode || res.statusCode >= 400) return reject(new Error(`API error ${res.statusCode}`));
+          try   { resolve(JSON.parse(data)); }
+          catch { reject(new Error("Failed to parse response.")); }
+        });
+      }
+    );
+    req.on("error",  (e) => reject(new Error(`Network error: ${e.message}`)));
+    req.setTimeout(35_000, () => {
+      req.destroy();
+      reject(new Error("Request timed out -- the API is waking up. Please try again."));
+    });
+    req.write(body);
+    req.end();
+  });
+}
+res.statusCode}`));
+          try   { resolve(JSON.parse(data)); }
+          catch { reject(new Error("Failed to parse response.")); }
+        });
+      }
+    );
+    req.on("error",  (e) => reject(new Error(`Network error: ${e.message}`)));
+    req.setTimeout(35_000, () => {
+      req.destroy();
+      reject(new Error("Request timed out — the API is waking up. Please try again."));
     });
     req.write(body);
     req.end();
