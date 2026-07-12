@@ -611,7 +611,7 @@ async function _callReadApi(
   payload: { code: string; language: string }
 ): Promise<{ summary: string; what_it_does: string; potential_issues: string[]; complexity: string; language: string }> {
   const apiKey  = await context.secrets.get("neo-bug-forge.apiKey");
-  const apiPath = apiKey ? "/v1/read" : "/v1/read/public";
+  const apiPath = "/v1/read/public"; // /v1/read (auth) not yet implemented
 
   const body = JSON.stringify({ code: payload.code, language: payload.language });
   const headers: Record<string, string | number> = {
