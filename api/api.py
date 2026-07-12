@@ -62,7 +62,16 @@ MAX_TOKENS        = 2048
 from database import lookup_api_key, check_and_increment_quota, save_fix, get_fix_by_id
 
 # ─── Rate limiter ─────────────────────────────────────────────────────────────
-limiter = Limiter(key_func=get_remote_address)
+# Render (and most PaaS) sit behind a reverse proxy. get_remote_address returns
+# the internal proxy IP, meaning ALL users share one bucket. Use X-Forwarded-For
+# so each real user gets their own rate-limit counter.
+def get_real_ip(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "127.0.0.1"
+
+limiter = Limiter(key_func=get_real_ip)
 
 # ─── Pydantic models ──────────────────────────────────────────────────────────
 
@@ -97,6 +106,26 @@ class HealthResponse(BaseModel):
     environment:          str
     timestamp:            str
     anthropic_configured: bool
+
+
+class ReadRequest(BaseModel):
+    code:     str = Field(..., min_length=1, max_length=50_000)
+    language: str = Field("", max_length=50)
+
+    @field_validator("code")
+    @classmethod
+    def code_not_blank(cls, v):
+        if not v.strip():
+            raise ValueError("code must not be blank")
+        return v
+
+
+class ReadResponse(BaseModel):
+    summary:          str
+    what_it_does:     str
+    potential_issues: list[str]
+    complexity:       str   # "low" | "medium" | "high"
+    language:         str
 
 
 # ─── App lifespan ─────────────────────────────────────────────────────────────
@@ -233,6 +262,64 @@ def run_fix(code: str, error: str, language: str) -> dict:
 
     return result
 
+def build_read_prompt(code: str, language: str) -> str:
+    return f"""You are an expert code reviewer. Analyze the following {language or "code"} and return ONLY a raw JSON object — no markdown, no extra text.
+
+Required JSON shape (all fields mandatory):
+{{
+  "summary":          "<one sentence: what this code does>",
+  "what_it_does":     "<2-4 sentences: detailed explanation of logic and purpose>",
+  "potential_issues": ["<issue 1>", "<issue 2>"],
+  "complexity":       "<low|medium|high>"
+}}
+
+potential_issues: up to 5 items; use empty array [] if none found.
+
+--- LANGUAGE: {language or "auto-detect"} ---
+
+--- CODE ---
+{code}
+
+Respond with raw JSON only."""
+
+
+def run_read(code: str, language: str) -> dict:
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise ValueError("ANTHROPIC_API_KEY is not configured on the server.")
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    try:
+        message = client.messages.create(
+            model=MODEL,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": build_read_prompt(code, language)}],
+        )
+    except anthropic.AuthenticationError:
+        raise ValueError("Server API key is invalid.")
+    except anthropic.RateLimitError:
+        raise RuntimeError("Upstream rate limit hit. Try again shortly.")
+    except anthropic.APIConnectionError:
+        raise RuntimeError("Could not reach Claude API.")
+    except anthropic.APIStatusError as e:
+        raise RuntimeError(f"Claude API error {e.status_code}: {e.message}")
+
+    raw = message.content[0].text.strip()
+    raw = raw.lstrip("```json").lstrip("```").rstrip("```").strip()
+
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Model returned non-JSON: {raw[:200]}") from exc
+
+    for key in ("summary", "what_it_does", "potential_issues", "complexity"):
+        if key not in result:
+            raise ValueError(f"Response missing field: {key}")
+
+    return result
+
+
 # ─── Routes ───────────────────────────────────────────────────────────────────
 
 class UsageResponse(BaseModel):
@@ -348,8 +435,9 @@ def root():
         "version": "1.0.0",
         "docs": "/docs",
         "endpoints": {
-            "public":        "POST /v1/fix/public  (10 req/day, no auth)",
-            "authenticated": "POST /v1/fix         (requires X-API-Key header)",
+            "public_fix":    "POST /v1/fix/public   (10 req/day, no auth)",
+            "authenticated": "POST /v1/fix          (requires X-API-Key header)",
+            "read":          "POST /v1/read/public  (15 req/day, explain code, no auth)",
             "retrieve":      "GET  /v1/fix/{fix_id}",
             "health":        "GET  /health",
         },
@@ -380,6 +468,34 @@ async def fix_authenticated(request: Request, body: FixRequest,
 @limiter.limit("10/day")
 async def fix_public(request: Request, body: FixRequest):
     return await _process_fix(body)
+
+
+@app.post("/v1/read/public", response_model=ReadResponse, tags=["Read"],
+          summary="Explain code (public — 15 req/day per IP, uses Haiku)")
+@limiter.limit("15/day")
+async def read_public(request: Request, body: ReadRequest):
+    """
+    Explain what a piece of code does without fixing it.
+    Returns a summary, detailed explanation, potential issues, and complexity rating.
+    No API key required — rate-limited to 15 requests/day per IP.
+    """
+    try:
+        result = await asyncio.to_thread(run_read, body.code, body.language)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    lang = body.language or result.get("language", "auto")
+    print(f"[read/public] lang={lang} complexity={result.get('complexity')}")
+
+    return ReadResponse(
+        summary          = result["summary"],
+        what_it_does     = result["what_it_does"],
+        potential_issues = result.get("potential_issues", []),
+        complexity       = result.get("complexity", "medium"),
+        language         = lang,
+    )
 
 
 @app.get("/v1/fix/{fix_id}", response_model=FixResponse, tags=["Fix"],
