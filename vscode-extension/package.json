@@ -1,8 +1,8 @@
 {
   "name": "neo-bug-forge",
   "displayName": "Neo Bug Forge",
-  "description": "AI bug fixer for VS Code & Cursor — click any red squiggle, get fixed code + diff + test in seconds.",
-  "version": "1.5.11",
+  "description": "AI bug fixer for VS Code & Cursor \u2014 click any red squiggle, get fixed code + diff + test in seconds.",
+  "version": "1.5.12",
   "publisher": "neobugforge",
   "repository": {
     "type": "git",
@@ -14,42 +14,128 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other", "Machine Learning", "Programming Languages"],
-  "keywords": ["ai", "bug fix", "error fix", "debug", "quick fix", "code fix", "ai debugger", "error fixer", "claude", "cursor"],
-  "activationEvents": ["onStartupFinished"],
+  "categories": [
+    "Other",
+    "Machine Learning",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "ai",
+    "bug fix",
+    "error fix",
+    "debug",
+    "quick fix",
+    "code fix",
+    "ai debugger",
+    "error fixer",
+    "claude",
+    "cursor"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
-      { "command": "neo-bug-forge.openPanel",     "title": "Neo Bug Forge: Open Panel" },
-      { "command": "neo-bug-forge.fixSelection",  "title": "Neo Bug Forge: Fix Selected Code" },
-      { "command": "neo-bug-forge.setApiKey",     "title": "Neo Bug Forge: Set API Key" },
-      { "command": "neo-bug-forge.fixDiagnostic", "title": "Neo Bug Forge: Fix Diagnostic" },
-      { "command": "neo-bug-forge.explainCode",   "title": "Neo Bug Forge: Explain Code" },
-      { "command": "neo-bug-forge.writeTest",     "title": "Neo Bug Forge: Write Test" }
+      {
+        "command": "neo-bug-forge.openPanel",
+        "title": "Neo Bug Forge: Open Panel"
+      },
+      {
+        "command": "neo-bug-forge.fixSelection",
+        "title": "Neo Bug Forge: Fix Selected Code"
+      },
+      {
+        "command": "neo-bug-forge.setApiKey",
+        "title": "Neo Bug Forge: Set API Key"
+      },
+      {
+        "command": "neo-bug-forge.fixDiagnostic",
+        "title": "Neo Bug Forge: Fix Diagnostic"
+      },
+      {
+        "command": "neo-bug-forge.explainCode",
+        "title": "Neo Bug Forge: Explain Code"
+      },
+      {
+        "command": "neo-bug-forge.writeTest",
+        "title": "Neo Bug Forge: Write Test"
+      }
     ],
     "menus": {
       "editor/context": [
-        { "command": "neo-bug-forge.fixSelection", "when": "editorHasSelection", "group": "1_modification@1" },
-        { "command": "neo-bug-forge.explainCode",  "when": "editorHasSelection", "group": "1_modification@2" },
-        { "command": "neo-bug-forge.writeTest",    "when": "editorHasSelection", "group": "1_modification@3" }
+        {
+          "command": "neo-bug-forge.fixSelection",
+          "when": "editorHasSelection",
+          "group": "1_modification@1"
+        },
+        {
+          "command": "neo-bug-forge.explainCode",
+          "when": "editorHasSelection",
+          "group": "1_modification@2"
+        },
+        {
+          "command": "neo-bug-forge.writeTest",
+          "when": "editorHasSelection",
+          "group": "1_modification@3"
+        }
       ]
     },
     "keybindings": [
-      { "command": "neo-bug-forge.fixSelection", "key": "ctrl+shift+f", "mac": "cmd+shift+f", "when": "editorHasSelection" }
+      {
+        "command": "neo-bug-forge.fixSelection",
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f",
+        "when": "editorHasSelection"
+      }
     ],
     "configuration": {
       "title": "Neo Bug Forge",
       "properties": {
-        "neo-bug-forge.apiKey":   { "type": "string",  "default": "", "description": "Your API key from neobugforge.io" },
-        "neo-bug-forge.model":    { "type": "string",  "default": "claude-sonnet-4-20250514", "description": "Claude model to use." },
-        "neo-bug-forge.autoApply":{ "type": "boolean", "default": false, "description": "Auto-apply fixes without confirmation." },
-        "neo-bug-forge.context.enabled":  { "type": "boolean", "default": true, "description": "Include related workspace files as context." },
-        "neo-bug-forge.context.maxFiles": { "type": "number",  "default": 5, "minimum": 1, "maximum": 10, "description": "Max context files (1-10)." },
-        "neo-bug-forge.diagnostics.enabled": { "type": "boolean", "default": true, "description": "Show lightbulb on diagnostic errors." },
+        "neo-bug-forge.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your API key from neobugforge.io"
+        },
+        "neo-bug-forge.model": {
+          "type": "string",
+          "default": "claude-sonnet-4-20250514",
+          "description": "Claude model to use."
+        },
+        "neo-bug-forge.autoApply": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-apply fixes without confirmation."
+        },
+        "neo-bug-forge.context.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include related workspace files as context."
+        },
+        "neo-bug-forge.context.maxFiles": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Max context files (1-10)."
+        },
+        "neo-bug-forge.diagnostics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show lightbulb on diagnostic errors."
+        },
         "neo-bug-forge.diagnostics.severityThreshold": {
           "type": "string",
-          "enum": ["error", "warning", "all"],
-          "enumDescriptions": ["Only errors", "Errors and warnings", "All diagnostics"],
+          "enum": [
+            "error",
+            "warning",
+            "all"
+          ],
+          "enumDescriptions": [
+            "Only errors",
+            "Errors and warnings",
+            "All diagnostics"
+          ],
           "default": "error",
           "description": "Minimum severity for the lightbulb."
         }
@@ -58,14 +144,14 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "watch":   "tsc -watch -p ./",
+    "watch": "tsc -watch -p ./",
     "package": "vsce package"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
-    "@types/node":   "^20.0.0",
-    "typescript":    "^5.3.0",
-    "@vscode/vsce":  "^2.22.0"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.0"

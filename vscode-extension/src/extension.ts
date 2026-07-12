@@ -209,7 +209,7 @@ print(calculate_average([]))`,
 
         NeoBugForgePanel.currentPanel?.prefillAndSubmit({
           code:         buildContextBlock(contextFiles, selectedText, fileName),
-          error:        errorMessage,
+          error:        errorMessage || "Fix any bugs or issues in this code.",
           language:     document.languageId,
           fileName,
           contextCount: contextFiles.length,
@@ -271,12 +271,12 @@ print(calculate_average([]))`,
       };
 
       const errorMessage = await vscode.window.showInputBox({
-        title:          "Neo Bug Forge — What's the error?",
-        prompt:         "Paste the error message or describe the bug",
-        placeHolder:    "e.g. TypeError: Cannot read properties of undefined",
+        title:          "Neo Bug Forge — What's the error? (optional)",
+        prompt:         "Paste the error or press Enter to skip",
+        placeHolder:    "e.g. TypeError: Cannot read properties of undefined (or leave blank)",
         ignoreFocusOut: true,
       });
-      if (errorMessage === undefined) return; // user cancelled
+      if (errorMessage === undefined) return; // user pressed Escape
 
       const fileName = path.basename(editor.document.fileName);
 
@@ -638,21 +638,6 @@ async function _callReadApi(
     req.setTimeout(35_000, () => {
       req.destroy();
       reject(new Error("Request timed out -- the API is waking up. Please try again."));
-    });
-    req.write(body);
-    req.end();
-  });
-}
-res.statusCode}`));
-          try   { resolve(JSON.parse(data)); }
-          catch { reject(new Error("Failed to parse response.")); }
-        });
-      }
-    );
-    req.on("error",  (e) => reject(new Error(`Network error: ${e.message}`)));
-    req.setTimeout(35_000, () => {
-      req.destroy();
-      reject(new Error("Request timed out — the API is waking up. Please try again."));
     });
     req.write(body);
     req.end();
