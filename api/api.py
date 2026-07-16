@@ -57,7 +57,7 @@ STRIPE_PRICE_PRO  = os.environ.get("STRIPE_PRICE_PRO", "")   # price_xxx for Pro
 STRIPE_PRICE_TEAM = os.environ.get("STRIPE_PRICE_TEAM", "")  # price_xxx for Team $49/mo
 ADMIN_EMAIL       = os.environ.get("ADMIN_EMAIL", "ya7308312@gmail.com")
 MODEL             = "claude-haiku-4-5-20251001"
-MAX_TOKENS        = 2048
+MAX_TOKENS        = 8096
 
 from database import lookup_api_key, check_and_increment_quota, save_fix, get_fix_by_id
 
