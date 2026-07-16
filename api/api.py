@@ -57,7 +57,7 @@ STRIPE_PRICE_PRO  = os.environ.get("STRIPE_PRICE_PRO", "")   # price_xxx for Pro
 STRIPE_PRICE_TEAM = os.environ.get("STRIPE_PRICE_TEAM", "")  # price_xxx for Team $49/mo
 ADMIN_EMAIL       = os.environ.get("ADMIN_EMAIL", "ya7308312@gmail.com")
 MODEL             = "claude-haiku-4-5-20251001"
-MAX_TOKENS        = 8096
+MAX_TOKENS        = 16000
 
 from database import lookup_api_key, check_and_increment_quota, save_fix, get_fix_by_id
 
@@ -195,6 +195,27 @@ async def verify_supabase_token(authorization: str) -> dict:
 # ─── Prompt ───────────────────────────────────────────────────────────────────
 
 def build_prompt(code: str, error: str, language: str) -> str:
+    # Skip diff for large files to stay within token limits
+    large_file = len(code) > 3000
+    if large_file:
+        json_shape = """{
+  "fixed_code":  "<complete corrected code>",
+  "explanation": "<plain English: what was wrong and what changed>",
+  "root_cause":  "<one of: null_reference|type_mismatch|off_by_one|async_race|scope_error|logic_error|syntax_error|import_error|index_error|other>",
+  "confidence":  <integer 0-100>,
+  "diff":        "",
+  "test_case":   "<minimal unit test in the same language>"
+}"""
+    else:
+        json_shape = """{
+  "fixed_code":  "<complete corrected code>",
+  "explanation": "<plain English: what was wrong and what changed>",
+  "root_cause":  "<one of: null_reference|type_mismatch|off_by_one|async_race|scope_error|logic_error|syntax_error|import_error|index_error|other>",
+  "confidence":  <integer 0-100>,
+  "diff":        "<unified diff, --- original, +++ fixed>",
+  "test_case":   "<minimal unit test in the same language>"
+}"""
+
     return f"""You are an expert software engineer and debugger specializing in {language or "multiple languages"}.
 
 A developer has submitted broken code and its error message.
@@ -206,14 +227,7 @@ Tasks:
 4. Return ONLY a raw JSON object — no markdown, no extra text.
 
 Required JSON shape (all fields mandatory):
-{{
-  "fixed_code":  "<complete corrected code>",
-  "explanation": "<plain English: what was wrong and what changed>",
-  "root_cause":  "<one of: null_reference|type_mismatch|off_by_one|async_race|scope_error|logic_error|syntax_error|import_error|index_error|other>",
-  "confidence":  <integer 0-100>,
-  "diff":        "<unified diff, --- original, +++ fixed>",
-  "test_case":   "<minimal unit test in the same language>"
-}}
+{json_shape}
 
 --- LANGUAGE: {language or "auto-detect"} ---
 
