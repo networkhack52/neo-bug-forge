@@ -402,14 +402,13 @@ export function deactivate() {
 
 export async function applyFixWithDiff(fixedCode: string): Promise<void> {
   if (!currentFixContext) {
-    // No context — fall back to a plain notification
     vscode.window.showWarningMessage(
-      "Neo Bug Forge: Open a file, select the broken code, and use Ctrl+Shift+F to get a fix with diff preview."
+      "Neo Bug Forge: Open a file, select the broken code, and use Ctrl+Shift+F to get a fix."
     );
     return;
   }
 
-  const { originalUri, selection, fullDocText } = currentFixContext;
+  const { originalUri, selection } = currentFixContext;
 
   let doc: vscode.TextDocument;
   try {
@@ -419,61 +418,35 @@ export async function applyFixWithDiff(fixedCode: string): Promise<void> {
     return;
   }
 
-  // Build full document text with the fix spliced in
-  const startOffset = doc.offsetAt(selection.start);
-  const endOffset   = doc.offsetAt(selection.end);
-  const newFullText = selection.isEmpty
-    ? fixedCode
-    : fullDocText.substring(0, startOffset) + fixedCode + fullDocText.substring(endOffset);
+  // Apply fix directly -- no diff tab, stays in the same editor
+  const editor = await vscode.window.showTextDocument(originalUri);
+  const success = await editor.edit(editBuilder => {
+    const range = selection.isEmpty
+      ? new vscode.Range(doc.positionAt(0), doc.positionAt(doc.getText().length))
+      : selection;
+    editBuilder.replace(range, fixedCode);
+  });
 
-  // Write fixed version to a temp file
-  const ext     = path.extname(originalUri.fsPath) || ".txt";
-  const tmpPath = path.join(os.tmpdir(), `nbf-preview-${Date.now()}${ext}`);
-  fs.writeFileSync(tmpPath, newFullText, "utf8");
-  const tempUri = vscode.Uri.file(tmpPath);
+  if (!success) {
+    vscode.window.showErrorMessage("Neo Bug Forge: Could not apply fix.");
+    return;
+  }
 
-  // Open native diff editor (left = original, right = fixed)
-  const fileName = path.basename(originalUri.fsPath);
-  await vscode.commands.executeCommand(
-    "vscode.diff",
-    originalUri,
-    tempUri,
-    `Neo Bug Forge — ${fileName}  (Original ↔ Fixed)`,
-    { preview: true }
-  );
+  await editor.document.save();
 
-  // Ask user what to do
   const choice = await vscode.window.showInformationMessage(
-    "Looks good? Apply the fix.",
-    { modal: false },
-    "✓ Apply",
-    "✓ Apply + Git Stage",
-    "✗ Discard"
+    "Neo Bug Forge: Fix applied ✓",
+    "Undo",
+    "Git Stage"
   );
 
-  // Always clean up the temp file
-  try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
-
-  if (choice === "✓ Apply" || choice === "✓ Apply + Git Stage") {
-    const editor = await vscode.window.showTextDocument(originalUri);
-    await editor.edit(editBuilder => {
-      const range = selection.isEmpty
-        ? new vscode.Range(
-            doc.positionAt(0),
-            doc.positionAt(doc.getText().length)
-          )
-        : selection;
-      editBuilder.replace(range, fixedCode);
-    });
-    await editor.document.save();
-
-    if (choice === "✓ Apply + Git Stage") {
-      await _gitStage(originalUri);
-    } else {
-      vscode.window.showInformationMessage("Neo Bug Forge: Fix applied ✓");
-    }
+  if (choice === "Undo") {
+    await vscode.commands.executeCommand("undo");
+  } else if (choice === "Git Stage") {
+    await _gitStage(originalUri);
   }
 }
+
 
 // ─── Git stage helper ─────────────────────────────────────────────────────────
 
