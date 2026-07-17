@@ -70,31 +70,17 @@ export function activate(context: vscode.ExtensionContext) {
   const hasSeenWelcome = context.globalState.get<boolean>("welcomeShown", false);
   if (!hasSeenWelcome) {
     context.globalState.update("welcomeShown", true);
+    // Open built-in walkthrough for proper onboarding
+    vscode.commands.executeCommand(
+      "workbench.action.openWalkthrough",
+      "neobugforge.neo-bug-forge#neo-bug-forge.gettingStarted",
+      false
+    );
     vscode.window.showInformationMessage(
-      "👋 Neo Bug Forge installed! Try it free — watch AI fix a real bug in seconds.",
-      "⚡ Fix a sample bug now",
+      "Welcome to Neo Bug Forge! Follow the guide to fix your first bug.",
       "I Have a Key"
     ).then(choice => {
-      if (choice === "⚡ Fix a sample bug now") {
-        NeoBugForgePanel.createOrShow(context);
-        setTimeout(() => {
-          NeoBugForgePanel.currentPanel?.prefillAndSubmit({
-            code: `def calculate_average(numbers):
-    total = 0
-    for num in numbers:
-        total += num
-    return total / len(numbers)
-
-# Test
-print(calculate_average([10, 20, 30]))
-print(calculate_average([]))`,
-            error: "ZeroDivisionError: division by zero",
-            language: "python",
-            fileName: "example.py",
-            contextCount: 0,
-          });
-        }, 800);
-      } else if (choice === "I Have a Key") {
+      if (choice === "I Have a Key") {
         vscode.commands.executeCommand("neo-bug-forge.setApiKey");
       }
     });
@@ -136,6 +122,57 @@ print(calculate_average([]))`,
       });
     }, 3000); // 3s delay so VS Code finishes loading first
   }
+
+  // -- Contextual error nudge (v1.5.15): fires when user has real errors --
+  // Reaches existing installs who never activated, in the moment they need it.
+  const nudge1515Key  = "nudge1515Shown";
+  const nudge1515Done = context.globalState.get<boolean>(nudge1515Key, false);
+  const currentFixCount = context.globalState.get<number>("fixCount", 0);
+
+  if (!nudge1515Done && currentFixCount === 0) {
+    let errorNudgeDisposable: vscode.Disposable | undefined;
+
+    const tryShowErrorNudge = async () => {
+      if (context.globalState.get<boolean>(nudge1515Key, false)) { return; }
+
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) { return; }
+
+      const errors = vscode.languages.getDiagnostics(editor.document.uri)
+        .filter(d => d.severity === vscode.DiagnosticSeverity.Error);
+
+      if (errors.length === 0) { return; }
+
+      // Mark shown immediately to prevent double-firing
+      await context.globalState.update(nudge1515Key, true);
+      errorNudgeDisposable?.dispose();
+
+      const label = errors.length === 1 ? "1 error" : `${errors.length} errors`;
+      const choice = await vscode.window.showInformationMessage(
+        `Neo Bug Forge: ${label} detected in this file — fix with AI in one click?`,
+        "Fix Now",
+        "Dismiss"
+      );
+
+      if (choice === "Fix Now") {
+        vscode.commands.executeCommand(
+          "neo-bug-forge.fixDiagnostic",
+          editor.document,
+          errors[0]
+        );
+      }
+    };
+
+    // Listen for diagnostics changes (catches new errors as they appear)
+    errorNudgeDisposable = vscode.languages.onDidChangeDiagnostics(() => {
+      tryShowErrorNudge();
+    });
+    context.subscriptions.push(errorNudgeDisposable);
+
+    // Also check immediately in case errors already exist when VS Code loads
+    setTimeout(tryShowErrorNudge, 4000);
+  }
+
 
   // ── Status bar item — always visible, one click to open panel ───────────────
   const statusBar = vscode.window.createStatusBarItem(

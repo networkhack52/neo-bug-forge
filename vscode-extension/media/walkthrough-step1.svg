@@ -1,0 +1,21 @@
+<svg width="800" height="450" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="450" fill="#1e1e2e"/>
+  <!-- Editor area -->
+  <rect x="20" y="20" width="760" height="300" rx="8" fill="#24273a" stroke="#363a4f" stroke-width="1"/>
+  <!-- Code lines -->
+  <text x="40" y="60" font-family="monospace" font-size="14" fill="#6c7086">1</text>
+  <text x="65" y="60" font-family="monospace" font-size="14" fill="#cdd6f4">def calculate(x, y):</text>
+  <text x="40" y="85" font-family="monospace" font-size="14" fill="#6c7086">2</text>
+  <text x="65" y="85" font-family="monospace" font-size="14" fill="#cdd6f4">    result = x / </text>
+  <text x="65" y="85" font-family="monospace" font-size="14" fill="#f38ba8" text-decoration="underline wavy">y</text>
+  <!-- Red squiggle indicator -->
+  <rect x="63" y="73" width="4" height="18" fill="#f38ba8" rx="2"/>
+  <!-- Lightbulb popup -->
+  <rect x="100" y="100" width="280" height="44" rx="6" fill="#313244" stroke="#45475a" stroke-width="1"/>
+  <text x="120" y="128" font-family="sans-serif" font-size="15" fill="#a6e3a1">⚡ Fix with Neo Bug Forge</text>
+  <!-- Arrow -->
+  <polygon points="108,118 100,110 100,126" fill="#a6e3a1"/>
+  <!-- Label -->
+  <text x="40" y="370" font-family="sans-serif" font-size="16" fill="#cdd6f4" font-weight="bold">1. See a red squiggle? Click the lightbulb.</text>
+  <text x="40" y="400" font-family="sans-serif" font-size="13" fill="#6c7086">Neo Bug Forge appears instantly in the quick-fix menu.</text>
+</svg>

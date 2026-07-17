@@ -2,7 +2,7 @@
   "name": "neo-bug-forge",
   "displayName": "Neo Bug Forge",
   "description": "AI bug fixer for VS Code & Cursor \u2014 click any red squiggle, get fixed code + diff + test in seconds.",
-  "version": "1.5.14",
+  "version": "1.5.15",
   "publisher": "neobugforge",
   "repository": {
     "type": "git",
@@ -140,7 +140,43 @@
           "description": "Minimum severity for the lightbulb."
         }
       }
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "neo-bug-forge.gettingStarted",
+        "title": "Get Started with Neo Bug Forge",
+        "description": "Fix bugs in seconds with AI \u2014 right inside VS Code. No copy-paste, no context switching.",
+        "steps": [
+          {
+            "id": "neo-bug-forge.step.lightbulb",
+            "title": "Click the lightbulb on any error",
+            "description": "When VS Code shows a red squiggle, click the \ud83d\udca1 lightbulb. Select **\u26a1 Fix with Neo Bug Forge** to fix it instantly.\n\n[Try it: Open Command Palette](command:workbench.action.showCommands)",
+            "media": {
+              "svg": "media/walkthrough-step1.svg",
+              "altText": "Lightbulb menu showing Fix with Neo Bug Forge"
+            }
+          },
+          {
+            "id": "neo-bug-forge.step.shortcut",
+            "title": "Select code and press Ctrl+Shift+F",
+            "description": "Select any broken code and press **Ctrl+Shift+F** (Mac: **Cmd+Shift+F**) to fix it immediately \u2014 no error message needed.\n\n[Try it: Fix Selected Code](command:neo-bug-forge.fixSelection)",
+            "media": {
+              "svg": "media/walkthrough-step2.svg",
+              "altText": "Keyboard shortcut Ctrl+Shift+F"
+            }
+          },
+          {
+            "id": "neo-bug-forge.step.rightclick",
+            "title": "Right-click for Fix, Explain, or Write Test",
+            "description": "Select any code and right-click to access three AI actions:\n- **Fix Selected Code** \u2014 fix bugs\n- **Explain Code** \u2014 understand what code does\n- **Write Test** \u2014 generate unit tests automatically\n\n[Open Neo Bug Forge Panel](command:neo-bug-forge.openPanel)",
+            "media": {
+              "svg": "media/walkthrough-step3.svg",
+              "altText": "Right-click context menu with Neo Bug Forge options"
+            }
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "compile": "tsc -p ./",
