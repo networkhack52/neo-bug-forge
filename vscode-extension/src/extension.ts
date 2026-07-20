@@ -15,6 +15,7 @@
 
 import * as vscode from "vscode";
 import * as https  from "https";
+import * as crypto from "crypto";
 import * as fs     from "fs";
 import * as os     from "os";
 import * as path   from "path";
@@ -520,11 +521,12 @@ export async function runBugForge(
   diff:        string;
   test_case:   string;
 }> {
-  const apiKey = await context.secrets.get("neo-bug-forge.apiKey");
+  const apiKey    = await context.secrets.get("neo-bug-forge.apiKey");
+  const installId  = _getOrCreateInstallId(context);
 
   // ── No API key → use public endpoint (10 free fixes/day) ──────────────────
   if (!apiKey) {
-    const result = await _callApi("/v1/fix/public", payload, undefined);
+    const result = await _callApi("/v1/fix/public", payload, undefined, installId);
     // After the fix lands, show a gentle conversion prompt (fire-and-forget)
     _promptSignupAfterPublicFix(context).catch(() => {});
     return result;
@@ -532,7 +534,7 @@ export async function runBugForge(
 
   // ── Authenticated fix ───────────────────────────────────────────�
   // -- Authenticated fix
-  return _callApi("/v1/fix", payload, apiKey);
+  return _callApi("/v1/fix", payload, apiKey, installId);
 }
 
 // --- Conversion prompt after anonymous fix ---
@@ -561,12 +563,25 @@ async function _promptSignupAfterPublicFix(context: vscode.ExtensionContext): Pr
   }
 }
 
+// --- Stable install ID (sent as X-Install-Id, lets us count unique users) ---
+
+function _getOrCreateInstallId(context: vscode.ExtensionContext): string {
+  const key = "installId";
+  let id = context.globalState.get<string>(key);
+  if (!id) {
+    id = crypto.randomUUID();
+    context.globalState.update(key, id);
+  }
+  return id;
+}
+
 // --- Shared HTTP helper ---
 
 function _callApi(
   path: string,
   payload: { code: string; error: string; language: string },
-  apiKey: string | undefined
+  apiKey: string | undefined,
+  installId?: string
 ): Promise<{
   fixed_code:  string;
   explanation: string;
@@ -585,7 +600,8 @@ function _callApi(
     "Content-Type":   "application/json",
     "Content-Length": Buffer.byteLength(body),
   };
-  if (apiKey) { headers["X-API-Key"] = apiKey; }
+  if (apiKey)     { headers["X-API-Key"]    = apiKey; }
+  if (installId)  { headers["X-Install-Id"] = installId; }
 
   return new Promise((resolve, reject) => {
     const req = https.request(
@@ -620,15 +636,17 @@ async function _callReadApi(
   context: vscode.ExtensionContext,
   payload: { code: string; language: string }
 ): Promise<{ summary: string; what_it_does: string; potential_issues: string[]; complexity: string; language: string }> {
-  const apiKey  = await context.secrets.get("neo-bug-forge.apiKey");
-  const apiPath = "/v1/read/public"; // /v1/read (auth) not yet implemented
+  const apiKey    = await context.secrets.get("neo-bug-forge.apiKey");
+  const installId = _getOrCreateInstallId(context);
+  const apiPath   = "/v1/read/public"; // /v1/read (auth) not yet implemented
 
   const body = JSON.stringify({ code: payload.code, language: payload.language });
   const headers: Record<string, string | number> = {
     "Content-Type":   "application/json",
     "Content-Length": Buffer.byteLength(body),
   };
-  if (apiKey) { headers["X-API-Key"] = apiKey; }
+  if (apiKey)    { headers["X-API-Key"]    = apiKey; }
+  if (installId) { headers["X-Install-Id"] = installId; }
 
   return new Promise((resolve, reject) => {
     const req = https.request(

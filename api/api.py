@@ -481,6 +481,10 @@ async def fix_authenticated(request: Request, body: FixRequest,
           summary="Fix a bug (public — 10 req/day per IP)")
 @limiter.limit("10/day")
 async def fix_public(request: Request, body: FixRequest):
+    real_ip    = get_real_ip(request)
+    raw_id     = request.headers.get("x-install-id", "")
+    device     = hashlib.sha256(raw_id.encode()).hexdigest()[:8] if raw_id else "unknown"
+    print(f"[REAL_USER] fix/public device={device} ip={real_ip} lang={body.language or 'auto'}")
     return await _process_fix(body)
 
 
@@ -500,8 +504,11 @@ async def read_public(request: Request, body: ReadRequest):
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
-    lang = body.language or result.get("language", "auto")
-    print(f"[read/public] lang={lang} complexity={result.get('complexity')}")
+    lang    = body.language or result.get("language", "auto")
+    real_ip = get_real_ip(request)
+    raw_id  = request.headers.get("x-install-id", "")
+    device  = hashlib.sha256(raw_id.encode()).hexdigest()[:8] if raw_id else "unknown"
+    print(f"[REAL_USER] read/public device={device} ip={real_ip} lang={lang} complexity={result.get('complexity')}")
 
     return ReadResponse(
         summary          = result["summary"],

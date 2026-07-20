@@ -2,27 +2,29 @@
 
 **Tired of copy-pasting errors into ChatGPT?** Fix bugs without leaving VS Code — click any red squiggle, get fixed code + explanation in seconds.
 
-![Neo Bug Forge Demo](media/demo.gif)
 
 ## Key Features
 
-- ✨ **Lightbulb Quick Fix** — click any red squiggle → ⚡ Fix with AI
-- 🤖 **Auto-demo on install** — see it fix a real bug the moment you install
+- ⚡ **Lightbulb Quick Fix** — click any red squiggle → Fix with AI
+- 🚀 **No signup to start** — 10 free fixes the moment you install
 - 🧠 **Deep workspace context** — understands your entire project
-- 🔄 **Smart retry** — remembers previous attempts, tries a different approach
-- 📝 **One-click Save Test File** + test generation
-- ✅ **Clean diff preview** with one-click apply + Git stage
+- 🔍 **Explain Code** — understand what any code does in plain English
+- 🧪 **Write Test** — generate unit tests from any selection
+- ✅ **One-click apply** — fix goes straight into your file, no copy-paste
 - ⚡ **Works in Cursor and VS Code**
-
-**Try free — no credit card, no signup. Just install and fix.**
 
 ---
 
-## What's new in v1.5
+## How it works
 
-- **Auto-demo on install** — first-time users see AI fix a real bug automatically, no setup needed
-- **Lightbulb on unsaved files** — works on new files before you even save them
-- **Improved lightbulb label** — now shows "⚡ Fix with AI — Neo Bug Forge" for clarity
+**Install → start fixing immediately. No API key. No signup. No friction.**
+
+1. Install the extension
+2. See a red squiggle → click the 💡 lightbulb → **⚡ Fix with AI — Neo Bug Forge**
+3. Fixed code appears in seconds — click **Apply** to apply it directly
+
+You get **10 free fixes instantly** with no account needed.
+Sign up free at [neobugforge.io](https://neobugforge.io) for 100 fixes/month.
 
 ---
 
@@ -31,28 +33,30 @@
 1. Open **VS Code** → Extensions (`Ctrl+Shift+X`)
 2. Search **"Neo Bug Forge"**
 3. Click **Install**
-4. Get a free API key at **[neobugforge.io](https://neobugforge.io)**
-5. Run `Ctrl+Shift+P` → **Neo Bug Forge: Set API Key** → paste your key
+4. That's it — start fixing bugs immediately, no setup required
+
+*(Optional) Sign up at [neobugforge.io](https://neobugforge.io) to unlock 100 free fixes/month*
 
 ---
 
 ## Usage
 
-### Fastest way — lightbulb (v1.4)
-1. Hover over any red squiggle in your code
+### Lightbulb — fastest way
+1. Hover over any red squiggle
 2. Click the 💡 lightbulb (or press `Ctrl+.`)
-3. Select **⚡ Fix with Neo Bug Forge**
-4. The panel opens and auto-submits — fix appears in seconds
+3. Select **⚡ Fix with AI — Neo Bug Forge**
+4. Fix appears and applies directly in your file
 
 ### Keyboard shortcut
-1. Select the broken code in your editor
-2. Press `Ctrl+Shift+F` (Windows/Linux) or `Cmd+Shift+F` (Mac)
-3. Paste the error message
+Select broken code → press `Ctrl+Shift+F` (Mac: `Cmd+Shift+F`) → fix appears
 
 ### Right-click menu
-Select code → right-click → **Neo Bug Forge: Fix Selected Code**
+Select code → right-click → choose:
+- **Neo Bug Forge: Fix Selected Code** — fix bugs
+- **Neo Bug Forge: Explain Code** — understand what the code does
+- **Neo Bug Forge: Write Test** — generate unit tests
 
-### Panel (manual)
+### Panel
 Command Palette → **Neo Bug Forge: Open Panel** → paste code and error → **⚡ Fix My Bug**
 
 ---
@@ -61,18 +65,17 @@ Command Palette → **Neo Bug Forge: Open Panel** → paste code and error → *
 
 | | |
 |---|---|
-| ✅ Fixed code | Complete, corrected version — ready to apply |
-| 🔍 Diff preview | Side-by-side diff in VS Code's native editor before you commit |
+| ✅ Fixed code | Complete, corrected version — applied directly to your file |
 | 🧠 Explanation | Plain-English: what was wrong and what changed |
 | 📊 Confidence | How certain the AI is (0–100%) |
 | 🏷 Root cause | null_reference · type_mismatch · off_by_one · logic_error · and more |
-| 🧪 Test case | Minimal unit test that would have caught this bug — save it with one click |
+| 🧪 Test case | Minimal unit test that would have caught this bug |
 
 ---
 
-## Lightbulb Quick Fix (v1.4)
+## Lightbulb Quick Fix
 
-Neo Bug Forge integrates with VS Code's diagnostic system. Whenever your language server, TypeScript, ESLint, or any linter flags an error, the ⚡ lightbulb appears automatically. No manual selection needed.
+Neo Bug Forge integrates with VS Code's diagnostic system. Whenever your language server, TypeScript, ESLint, or any linter flags an error, the ⚡ lightbulb appears automatically.
 
 **Configure in Settings:**
 - `neo-bug-forge.diagnostics.enabled` — turn the lightbulb on/off (default: on)
@@ -80,28 +83,18 @@ Neo Bug Forge integrates with VS Code's diagnostic system. Whenever your languag
 
 ---
 
-## Deeper Context (v1.3)
+## Workspace Context
 
-When you trigger a fix from the editor, Neo Bug Forge automatically finds and includes:
-- Files currently open in your editor
+When you trigger a fix, Neo Bug Forge automatically includes related files for deeper context:
+- Files open in your editor
 - Files in the same folder as the broken code
 - Files that reference the same functions or classes
 
-You'll see a **📎 X context files included** badge in the panel when files are pulled in.
+You'll see a **📎 X context files included** badge in the panel.
 
 **Configure in Settings:**
-- `neo-bug-forge.context.enabled` — turn off if you work with sensitive code
+- `neo-bug-forge.context.enabled` — turn off for sensitive code
 - `neo-bug-forge.context.maxFiles` — how many files to include (default: 5, max: 10)
-
----
-
-## Apply Fix Flow
-
-1. Fix appears in the panel
-2. Click **⬆ Apply (Diff Preview)** — VS Code's diff editor opens showing original vs fixed
-3. Choose **✓ Apply**, **✓ Apply + Git Stage**, or **✗ Discard**
-
-No accidental overwrites. You always see the diff first.
 
 ---
 
@@ -115,11 +108,12 @@ Python · JavaScript · TypeScript · Java · Rust · Go · C++ · C · C# · Ru
 
 | Plan | Fixes/month | Price |
 |---|---|---|
-| Free | 100 | $0 — no credit card |
+| Keyless trial | 10 | Free — no account, works on install |
+| Free | 100 | Free — sign up at neobugforge.io |
 | Pro | 500 | $12.99/mo |
-| Team | Unlimited | $49.99/mo |
+| Team | Unlimited (fair use, up to 10 seats) | $49.99/mo |
 
-Get your key at **[neobugforge.io](https://neobugforge.io)**
+Sign up at **[neobugforge.io](https://neobugforge.io)**
 
 ---
 
