@@ -474,6 +474,9 @@ def health():
 @limiter.limit("120/minute")
 async def fix_authenticated(request: Request, body: FixRequest,
                              key_row: dict = Depends(verify_api_key)):
+    real_ip = get_real_ip(request)
+    device  = hashlib.sha256(key_row["key_hash"].encode()).hexdigest()[:8]
+    print(f"[REAL_USER] fix/auth device={device} ip={real_ip} tier={key_row['tier']} lang={body.language or 'auto'}")
     return await _process_fix(body, key_row=key_row)
 
 
