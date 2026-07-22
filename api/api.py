@@ -192,6 +192,27 @@ async def verify_supabase_token(authorization: str) -> dict:
         raise HTTPException(status_code=401, detail="Invalid or expired Supabase token.")
     return resp.json()  # contains id, email, etc.
 
+# ─── Response helpers ─────────────────────────────────────────────────────────
+
+def strip_code_fences(raw: str) -> str:
+    """Remove a leading ```/```json fence and a trailing ``` fence from a model
+    response, then strip surrounding whitespace.
+
+    Uses prefix/suffix removal rather than ``str.strip("```json")``, which treats
+    its argument as a *set of characters* and would eat any leading ``j``/``s``/
+    ``o``/``n``/backtick or trailing backtick that legitimately belongs to the
+    content (e.g. code beginning with ``json.loads(...)``).
+    """
+    text = raw.strip()
+    if text.startswith("```"):
+        # Drop the opening fence line (```, ```json, ```python, …).
+        newline = text.find("\n")
+        text = text[newline + 1:] if newline != -1 else text[3:]
+    if text.endswith("```"):
+        text = text[:-3]
+    return text.strip()
+
+
 # ─── Prompt ───────────────────────────────────────────────────────────────────
 
 def build_prompt(code: str, error: str, language: str) -> str:
@@ -270,8 +291,7 @@ def run_fix(code: str, error: str, language: str) -> dict:
     except anthropic.APIStatusError as e:
         raise RuntimeError(f"Claude API error {e.status_code}: {e.message}")
 
-    raw = message.content[0].text.strip()
-    raw = raw.lstrip("```json").lstrip("```").rstrip("```").strip()
+    raw = strip_code_fences(message.content[0].text)
 
     try:
         result = json.loads(raw)
@@ -336,8 +356,7 @@ def run_read(code: str, language: str) -> dict:
     except anthropic.APIStatusError as e:
         raise RuntimeError(f"Claude API error {e.status_code}: {e.message}")
 
-    raw = message.content[0].text.strip()
-    raw = raw.lstrip("```json").lstrip("```").rstrip("```").strip()
+    raw = strip_code_fences(message.content[0].text)
 
     try:
         result = json.loads(raw)
