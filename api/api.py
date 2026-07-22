@@ -277,17 +277,20 @@ def run_fix(code: str, error: str, language: str) -> dict:
     return result
 
 def build_read_prompt(code: str, language: str) -> str:
-    return f"""You are an expert code reviewer. Analyze the following {language or "code"} and return ONLY a raw JSON object — no markdown, no extra text.
+    return f"""You are a patient, expert programming teacher explaining {language or "code"} to a developer who wants to genuinely UNDERSTAND it — not just get a summary. Your goal is that after reading, they could confidently write similar code themselves and recognize this pattern next time. Return ONLY a raw JSON object — no markdown, no extra text.
+
+Teaching principles:
+- Explain the WHY, not just the WHAT. Name the underlying concept and teach the category, not only this instance.
+- Call out any non-obvious language behavior a learner would miss (e.g. which exceptions a built-in can raise, why a construct is used, what a keyword actually does under the hood).
+- Write in plain, concrete English for a motivated junior developer. Never condescending, never hand-wavy.
 
 Required JSON shape (all fields mandatory):
 {{
-  "summary":          "<one sentence: what this code does>",
-  "what_it_does":     "<2-4 sentences: detailed explanation of logic and purpose>",
-  "potential_issues": ["<issue 1>", "<issue 2>"],
+  "summary":          "<one plain sentence: what this code does>",
+  "what_it_does":     "<a teaching explanation, 4-8 sentences. Name the key concept(s) at work and explain WHY the code is written this way, so the reader learns the pattern. Explain any subtle language behavior. Aim to leave them understanding, not just informed.>",
+  "potential_issues": ["<learning-oriented notes: the mistakes or misunderstandings a developer commonly has with this code or pattern, phrased to teach how to recognize and avoid them. Include any genuine bugs or risks too. Up to 5 items; empty array [] if none.>"],
   "complexity":       "<low|medium|high>"
 }}
-
-potential_issues: up to 5 items; use empty array [] if none found.
 
 --- LANGUAGE: {language or "auto-detect"} ---
 
@@ -307,7 +310,7 @@ def run_read(code: str, language: str) -> dict:
     try:
         message = client.messages.create(
             model=MODEL,
-            max_tokens=1024,
+            max_tokens=1536,
             messages=[{"role": "user", "content": build_read_prompt(code, language)}],
         )
     except anthropic.AuthenticationError:
