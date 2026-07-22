@@ -1,0 +1,7 @@
+# Test / development dependencies for the Neo Bug Forge API.
+# Install with:  pip install -r requirements.txt -r requirements-dev.txt
+pytest
+pytest-asyncio
+# httpx is already a runtime dependency but is also used directly by the tests
+# (FastAPI TestClient and for constructing anthropic exception fixtures).
+httpx
