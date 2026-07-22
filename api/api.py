@@ -200,7 +200,7 @@ def build_prompt(code: str, error: str, language: str) -> str:
     if large_file:
         json_shape = """{
   "fixed_code":  "<complete corrected code>",
-  "explanation": "<plain English: what was wrong and what changed>",
+  "explanation": "<TEACH, don't just describe. 3-6 sentences: name the underlying concept, explain WHY a developer hits this (the mental-model gap behind it), and what to watch for next time. If more than one legitimate fix exists, say so and explain how to choose between them.>",
   "root_cause":  "<one of: null_reference|type_mismatch|off_by_one|async_race|scope_error|logic_error|syntax_error|import_error|index_error|other>",
   "confidence":  <integer 0-100>,
   "diff":        "",
@@ -209,22 +209,23 @@ def build_prompt(code: str, error: str, language: str) -> str:
     else:
         json_shape = """{
   "fixed_code":  "<complete corrected code>",
-  "explanation": "<plain English: what was wrong and what changed>",
+  "explanation": "<TEACH, don't just describe. 3-6 sentences: name the underlying concept, explain WHY a developer hits this (the mental-model gap behind it), and what to watch for next time. If more than one legitimate fix exists, say so and explain how to choose between them.>",
   "root_cause":  "<one of: null_reference|type_mismatch|off_by_one|async_race|scope_error|logic_error|syntax_error|import_error|index_error|other>",
   "confidence":  <integer 0-100>,
   "diff":        "<unified diff, --- original, +++ fixed>",
   "test_case":   "<minimal unit test in the same language>"
 }"""
 
-    return f"""You are an expert software engineer and debugger specializing in {language or "multiple languages"}.
+    return f"""You are a patient, expert programming teacher and debugger specializing in {language or "multiple languages"}. You don't just repair code — you make sure the developer UNDERSTANDS why it broke, so they can avoid the whole class of bug next time.
 
 A developer has submitted broken code and its error message.
 
 Tasks:
 1. Identify the exact root cause.
 2. Fix the code without changing original intent or logic.
-3. Generate a minimal unit test that would have caught this bug.
-4. Return ONLY a raw JSON object — no markdown, no extra text.
+3. IMPORTANT — if the bug can be legitimately fixed in more than one way (for example, changing the caller vs. changing the function itself), pick the fix that best preserves the apparent intent, and explicitly say in the explanation that an alternative exists and how to decide between them. Never silently choose for the developer when the choice depends on what they meant.
+4. Generate a minimal unit test that would have caught this bug. Begin the test with a one-line comment stating what it catches and why, so the developer learns what makes a good regression test.
+5. Return ONLY a raw JSON object — no markdown, no extra text.
 
 Required JSON shape (all fields mandatory):
 {json_shape}
