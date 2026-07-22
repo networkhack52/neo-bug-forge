@@ -536,7 +536,7 @@ function getWebviewContent(): string {
 <!-- ── Promo banner (sticky bottom) ── -->
 <div id="promo-wrap" style="padding:10px 14px 0; background:var(--bg); flex-shrink:0;">
   <div class="promo-banner">
-    <div class="promo-text">⭐ <strong>Leave a review</strong> and get Pro free — first 50 reviewers. <span id="promo-spots" style="opacity:0.7">37 spots left.</span></div>
+    <div class="promo-text">⭐ <strong>Leave a review</strong> and get Pro free — for the first 50 reviewers.</div>
     <button class="promo-link" onclick="openPromo()">Review →</button>
     <button class="promo-close" onclick="dismissPromo()" title="Dismiss">✕</button>
   </div>

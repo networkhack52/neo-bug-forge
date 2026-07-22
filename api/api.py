@@ -227,6 +227,13 @@ Tasks:
 4. Generate a minimal unit test that would have caught this bug. Begin the test with a one-line comment stating what it catches and why, so the developer learns what makes a good regression test.
 5. Return ONLY a raw JSON object — no markdown, no extra text.
 
+ACCURACY RULES (critical — a confident falsehood is worse than saying nothing):
+- State only language behavior you are CERTAIN of. If unsure exactly how something behaves at runtime, describe it generally or omit it — never invent a mechanism to sound thorough.
+- Never reference code elements that are not present. Do not mention docstrings, comments, type hints, variables, or functions that do not literally appear in the submitted code.
+- Describe what an operation DOES (e.g. "raises TypeError because integers are not iterable"), not an imagined internal process.
+- If a claim would need verification to be safe to teach, leave it out. Completeness never outranks correctness.
+- Verify any arithmetic in your test assertions before writing them.
+
 Required JSON shape (all fields mandatory):
 {json_shape}
 
@@ -284,6 +291,12 @@ Teaching principles:
 - Explain the WHY, not just the WHAT. Name the underlying concept and teach the category, not only this instance.
 - Call out any non-obvious language behavior a learner would miss (e.g. which exceptions a built-in can raise, why a construct is used, what a keyword actually does under the hood).
 - Write in plain, concrete English for a motivated junior developer. Never condescending, never hand-wavy.
+
+ACCURACY RULES (critical — a confident falsehood is worse than saying nothing):
+- State only language behavior you are CERTAIN of. If you are not sure exactly how something behaves at runtime, describe it generally or omit it — never invent a mechanism to sound thorough.
+- Never reference code elements that are not present. Do not mention docstrings, comments, type hints, variables, or functions that do not literally appear in the code shown.
+- Describe what an operation DOES (e.g. "raises TypeError"), not an imagined internal process. Do not speculate about how the interpreter works unless it is a well-established fact.
+- If a claim would need verification to be safe to teach, leave it out. Completeness never outranks correctness.
 
 Required JSON shape (all fields mandatory):
 {{

@@ -1,17 +1,22 @@
-# Neo Bug Forge — AI Bug Fixer for VS Code & Cursor
+# Neo Bug Forge — The AI Bug Fixer That Actually Teaches You
 
-**Tired of copy-pasting errors into ChatGPT?** Fix bugs without leaving VS Code — click any red squiggle, get fixed code + explanation in seconds.
+**Other AI tools fix your bug silently. You ship it, and learn nothing.**
 
+Neo Bug Forge fixes the bug *and* makes sure you understand it — the concept behind it, why you hit it, and what to watch for next time. Click any red squiggle, stay in your editor, come out a better developer.
 
 ## Key Features
 
+- 🎓 **Teaches, doesn't just patch** — every fix names the underlying concept and the mental-model gap that caused the bug, in plain English
+- 🔀 **Shows you the fork in the road** — when a bug has more than one valid fix, it tells you *both* and how to choose. Most tools silently decide for you
+- 🧪 **Self-explaining tests** — generated tests open with what they catch and why, so you learn what makes a good regression test
 - ⚡ **Lightbulb Quick Fix** — click any red squiggle → Fix with AI
 - 🚀 **No signup to start** — 10 free fixes the moment you install
 - 🧠 **Deep workspace context** — understands your entire project
-- 🔍 **Explain Code** — understand what any code does in plain English
-- 🧪 **Write Test** — generate unit tests from any selection
+- 🔍 **Explain Code** — learn what any code does, and *why* it works that way
 - ✅ **One-click apply** — fix goes straight into your file, no copy-paste
 - ⚡ **Works in Cursor and VS Code**
+
+> **Built for developers who want to get better, not just get unblocked** — juniors levelling up, and anyone working in an unfamiliar codebase.
 
 ---
 
