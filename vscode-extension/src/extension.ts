@@ -21,6 +21,7 @@ import * as os     from "os";
 import * as path   from "path";
 import { NeoBugForgePanel } from "./panel";
 import { ContextCollector, buildContextBlock, ContextFile } from "./contextCollector";
+import { isValidApiKey } from "./contextUtils";
 import { NbfCodeActionProvider } from "./diagnosticsProvider";
 
 // ─── Fix context (populated when the user triggers fixSelection) ──────────────
@@ -356,7 +357,7 @@ print(calculate_average([]))`,
       });
 
       if (key) {
-        if (!key.startsWith("nbf_")) {
+        if (!isValidApiKey(key)) {
           vscode.window.showErrorMessage(
             "Neo Bug Forge: Key must start with nbf_. Get yours at neobugforge.io"
           );
@@ -532,7 +533,7 @@ export async function runBugForge(
     return result;
   }
 
-  // ── Authenticated fix ───────────────────────────────────────────�
+  // ── Authenticated fix ───────────────────────────────────────────�
   // -- Authenticated fix
   return _callApi("/v1/fix", payload, apiKey, installId);
 }
