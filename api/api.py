@@ -482,24 +482,33 @@ async def create_key(request: Request, body: CreateKeyRequest,
 
     db = get_db()
 
-    # Return existing key if present
+    # Rotate the key if one already exists.
+    # We store only the hash, so the original plaintext can never be shown again.
+    # On a repeat request we mint a NEW key, overwrite key_hash on the existing
+    # row, and return the new plaintext once. The previous key stops
+    # authenticating immediately (its hash no longer matches). Tier and usage
+    # counters are preserved by updating in place rather than inserting.
     existing = db.table("api_keys").select("*").eq("user_email", user_email).execute()
     if existing.data:
-        row = existing.data[0]
+        row     = existing.data[0]
+        new_key = "nbf_" + secrets.token_urlsafe(32)
+        db.table("api_keys").update({
+            "key_hash": hash_key(new_key),
+        }).eq("id", row["id"]).execute()
         return CreateKeyResponse(
-            api_key     = row.get("raw_key") or "nbf_" + row["key_hash"][:32],
+            api_key     = new_key,
             email       = user_email,
             tier        = row["tier"],
             fixes_limit = row["fixes_limit"],
             fixes_used  = row.get("fixes_used", 0),
-            message     = "Existing key retrieved.",
+            message     = "New key generated (previous key revoked).",
         )
 
-    # Create new key
+    # Create new key. Only the hash is persisted — the plaintext lives solely in
+    # this response and is never stored server-side.
     raw_key = "nbf_" + secrets.token_urlsafe(32)
     db.table("api_keys").insert({
         "key_hash":          hash_key(raw_key),
-        "raw_key":           raw_key,
         "user_email":        user_email,
         "supabase_user_id":  user_id,
         "tier":              "free",
