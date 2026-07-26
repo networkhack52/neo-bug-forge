@@ -26,6 +26,7 @@ import hashlib
 import hmac
 import uuid
 import asyncio
+import ipaddress
 from datetime import datetime
 from typing import Optional, Literal
 from contextlib import asynccontextmanager
@@ -56,7 +57,8 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRICE_PRO  = os.environ.get("STRIPE_PRICE_PRO", "")   # price_xxx for Pro $12/mo
 STRIPE_PRICE_TEAM = os.environ.get("STRIPE_PRICE_TEAM", "")  # price_xxx for Team $49/mo
 ADMIN_EMAIL       = os.environ.get("ADMIN_EMAIL", "ya7308312@gmail.com")
-MODEL             = "claude-haiku-4-5-20251001"
+FIX_MODEL         = "claude-sonnet-5"            # launch week — revert to READ_MODEL after the HN spike
+READ_MODEL        = "claude-haiku-4-5-20251001"
 MAX_TOKENS        = 16000
 
 from database import lookup_api_key, check_and_increment_quota, save_fix, get_fix_by_id
@@ -66,9 +68,18 @@ from database import lookup_api_key, check_and_increment_quota, save_fix, get_fi
 # the internal proxy IP, meaning ALL users share one bucket. Use X-Forwarded-For
 # so each real user gets their own rate-limit counter.
 def get_real_ip(request: Request) -> str:
-    forwarded = request.headers.get("X-Forwarded-For")
+    # SECURITY: the leftmost X-Forwarded-For entry is CLIENT-CONTROLLED — anyone
+    # can spoof it to bypass per-IP rate limits. Walk the chain right-to-left and
+    # take the first public IP: that's the address our edge proxy actually saw.
+    forwarded = request.headers.get("X-Forwarded-For", "")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        for part in reversed([p.strip() for p in forwarded.split(",") if p.strip()]):
+            try:
+                ip = ipaddress.ip_address(part)
+                if not (ip.is_private or ip.is_loopback or ip.is_reserved or ip.is_link_local):
+                    return part
+            except ValueError:
+                continue
     return request.client.host if request.client else "127.0.0.1"
 
 limiter = Limiter(key_func=get_real_ip)
@@ -242,8 +253,8 @@ def build_prompt(code: str, error: str, language: str) -> str:
 A developer has submitted broken code and its error message.
 
 Tasks:
-1. Identify the exact root cause.
-2. Fix the code without changing original intent or logic.
+1. Identify the exact root cause. A missing error message does NOT mean the code is bug-free — logic bugs produce wrong results without raising anything.
+2. Fix the code so it does what the developer clearly intended. Preserve their intent, naming, and structure — but DO change whatever logic causes the bug. A "fix" that changes no behavior is not a fix.
 3. IMPORTANT — if the bug can be legitimately fixed in more than one way (for example, changing the caller vs. changing the function itself), pick the fix that best preserves the apparent intent, and explicitly say in the explanation that an alternative exists and how to decide between them. Never silently choose for the developer when the choice depends on what they meant.
 4. Generate a minimal unit test that would have caught this bug. Begin the test with a one-line comment stating what it catches and why, so the developer learns what makes a good regression test.
 5. Return ONLY a raw JSON object — no markdown, no extra text.
@@ -254,6 +265,9 @@ ACCURACY RULES (critical — a confident falsehood is worse than saying nothing)
 - Describe what an operation DOES (e.g. "raises TypeError because integers are not iterable"), not an imagined internal process.
 - If a claim would need verification to be safe to teach, leave it out. Completeness never outranks correctness.
 - Verify any arithmetic in your test assertions before writing them.
+- If you conclude there is NO bug, return the code unchanged, set confidence to 0, and say plainly in the explanation that you found no bug. NEVER return functionally unchanged code with confidence above 0 — an unchanged "fix" presented confidently is the worst possible output.
+- VERIFY YOUR FIX BEFORE RETURNING: mentally execute the fixed code on (a) the input that triggers the reported bug, (b) missing/undefined/null inputs, and (c) zero/empty/falsy inputs. If any path now produces NaN, undefined, a throw, or a wrong value that the original handled, your fix is wrong — redo it. Classic example: in JavaScript, `Number(x) ?? d` NEVER applies the default because Number(undefined) is NaN, not null; the correct form is `Number(x ?? d)`.
+- The test_case must cover BOTH the originally-failing input AND the default/missing-input path, so a fix that breaks one while fixing the other cannot pass.
 
 Required JSON shape (all fields mandatory):
 {json_shape}
@@ -269,18 +283,27 @@ Required JSON shape (all fields mandatory):
 Respond with raw JSON only."""
 
 
-def run_fix(code: str, error: str, language: str) -> dict:
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY is not configured on the server.")
+def _normalized(code: str) -> str:
+    """Whitespace/semicolon-insensitive fingerprint, used to detect no-op 'fixes'.
+    Semicolon-only changes are only ever a real fix for syntax errors, and those
+    use the strict comparison in _is_noop_fix instead of this one."""
+    return "".join(code.split()).replace(";", "")
 
-    client = anthropic.Anthropic(api_key=api_key)
 
+def _is_noop_fix(broken: str, fixed: str, root_cause: str) -> bool:
+    # Whitespace-only changes CAN be a real fix for syntax/indentation errors,
+    # so compare those strictly; everything else ignores formatting.
+    if root_cause == "syntax_error":
+        return broken.strip() == fixed.strip()
+    return _normalized(broken) == _normalized(fixed)
+
+
+def _call_model(client: anthropic.Anthropic, prompt: str) -> dict:
     try:
         message = client.messages.create(
-            model=MODEL,
+            model=FIX_MODEL,
             max_tokens=MAX_TOKENS,
-            messages=[{"role": "user", "content": build_prompt(code, error, language)}],
+            messages=[{"role": "user", "content": prompt}],
         )
     except anthropic.AuthenticationError:
         raise ValueError("Server API key is invalid.")
@@ -301,6 +324,44 @@ def run_fix(code: str, error: str, language: str) -> dict:
     for key in ("fixed_code", "explanation", "root_cause", "confidence", "diff", "test_case"):
         if key not in result:
             raise ValueError(f"Response missing field: {key}")
+
+    return result
+
+
+def run_fix(code: str, error: str, language: str) -> dict:
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise ValueError("ANTHROPIC_API_KEY is not configured on the server.")
+
+    client = anthropic.Anthropic(api_key=api_key)
+    prompt = build_prompt(code, error, language)
+    result = _call_model(client, prompt)
+
+    # No-op guard: never ship an unchanged "fix" with confidence. Retry once
+    # with a corrective instruction; if still unchanged, degrade honestly.
+    if _is_noop_fix(code, result["fixed_code"], str(result.get("root_cause", ""))) \
+            and int(result.get("confidence", 0)) > 0:
+        print("[noop-guard] model returned unchanged code with confidence "
+              f"{result.get('confidence')} — retrying once")
+        retry_prompt = prompt + (
+            "\n\nIMPORTANT: A previous attempt returned the code functionally "
+            "UNCHANGED while claiming a confident fix. That is not acceptable. "
+            "Either apply a real fix that changes behavior, or — if you truly "
+            "find no bug — return the code unchanged with confidence 0 and say "
+            "so plainly in the explanation."
+        )
+        result = _call_model(client, retry_prompt)
+        if _is_noop_fix(code, result["fixed_code"], str(result.get("root_cause", ""))) \
+                and int(result.get("confidence", 0)) > 0:
+            print("[noop-guard] retry also unchanged — forcing confidence to 0")
+            result["confidence"] = 0
+            result["diff"] = ""
+            result["explanation"] = (
+                "Neo Bug Forge did not apply a fix — the code was returned "
+                "unchanged, so no confident fix is claimed. The analysis below "
+                "may still help you judge the code yourself: "
+                + str(result.get("explanation", ""))
+            )
 
     return result
 
@@ -343,7 +404,7 @@ def run_read(code: str, language: str) -> dict:
 
     try:
         message = client.messages.create(
-            model=MODEL,
+            model=READ_MODEL,
             max_tokens=1536,
             messages=[{"role": "user", "content": build_read_prompt(code, language)}],
         )
