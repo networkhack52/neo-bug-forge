@@ -57,7 +57,8 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRICE_PRO  = os.environ.get("STRIPE_PRICE_PRO", "")   # price_xxx for Pro $12/mo
 STRIPE_PRICE_TEAM = os.environ.get("STRIPE_PRICE_TEAM", "")  # price_xxx for Team $49/mo
 ADMIN_EMAIL       = os.environ.get("ADMIN_EMAIL", "ya7308312@gmail.com")
-MODEL             = "claude-haiku-4-5-20251001"
+FIX_MODEL         = "claude-sonnet-5"            # launch week — revert to READ_MODEL after the HN spike
+READ_MODEL        = "claude-haiku-4-5-20251001"
 MAX_TOKENS        = 16000
 
 from database import lookup_api_key, check_and_increment_quota, save_fix, get_fix_by_id
@@ -300,7 +301,7 @@ def _is_noop_fix(broken: str, fixed: str, root_cause: str) -> bool:
 def _call_model(client: anthropic.Anthropic, prompt: str) -> dict:
     try:
         message = client.messages.create(
-            model=MODEL,
+            model=FIX_MODEL,
             max_tokens=MAX_TOKENS,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -403,7 +404,7 @@ def run_read(code: str, language: str) -> dict:
 
     try:
         message = client.messages.create(
-            model=MODEL,
+            model=READ_MODEL,
             max_tokens=1536,
             messages=[{"role": "user", "content": build_read_prompt(code, language)}],
         )
