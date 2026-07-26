@@ -314,7 +314,10 @@ def _call_model(client: anthropic.Anthropic, prompt: str) -> dict:
     except anthropic.APIStatusError as e:
         raise RuntimeError(f"Claude API error {e.status_code}: {e.message}")
 
-    raw = strip_code_fences(message.content[0].text)
+    raw = strip_code_fences("".join(
+        block.text for block in message.content
+        if hasattr(block, "text") and block.text is not None
+    ))
 
     try:
         result = json.loads(raw)
@@ -417,7 +420,10 @@ def run_read(code: str, language: str) -> dict:
     except anthropic.APIStatusError as e:
         raise RuntimeError(f"Claude API error {e.status_code}: {e.message}")
 
-    raw = strip_code_fences(message.content[0].text)
+    raw = strip_code_fences("".join(
+        block.text for block in message.content
+        if hasattr(block, "text") and block.text is not None
+    ))
 
     try:
         result = json.loads(raw)
