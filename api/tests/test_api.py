@@ -231,3 +231,99 @@ class TestEndpoints:
     def test_authenticated_fix_requires_api_key_header(self, client):
         resp = client.post("/v1/fix", json={"broken_code": "x = 1"})
         assert resp.status_code == 422  # missing required X-API-Key header
+
+
+# ─── /v1/keys — plaintext-storage & rotation security ──────────────────────────
+# A minimal fake of the Supabase query builder, recording what create_key writes.
+
+class _FakeResult:
+    def __init__(self, data):
+        self.data = data
+
+
+class _FakeTable:
+    def __init__(self, store):
+        self._store = store
+        self._op = None
+
+    def select(self, *a, **k):
+        self._op = "select"
+        return self
+
+    def insert(self, payload):
+        self._op = "insert"
+        self._store["inserted"].append(payload)
+        return self
+
+    def update(self, payload):
+        self._op = "update"
+        self._store["updated"].append(payload)
+        return self
+
+    def eq(self, *a, **k):
+        return self
+
+    def single(self):
+        return self
+
+    def execute(self):
+        # Only select's return value is consumed by create_key.
+        return _FakeResult(self._store["existing"] if self._op == "select" else None)
+
+
+class _FakeDB:
+    def __init__(self, store):
+        self._store = store
+
+    def table(self, _name):
+        return _FakeTable(self._store)
+
+
+class TestCreateKeySecurity:
+    """POST /v1/keys must never persist plaintext, and must rotate on repeat."""
+
+    def _patch_db(self, monkeypatch, existing):
+        import database
+        store = {"existing": existing, "inserted": [], "updated": []}
+        monkeypatch.setattr(database, "get_db", lambda: _FakeDB(store))
+        return store
+
+    def test_creation_does_not_store_raw_key(self, monkeypatch):
+        store = self._patch_db(monkeypatch, existing=[])
+        client = TestClient(app)
+        resp = client.post("/v1/keys", json={"email": "new@example.com"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["api_key"].startswith("nbf_")
+        assert body["message"] == "API key created."
+        # The whole point: exactly one insert, and it must NOT carry raw_key.
+        assert len(store["inserted"]) == 1
+        payload = store["inserted"][0]
+        assert "raw_key" not in payload
+        assert "key_hash" in payload
+        assert payload["key_hash"] != body["api_key"]  # hash stored, not plaintext
+
+    def test_repeat_request_rotates_and_preserves_tier_and_usage(self, monkeypatch):
+        from database import hash_key
+        old_key = "nbf_oldkey_plaintext"
+        existing_row = {
+            "id": "row-1", "tier": "pro", "fixes_limit": 500,
+            "fixes_used": 42, "key_hash": hash_key(old_key),
+        }
+        store = self._patch_db(monkeypatch, existing=[existing_row])
+        client = TestClient(app)
+        resp = client.post("/v1/keys", json={"email": "existing@example.com"})
+        assert resp.status_code == 200
+        body = resp.json()
+
+        assert body["message"] == "New key generated (previous key revoked)."
+        # Tier and usage are carried over unchanged.
+        assert body["tier"] == "pro"
+        assert body["fixes_limit"] == 500
+        assert body["fixes_used"] == 42
+        # Rotation = update in place (no new row), and ONLY key_hash changes.
+        assert len(store["inserted"]) == 0
+        assert len(store["updated"]) == 1
+        assert store["updated"][0] == {"key_hash": hash_key(body["api_key"])}
+        # The old key can no longer authenticate.
+        assert hash_key(body["api_key"]) != hash_key(old_key)
