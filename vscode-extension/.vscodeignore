@@ -6,3 +6,4 @@ tsconfig.json
 **/*.ts
 **/*.map
 .env
+demo-v4.gif
