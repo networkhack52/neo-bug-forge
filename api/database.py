@@ -17,10 +17,18 @@ def get_db() -> Client:
 
 
 def hash_key(api_key: str) -> str:
+    # Unsalted SHA-256 is acceptable here: API keys are high-entropy
+    # (secrets.token_urlsafe(32) ≈ 256 bits of randomness), so they are not
+    # brute-forceable and are immune to rainbow-table / dictionary attacks that
+    # make salting necessary for low-entropy human passwords. A per-key salt
+    # would add nothing given the input is already uniformly random and secret.
     return hashlib.sha256(api_key.encode()).hexdigest()
 
 
 def lookup_api_key(api_key: str) -> dict | None:
+    # Authentication is by hash comparison only: we hash the presented key and
+    # look up the row whose stored key_hash matches. No plaintext key is stored,
+    # so this is the sole way a key is verified.
     try:
         db = get_db()
         result = (

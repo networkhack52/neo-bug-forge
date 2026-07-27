@@ -22,7 +22,7 @@
 import * as vscode from "vscode";
 import * as path   from "path";
 import * as fs     from "fs";
-import { runBugForge, applyFixWithDiff, trackFixAndPromptReview } from "./extension";
+import { runBugForge, applyFixWithDiff } from "./extension";
 
 export interface PrefillPayload {
   code:         string;
@@ -106,9 +106,6 @@ export class NeoBugForgePanel {
             vscode.commands.executeCommand("neo-bug-forge.setApiKey");
             break;
 
-          case "openPromo":
-            vscode.env.openExternal(vscode.Uri.parse("https://marketplace.visualstudio.com/items?itemName=neobugforge.neo-bug-forge&ssr=false#review-details"));
-            break;
 
           case "saveTest": {
             const { testCode, language } = message.payload as { testCode: string; language: string };
@@ -161,8 +158,6 @@ export class NeoBugForgePanel {
     try {
       const result = await runBugForge(this._context, payload);
       this._panel.webview.postMessage({ command: "result", payload: result });
-      // Track fix count and maybe prompt for a review (fire-and-forget)
-      trackFixAndPromptReview(this._context).catch(() => {});
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "An unexpected error occurred.";
       this._panel.webview.postMessage({ command: "error", payload: { message } });
@@ -407,34 +402,6 @@ function getWebviewContent(): string {
     color: var(--blue);
   }
 
-  /* ── Promo banner ── */
-  .promo-banner {
-    background: linear-gradient(135deg, #1a1a00, #111100);
-    border: 1px solid #ffcc0050;
-    border-radius: 4px;
-    padding: 9px 12px;
-    display: flex; align-items: center; gap: 8px;
-    flex-shrink: 0;
-  }
-  .promo-text {
-    flex: 1; font-size: 10px; color: var(--yellow); line-height: 1.5;
-  }
-  .promo-text strong { font-weight: 700; }
-  .promo-link {
-    font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    padding: 4px 9px; border-radius: 2px;
-    border: 1px solid var(--yellow); color: var(--yellow);
-    background: transparent; cursor: pointer;
-    font-family: var(--mono); transition: all 0.15s; white-space: nowrap;
-  }
-  .promo-link:hover { background: #ffcc0015; }
-  .promo-close {
-    background: none; border: none; color: var(--muted);
-    font-size: 12px; cursor: pointer; padding: 0 2px; line-height: 1;
-    transition: color 0.15s;
-  }
-  .promo-close:hover { color: var(--text); }
-
   /* ── Error box ── */
   .error-box {
     display: none; background: #ff444410; border: 1px solid #ff444440;
@@ -532,15 +499,6 @@ function getWebviewContent(): string {
   </div>
 
 </div><!-- /main -->
-
-<!-- ── Promo banner (sticky bottom) ── -->
-<div id="promo-wrap" style="padding:10px 14px 0; background:var(--bg); flex-shrink:0;">
-  <div class="promo-banner">
-    <div class="promo-text">⭐ <strong>Leave a review</strong> and get Pro free — for the first 50 reviewers.</div>
-    <button class="promo-link" onclick="openPromo()">Review →</button>
-    <button class="promo-close" onclick="dismissPromo()" title="Dismiss">✕</button>
-  </div>
-</div>
 
 <!-- ── Fix button (sticky bottom) ── -->
 <div style="padding:8px 14px 10px; background:var(--bg); flex-shrink:0;">
@@ -769,15 +727,6 @@ function getWebviewContent(): string {
   }
   function hideError()   { document.getElementById('error-box').classList.remove('visible'); }
   function hideResults() { document.getElementById('results').classList.remove('visible'); }
-
-  // ── Promo banner ────────────────────────────────────────────
-  function openPromo() {
-    vscodeApi.postMessage({ command: 'openPromo' });
-  }
-  function dismissPromo() {
-    const wrap = document.getElementById('promo-wrap');
-    if (wrap) wrap.style.display = 'none';
-  }
 
   function resetForm() {
     document.getElementById('code-input').value  = '';

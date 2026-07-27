@@ -88,6 +88,12 @@ const STYLES = `
   .btn-icon:hover { border-color: var(--accent2); color: var(--text); }
   .btn-icon.copied { border-color: var(--green); color: var(--green2); }
 
+  .confirm-box {
+    background: var(--bg3); border: 1px solid rgba(239,68,68,.35);
+    border-radius: 8px; padding: 1rem 1.25rem;
+    font-size: .875rem; color: var(--muted2);
+  }
+
   .tier-badge {
     display: inline-flex; align-items: center; gap: .4rem;
     font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
@@ -150,7 +156,13 @@ const STYLES = `
 
 export default function Dashboard() {
   const [user, setUser]         = useState(null);
-  const [keyRow, setKeyRow]     = useState(null);
+  const [usage, setUsage]       = useState(null);  // tier/quota only — never the key
+  const [hasKey, setHasKey]     = useState(false); // whether a key already exists
+  const [generatedKey, setGeneratedKey] = useState(null); // shown once, post-generate
+  const [keyMessage, setKeyMessage]     = useState("");
+  const [keyError, setKeyError]         = useState("");
+  const [generating, setGenerating]     = useState(false);
+  const [confirming, setConfirming]     = useState(false);
   const [loading, setLoading]   = useState(true);
   const [showKey, setShowKey]       = useState(false);
   const [copied, setCopied]         = useState(false);
@@ -175,7 +187,10 @@ export default function Dashboard() {
         window.history.replaceState({}, "", "/dashboard");
       }
 
-      await loadOrCreateKey(session);
+      // Load-time is READ ONLY: fetch usage for display. Never call /v1/keys
+      // here — that endpoint rotates (and revokes) the key, so it must only run
+      // behind an explicit, confirmed user action.
+      await loadUsage(session);
       setLoading(false);
     });
   }, []);
@@ -200,25 +215,53 @@ export default function Dashboard() {
     }
   }
 
-  async function loadOrCreateKey(session) {
-    // Call backend to get or create API key for this user
-    const res = await fetch(`${API_BASE}/v1/keys`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ label: "default" }),
+  async function loadUsage(session) {
+    // GET /v1/usage returns tier/quota only (no key). A 404 means no key exists
+    // yet, so we show "Generate" rather than "Rotate".
+    const res = await fetch(`${API_BASE}/v1/usage`, {
+      headers: { "Authorization": `Bearer ${session.access_token}` },
     });
     if (res.ok) {
-      const data = await res.json();
-      setKeyRow(data);
-    } else {
-      // Key may already exist — try fetching usage instead
-      const usageRes = await fetch(`${API_BASE}/v1/usage`, {
-        headers: { "Authorization": `Bearer ${session.access_token}` },
+      setUsage(await res.json());
+      setHasKey(true);
+    } else if (res.status === 404) {
+      setHasKey(false);
+    }
+  }
+
+  async function generateKey() {
+    // The confirmed, explicit action that mints (or rotates) the key. This is
+    // the ONLY place the frontend calls /v1/keys.
+    setGenerating(true);
+    setKeyError("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${API_BASE}/v1/keys`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ label: "default" }),
       });
-      if (usageRes.ok) setKeyRow(await usageRes.json());
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+      const data = await res.json();
+      setGeneratedKey(data.api_key);              // shown once — never re-fetchable
+      setKeyMessage(data.message || "");
+      setShowKey(true);
+      setHasKey(true);
+      // Keep the usage/tier display in sync with the fresh row.
+      setUsage(u => ({
+        ...(u || {}),
+        tier:        data.tier,
+        fixes_used:  data.fixes_used,
+        fixes_limit: data.fixes_limit,
+      }));
+    } catch (e) {
+      setKeyError(e.message || "Could not generate key. Please try again.");
+    } finally {
+      setGenerating(false);
+      setConfirming(false);
     }
   }
 
@@ -228,8 +271,8 @@ export default function Dashboard() {
   }
 
   function handleCopy() {
-    if (!keyRow?.api_key) return;
-    navigator.clipboard.writeText(keyRow.api_key).then(() => {
+    if (!generatedKey) return;
+    navigator.clipboard.writeText(generatedKey).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -242,9 +285,11 @@ export default function Dashboard() {
     </>
   );
 
-  const tier       = keyRow?.tier || "free";
-  const fixesUsed  = keyRow?.fixes_used ?? 0;
-  const fixesLimit = tier === "free" ? 100 : tier === "pro" ? 500 : null;
+  const tier       = usage?.tier || "free";
+  const fixesUsed  = usage?.fixes_used ?? 0;
+  const fixesLimit = usage?.is_unlimited
+    ? null
+    : (usage?.fixes_limit ?? (tier === "free" ? 100 : tier === "pro" ? 500 : null));
   const pct        = fixesLimit ? Math.min((fixesUsed / fixesLimit) * 100, 100) : 0;
 
   return (
@@ -294,20 +339,58 @@ export default function Dashboard() {
         {/* API Key */}
         <div className="key-card">
           <h2>Your API Key</h2>
-          <p>Use this key in the VS Code extension or any API request. Keep it secret — don't share it.</p>
-          <div className="key-box">
-            <span className="key-value">
-              {keyRow?.api_key
-                ? (showKey ? keyRow.api_key : keyRow.api_key.slice(0, 8) + "••••••••••••••••••••••••••••••••")
-                : "Generating key..."}
-            </span>
-            <button className="btn-icon" onClick={() => setShowKey(v => !v)}>
-              {showKey ? "Hide" : "Show"}
-            </button>
-            <button className={`btn-icon ${copied ? "copied" : ""}`} onClick={handleCopy}>
-              {copied ? "✓ Copied" : "Copy"}
-            </button>
-          </div>
+
+          {generatedKey ? (
+            <>
+              <p style={{ color: "var(--green2)" }}>
+                {keyMessage || "Key generated."} Copy it now — for your security it is
+                only shown once and cannot be retrieved again.
+              </p>
+              <div className="key-box">
+                <span className="key-value">
+                  {showKey ? generatedKey : generatedKey.slice(0, 8) + "••••••••••••••••••••••••••••••••"}
+                </span>
+                <button className="btn-icon" onClick={() => setShowKey(v => !v)}>
+                  {showKey ? "Hide" : "Show"}
+                </button>
+                <button className={`btn-icon ${copied ? "copied" : ""}`} onClick={handleCopy}>
+                  {copied ? "✓ Copied" : "Copy"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>
+                We only store a hashed version of your key, so it can't be shown again
+                after creation.{" "}
+                {hasKey
+                  ? "Generating a new key revokes your current one immediately."
+                  : "Generate a key to use in the VS Code extension or any API request."}
+              </p>
+              {!confirming ? (
+                <button className="btn-icon" onClick={() => { setKeyError(""); setConfirming(true); }} disabled={generating}>
+                  {hasKey ? "Rotate API key" : "Generate API key"}
+                </button>
+              ) : (
+                <div className="confirm-box">
+                  <span>
+                    {hasKey
+                      ? "Rotate now? Your current key stops working immediately, and any app using it (including the VS Code extension) must be updated with the new key."
+                      : "Generate a new API key for your account?"}
+                  </span>
+                  <div style={{ display: "flex", gap: ".5rem", marginTop: ".85rem" }}>
+                    <button className="btn-icon" onClick={generateKey} disabled={generating}>
+                      {generating ? "Working…" : hasKey ? "Yes, rotate & revoke old key" : "Yes, generate"}
+                    </button>
+                    <button className="btn-icon" onClick={() => setConfirming(false)} disabled={generating}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              {keyError && <p style={{ color: "#ef4444", marginTop: ".75rem" }}>{keyError}</p>}
+            </>
+          )}
 
           {fixesLimit && (
             <div className="quota-bar-wrap">
