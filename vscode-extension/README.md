@@ -4,6 +4,8 @@
 
 Neo Bug Forge fixes the bug *and* makes sure you understand it — the concept behind it, why you hit it, and what to watch for next time. Click any red squiggle, stay in your editor, come out a better developer.
 
+![Neo Bug Forge in action](https://raw.githubusercontent.com/networkhack52/neo-bug-forge/main/vscode-extension/demo-v4.gif)
+
 ## Key Features
 
 - 🎓 **Teaches, doesn't just patch** — every fix names the underlying concept and the mental-model gap that caused the bug, in plain English
