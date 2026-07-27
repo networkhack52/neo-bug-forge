@@ -5,7 +5,7 @@ Production-ready FastAPI microservice.
 
 Endpoints:
   POST /v1/fix          → fix a bug (requires X-API-Key header)
-  POST /v1/fix/public   → fix a bug (no auth, 10 req/day per IP)
+  POST /v1/fix/public   → fix a bug (no auth, 5 req/day per IP)
   GET  /v1/fix/{fix_id} → retrieve a previous fix by ID
   GET  /health          → liveness probe
   GET  /                → API info + quick-start
@@ -57,8 +57,8 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRICE_PRO  = os.environ.get("STRIPE_PRICE_PRO", "")   # price_xxx for Pro $12/mo
 STRIPE_PRICE_TEAM = os.environ.get("STRIPE_PRICE_TEAM", "")  # price_xxx for Team $49/mo
 ADMIN_EMAIL       = os.environ.get("ADMIN_EMAIL", "ya7308312@gmail.com")
-FIX_MODEL         = "claude-sonnet-5"            # launch week — revert to READ_MODEL after the HN spike
-READ_MODEL        = "claude-haiku-4-5-20251001"
+FIX_MODEL         = os.environ.get("FIX_MODEL", "claude-sonnet-5")   # flip to Haiku via Render env var if credit runs low — no deploy needed
+READ_MODEL        = os.environ.get("READ_MODEL", "claude-haiku-4-5-20251001")
 MAX_TOKENS        = 16000
 
 from database import lookup_api_key, check_and_increment_quota, save_fix, get_fix_by_id
@@ -68,6 +68,16 @@ from database import lookup_api_key, check_and_increment_quota, save_fix, get_fi
 # the internal proxy IP, meaning ALL users share one bucket. Use X-Forwarded-For
 # so each real user gets their own rate-limit counter.
 def get_real_ip(request: Request) -> str:
+    # We're behind Cloudflare: it sets CF-Connecting-IP to the real client IP.
+    # Prefer it — the rightmost X-Forwarded-For hop here is Cloudflare's own
+    # egress IP, which would put ALL users into a few shared rate-limit buckets.
+    cf_ip = request.headers.get("CF-Connecting-IP", "").strip()
+    if cf_ip:
+        try:
+            ipaddress.ip_address(cf_ip)
+            return cf_ip
+        except ValueError:
+            pass
     # SECURITY: the leftmost X-Forwarded-For entry is CLIENT-CONTROLLED — anyone
     # can spoof it to bypass per-IP rate limits. Walk the chain right-to-left and
     # take the first public IP: that's the address our edge proxy actually saw.
@@ -552,7 +562,7 @@ def root():
         "version": "1.0.0",
         "docs": "/docs",
         "endpoints": {
-            "public_fix":    "POST /v1/fix/public   (10 req/day, no auth)",
+            "public_fix":    "POST /v1/fix/public   (5 req/day, no auth)",
             "authenticated": "POST /v1/fix          (requires X-API-Key header)",
             "read":          "POST /v1/read/public  (15 req/day, explain code, no auth)",
             "retrieve":      "GET  /v1/fix/{fix_id}",
@@ -587,8 +597,8 @@ async def fix_authenticated(request: Request, body: FixRequest,
 
 
 @app.post("/v1/fix/public", response_model=FixResponse, tags=["Fix"],
-          summary="Fix a bug (public — 10 req/day per IP)")
-@limiter.limit("10/day")
+          summary="Fix a bug (public — 5 req/day per IP)")
+@limiter.limit("5/day")
 async def fix_public(request: Request, body: FixRequest):
     real_ip    = get_real_ip(request)
     raw_id     = request.headers.get("x-install-id", "")
@@ -682,7 +692,7 @@ async def _process_fix(body: FixRequest, key_row: dict | None = None) -> FixResp
         test_case   = result["test_case"],
         language    = body.language or "auto",
         created_at  = datetime.utcnow().isoformat() + "Z",
-        share_url   = f"https://neobugforge.io/fix/{fix_id}",
+        share_url   = f"https://api.neobugforge.io/v1/fix/{fix_id}",
     )
 
     # Persist to Supabase (non-blocking)
