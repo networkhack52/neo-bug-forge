@@ -327,3 +327,40 @@ class TestCreateKeySecurity:
         assert store["updated"][0] == {"key_hash": hash_key(body["api_key"])}
         # The old key can no longer authenticate.
         assert hash_key(body["api_key"]) != hash_key(old_key)
+
+
+# ─── Cloudflare origin-secret middleware ───────────────────────────────────────
+
+class TestOriginSecret:
+    """When ORIGIN_SECRET is set, only requests carrying the matching header
+    (i.e. proxied through Cloudflare) are allowed; direct-to-origin is rejected."""
+
+    def _client(self):
+        return TestClient(app)
+
+    def test_no_enforcement_when_secret_unset(self, monkeypatch):
+        monkeypatch.setattr(api, "ORIGIN_SECRET", "")
+        resp = self._client().get("/")
+        assert resp.status_code == 200
+
+    def test_missing_header_rejected_when_secret_set(self, monkeypatch):
+        monkeypatch.setattr(api, "ORIGIN_SECRET", "s3cret")
+        resp = self._client().get("/")
+        assert resp.status_code == 403
+        assert "Direct origin access" in resp.json()["error"]
+
+    def test_wrong_header_rejected(self, monkeypatch):
+        monkeypatch.setattr(api, "ORIGIN_SECRET", "s3cret")
+        resp = self._client().get("/", headers={"X-Origin-Secret": "nope"})
+        assert resp.status_code == 403
+
+    def test_correct_header_allowed(self, monkeypatch):
+        monkeypatch.setattr(api, "ORIGIN_SECRET", "s3cret")
+        resp = self._client().get("/", headers={"X-Origin-Secret": "s3cret"})
+        assert resp.status_code == 200
+
+    def test_health_exempt_even_without_header(self, monkeypatch):
+        # Render's liveness probe hits the origin directly, not via Cloudflare.
+        monkeypatch.setattr(api, "ORIGIN_SECRET", "s3cret")
+        resp = self._client().get("/health")
+        assert resp.status_code == 200

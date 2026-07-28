@@ -57,6 +57,12 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRICE_PRO  = os.environ.get("STRIPE_PRICE_PRO", "")   # price_xxx for Pro $12/mo
 STRIPE_PRICE_TEAM = os.environ.get("STRIPE_PRICE_TEAM", "")  # price_xxx for Team $49/mo
 ADMIN_EMAIL       = os.environ.get("ADMIN_EMAIL", "ya7308312@gmail.com")
+# Shared secret proving a request came through our Cloudflare edge (Cloudflare
+# injects it as a request header). When set, requests reaching the origin
+# WITHOUT it are rejected — this stops anyone from hitting the origin directly
+# with a spoofed CF-Connecting-IP to bypass per-IP rate limits. Leave empty to
+# disable the check (e.g. before Cloudflare is configured, or in local dev).
+ORIGIN_SECRET     = os.environ.get("ORIGIN_SECRET", "")
 FIX_MODEL         = os.environ.get("FIX_MODEL", "claude-sonnet-5")   # flip to Haiku via Render env var if credit runs low — no deploy needed
 READ_MODEL        = os.environ.get("READ_MODEL", "claude-haiku-4-5-20251001")
 MAX_TOKENS        = 16000
@@ -187,6 +193,29 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def require_cloudflare_origin(request: Request, call_next):
+    """Reject requests that didn't come through our Cloudflare edge.
+
+    Cloudflare is configured to add the X-Origin-Secret header to every request
+    it proxies. A request arriving at the origin without a matching value came
+    direct (bypassing Cloudflare) and could be spoofing CF-Connecting-IP to
+    dodge rate limits, so we drop it. No-op until ORIGIN_SECRET is set, so
+    nothing breaks before Cloudflare/Render are configured.
+
+    Exemptions: OPTIONS (CORS preflight) and /health (Render pings the origin
+    directly for liveness, not through Cloudflare).
+    """
+    if ORIGIN_SECRET and request.method != "OPTIONS" and request.url.path != "/health":
+        supplied = request.headers.get("X-Origin-Secret", "")
+        if not hmac.compare_digest(supplied, ORIGIN_SECRET):
+            return JSONResponse(
+                status_code=403,
+                content={"error": "Direct origin access is not allowed."},
+            )
+    return await call_next(request)
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
 
