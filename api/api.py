@@ -133,6 +133,7 @@ class HealthResponse(BaseModel):
     environment:          str
     timestamp:            str
     anthropic_configured: bool
+    origin_secret_configured: bool
 
 
 class ReadRequest(BaseModel):
@@ -617,6 +618,7 @@ def health():
         environment=ENVIRONMENT,
         timestamp=datetime.utcnow().isoformat() + "Z",
         anthropic_configured=bool(ANTHROPIC_API_KEY),
+        origin_secret_configured=bool(ORIGIN_SECRET),
     )
 
 
