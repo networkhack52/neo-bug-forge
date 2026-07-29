@@ -20,9 +20,36 @@ must be true **before you post**.
    ⚠️ Without this, someone can hit the Render origin directly with a forged
    `CF-Connecting-IP` header and bypass per-IP rate limits. If you use A, leave
    `ORIGIN_SECRET` empty (the middleware stays dormant).
+   ⚠️ Before setting `ORIGIN_SECRET`: confirm `api.neobugforge.io` is proxied
+   through Cloudflare (**orange cloud**, not "DNS only") — otherwise the edge
+   never injects the header and every real browser/extension request gets 403'd.
 
-3. **RLS — ✅ DONE.** Verified `api_keys` and `fixes` have RLS enabled with no
-   anon policies (anon key gets zero rows). No action needed.
+   **Verify (one-glance) — `origin_secret_configured`:**
+   ```bash
+   # Through Cloudflare — must be 200 (the edge injects X-Origin-Secret):
+   curl -s -o /dev/null -w "cloudflare: %{http_code}\n" https://api.neobugforge.io/
+   # Straight to the Render origin — must be 403 (no header → rejected):
+   curl -s -o /dev/null -w "direct:     %{http_code}\n" https://<your-service>.onrender.com/
+   ```
+   Want: `cloudflare: 200` + `direct: 403`. If `direct: 200`, the origin is
+   unprotected (secret unset / origin reachable). If `cloudflare: 403`, the
+   Cloudflare header rule isn't firing — real users are being blocked, back it
+   out. (Option A instead? `direct` should be a connection refused/timeout, and
+   `ORIGIN_SECRET` stays empty.)
+
+3. **RLS — ✅ DONE.** `api_keys` and `fixes` have RLS enabled with no anon
+   policies (anon key gets zero rows).
+
+   **Verify (one-glance) — RLS enabled** (Supabase SQL editor):
+   ```sql
+   select relname, relrowsecurity as rls_enabled
+   from pg_class where relname in ('api_keys','fixes');   -- both must be true
+   ```
+   And confirm no anon policies snuck in (want **zero rows**):
+   ```sql
+   select tablename, policyname, roles from pg_policies
+   where tablename in ('api_keys','fixes');
+   ```
 
 4. **API-key `raw_key` migration.** After the security code is deployed, run in
    the Supabase SQL editor (skip if already done):
