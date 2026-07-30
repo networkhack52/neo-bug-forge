@@ -71,18 +71,17 @@ def check_and_increment_quota(key_id: str, tier: str, fixes_limit: int) -> tuple
 
 def save_fix(fix_id: str, key_id: str | None, body: dict, result: dict, tokens: int):
     db = get_db()
+    # PRIVACY: we deliberately store only non-sensitive metadata. The user's
+    # broken_code, fixed_code, explanation, diff, and test_case are NEVER
+    # persisted — they exist only in the live API response returned to the
+    # caller. (Those columns have been dropped from the `fixes` table.)
     db.table("fixes").insert({
         "fix_id":      fix_id,
         "key_id":      key_id,
         "language":    body.get("language") or "auto",
+        "root_cause":  result.get("root_cause"),
         "confidence":  result.get("confidence"),
         "tokens_used": tokens,
-        "broken_code": body.get("broken_code"),
-        "fixed_code":  result.get("fixed_code"),
-        "explanation": result.get("explanation"),
-        "root_cause":  result.get("root_cause"),
-        "diff":        result.get("diff"),
-        "test_case":   result.get("test_case"),
     }).execute()
     if key_id:
         row = (
