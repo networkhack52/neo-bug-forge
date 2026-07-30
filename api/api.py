@@ -128,6 +128,17 @@ class FixResponse(BaseModel):
     share_url:   str
 
 
+class FixMetaResponse(BaseModel):
+    # Shape returned by GET /v1/fix/{fix_id}. The code/explanation/diff/test_case
+    # are no longer stored (privacy), so a retrieved fix exposes only metadata.
+    fix_id:      str
+    language:    str
+    root_cause:  str
+    confidence:  int
+    created_at:  str
+    note:        str = "Fix content is not stored; only metadata is retained."
+
+
 class HealthResponse(BaseModel):
     status:               str
     environment:          str
@@ -678,13 +689,19 @@ async def read_public(request: Request, body: ReadRequest):
     )
 
 
-@app.get("/v1/fix/{fix_id}", response_model=FixResponse, tags=["Fix"],
-         summary="Retrieve a previous fix by ID")
+@app.get("/v1/fix/{fix_id}", response_model=FixMetaResponse, tags=["Fix"],
+         summary="Retrieve metadata for a previous fix by ID (content is not stored)")
 async def get_fix(fix_id: str):
     fix = get_fix_by_id(fix_id)
     if not fix:
         raise HTTPException(status_code=404, detail=f"Fix '{fix_id}' not found.")
-    return fix
+    return FixMetaResponse(
+        fix_id     = fix["fix_id"],
+        language   = fix.get("language") or "auto",
+        root_cause = fix.get("root_cause") or "unknown",
+        confidence = int(fix.get("confidence") or 0),
+        created_at = str(fix.get("created_at") or ""),
+    )
 
 # ─── Shared processing ────────────────────────────────────────────────────────
 

@@ -364,3 +364,70 @@ class TestOriginSecret:
         monkeypatch.setattr(api, "ORIGIN_SECRET", "s3cret")
         resp = self._client().get("/health")
         assert resp.status_code == 200
+
+
+# ─── save_fix privacy: only metadata is persisted ──────────────────────────────
+
+class TestSaveFixPrivacy:
+    """The fixes table must never receive the user's code or the fix content —
+    only non-sensitive metadata."""
+
+    def test_stores_only_metadata_never_code(self, monkeypatch):
+        import database
+
+        captured = {}
+
+        class _T:
+            def insert(self, payload):
+                captured["payload"] = payload
+                return self
+            def execute(self):
+                return type("R", (), {"data": None})()
+
+        class _DB:
+            def table(self, _name):
+                return _T()
+
+        monkeypatch.setattr(database, "get_db", lambda: _DB())
+
+        database.save_fix(
+            "fix123", None,
+            {"broken_code": "SECRET user code", "language": "python"},
+            {"fixed_code": "SECRET fix", "explanation": "e", "diff": "d",
+             "test_case": "t", "root_cause": "logic_error", "confidence": 90},
+            tokens=10,
+        )
+
+        p = captured["payload"]
+        # None of the sensitive content may be persisted.
+        for banned in ("broken_code", "fixed_code", "explanation", "diff", "test_case"):
+            assert banned not in p, f"{banned} must not be stored"
+        # Only metadata is retained.
+        assert p == {
+            "fix_id": "fix123", "key_id": None, "language": "python",
+            "root_cause": "logic_error", "confidence": 90, "tokens_used": 10,
+        }
+
+
+# ─── GET /v1/fix/{id}: metadata-only shape ─────────────────────────────────────
+
+class TestRetrieveFixShape:
+    def test_returns_metadata_only(self, monkeypatch):
+        monkeypatch.setattr(api, "get_fix_by_id", lambda fid: {
+            "fix_id": fid, "language": "python", "root_cause": "logic_error",
+            "confidence": 88, "created_at": "2026-07-30T00:00:00Z", "tokens_used": 5,
+        })
+        resp = TestClient(app).get("/v1/fix/abc123")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["fix_id"] == "abc123"
+        assert body["confidence"] == 88
+        assert "note" in body
+        # The content fields are gone.
+        for gone in ("fixed_code", "explanation", "diff", "test_case", "broken_code"):
+            assert gone not in body
+
+    def test_404_when_missing(self, monkeypatch):
+        monkeypatch.setattr(api, "get_fix_by_id", lambda fid: None)
+        resp = TestClient(app).get("/v1/fix/nope")
+        assert resp.status_code == 404
