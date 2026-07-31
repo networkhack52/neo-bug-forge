@@ -51,14 +51,36 @@ must be true **before you post**.
    where tablename in ('api_keys','fixes');
    ```
 
-4. **API-key `raw_key` migration.** After the security code is deployed, run in
-   the Supabase SQL editor (skip if already done):
+4. **Data-privacy migrations.** Run **after** the corresponding code is deployed
+   (code stops writing/reading these columns first, then drop them). Skip any
+   that are already done.
+
+   **a. API-key `raw_key`** (stop storing plaintext keys):
    ```sql
    UPDATE api_keys SET raw_key = NULL;      -- scrub existing plaintext first
    ALTER TABLE api_keys DROP COLUMN raw_key;
    ```
-   Verify with: `select column_name from information_schema.columns
-   where table_name='api_keys';` — `raw_key` should be gone.
+
+   **b. `fixes` content columns** (stop storing user code — makes "we store
+   nothing of your code" true, including for historical rows):
+   ```sql
+   ALTER TABLE fixes
+     DROP COLUMN IF EXISTS broken_code,
+     DROP COLUMN IF EXISTS fixed_code,
+     DROP COLUMN IF EXISTS explanation,
+     DROP COLUMN IF EXISTS diff,
+     DROP COLUMN IF EXISTS test_case;
+   ```
+
+   **Verify (one-glance) — no sensitive columns remain:**
+   ```sql
+   select table_name, column_name
+   from information_schema.columns
+   where (table_name = 'api_keys'  and column_name = 'raw_key')
+      or (table_name = 'fixes'     and column_name in
+          ('broken_code','fixed_code','explanation','diff','test_case'));
+   -- want ZERO rows
+   ```
 
 5. **Anthropic budget + cost lever.** Make sure the account has enough credit for
    a spike. `FIX_MODEL` defaults to `claude-sonnet-5` (pricey). If credit burns
