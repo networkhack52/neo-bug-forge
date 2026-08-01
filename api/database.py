@@ -36,7 +36,7 @@ def lookup_api_key(api_key: str) -> dict | None:
             .select("*")
             .eq("key_hash", hash_key(api_key))
             .eq("is_active", True)
-            .single()
+            .maybe_single()
             .execute()
         )
         return result.data
@@ -70,6 +70,10 @@ def check_and_increment_quota(key_id: str, tier: str, fixes_limit: int) -> tuple
 
 
 def save_fix(fix_id: str, key_id: str | None, body: dict, result: dict, tokens: int):
+    # PRIVACY: we deliberately do NOT persist the user's code or the model's
+    # output. Only non-identifying metadata is stored, so a database breach
+    # cannot expose anyone's source. Code exists in memory for the duration of
+    # the request and is sent only to Anthropic to produce the fix.
     db = get_db()
     db.table("fixes").insert({
         "fix_id":      fix_id,
@@ -77,12 +81,7 @@ def save_fix(fix_id: str, key_id: str | None, body: dict, result: dict, tokens: 
         "language":    body.get("language") or "auto",
         "confidence":  result.get("confidence"),
         "tokens_used": tokens,
-        "broken_code": body.get("broken_code"),
-        "fixed_code":  result.get("fixed_code"),
-        "explanation": result.get("explanation"),
         "root_cause":  result.get("root_cause"),
-        "diff":        result.get("diff"),
-        "test_case":   result.get("test_case"),
     }).execute()
     if key_id:
         row = (
