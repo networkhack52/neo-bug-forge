@@ -1,0 +1,109 @@
+import io
+
+from fastapi.testclient import TestClient
+from openpyxl import Workbook
+
+from app.main import app
+
+client = TestClient(app)
+
+
+def _token():
+    r = client.post("/v1/signup", json={"name": "Test Co", "email": "t@example.com"})
+    assert r.status_code == 200
+    return r.json()["api_token"]
+
+
+def _auth(token):
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _questionnaire_bytes():
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Question", "Answer"])
+    ws.append(["Do you enforce MFA for all employees?", ""])
+    ws.append(["Is data encrypted in transit?", ""])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_health():
+    r = client.get("/health")
+    assert r.status_code == 200
+    assert r.json()["status"] == "ok"
+
+
+def test_auth_required():
+    assert client.get("/v1/me").status_code == 401
+    assert client.get("/v1/me", headers=_auth("bogus")).status_code == 401
+
+
+def test_full_flow_signup_bank_upload_export():
+    token = _token()
+
+    # New org starts on free tier with empty bank.
+    me = client.get("/v1/me", headers=_auth(token)).json()
+    assert me["tier"] == "free"
+    assert me["bank_size"] == 0
+
+    # Seed the bank with the two answers the questionnaire will ask.
+    client.post("/v1/answers", headers=_auth(token), json={
+        "question": "Do you enforce multi-factor authentication (MFA) for all employees?",
+        "answer": "Yes, MFA is enforced for all employees.",
+    })
+    client.post("/v1/answers", headers=_auth(token), json={
+        "question": "Is data encrypted in transit?",
+        "answer": "Yes, TLS 1.2+ everywhere.",
+    })
+
+    # Upload a questionnaire -> auto-answered.
+    files = {"file": ("q.xlsx", _questionnaire_bytes(),
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    r = client.post("/v1/questionnaires", headers=_auth(token), files=files)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["total_questions"] == 2
+    assert body["reused_from_bank"] >= 1   # at least the verbatim MFA question
+
+    qid = body["questionnaire_id"]
+
+    # Usage was metered.
+    me = client.get("/v1/me", headers=_auth(token)).json()
+    assert me["questions_used"] == 2
+
+    # Export returns a real xlsx.
+    r = client.get(f"/v1/questionnaires/{qid}/export", headers=_auth(token))
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert len(r.content) > 0
+
+
+def test_free_tier_question_limit_enforced():
+    token = _token()
+    # Build a questionnaire with 30 questions (> free limit of 25).
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Question", "Answer"])
+    for i in range(30):
+        ws.append([f"Do you support control number {i}?", ""])
+    buf = io.BytesIO()
+    wb.save(buf)
+    files = {"file": ("big.xlsx", buf.getvalue(),
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    r = client.post("/v1/questionnaires", headers=_auth(token), files=files)
+    assert r.status_code == 402  # over plan allowance
+
+
+def test_simulated_upgrade_changes_tier():
+    token = _token()
+    r = client.post("/v1/billing/checkout", headers=_auth(token), json={"tier": "starter"})
+    assert r.status_code == 200
+    assert r.json()["simulated"] is True
+    r = client.post("/v1/billing/confirm", headers=_auth(token), json={"tier": "starter"})
+    assert r.status_code == 200
+    assert r.json()["tier"] == "starter"
+    assert r.json()["question_limit"] == 750

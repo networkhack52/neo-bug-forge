@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Data / DB
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Generated artifacts
+backend/sample_data/sample_questionnaire.xlsx
+backend/sample_data/sample_questionnaire_ANSWERED.xlsx
+
+# Node / Vite
+node_modules/
+dist/
+
+# Env
+.env
