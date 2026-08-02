@@ -50,7 +50,7 @@ You'll paste `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the three
 
 1. <https://dashboard.render.com> → **New → Web Service** → connect this repo.
 2. Settings:
-   - **Root Directory:** `attestly/backend`
+   - **Root Directory:** `backend`
    - **Build Command:** `pip install -r requirements.txt`
    - **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 3. **Environment → Add Environment Variable** (paste your real values):
@@ -78,14 +78,14 @@ You'll paste `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the three
 
 1. <https://vercel.com> → **Add New → Project** → import this repo.
 2. Settings:
-   - **Root Directory:** `attestly/frontend`
+   - **Root Directory:** `frontend`
    - Framework preset: **Vite** (build `npm run build`, output `dist`)
 3. **Environment Variables:**
    ```
    VITE_API_URL = https://<your-backend>      (the Render URL / api.attestly.io)
    ```
 4. Deploy. Open the URL, create a company, upload
-   `attestly/backend/sample_data/sample_questionnaire.xlsx`.
+   `backend/sample_data/sample_questionnaire.xlsx`.
 
 ---
 
