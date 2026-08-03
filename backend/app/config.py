@@ -8,6 +8,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+# Brand name is centralized so renaming the product (Attestly / ProofQ / …) is
+# a one-line change everywhere it is shown to users.
+BRAND_NAME = os.environ.get("ATTESTLY_BRAND", "Attestly")
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.environ.get("ATTESTLY_DATA_DIR", str(BASE_DIR / "data")))
 DATA_DIR.mkdir(parents=True, exist_ok=True)

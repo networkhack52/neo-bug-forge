@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beta SaaS — Security Questionnaire Readiness</title>
+<style>
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+         color:#0f172a; background:#f1f5f9; margin:0; padding:24px; }
+  .wrap { max-width:720px; margin:0 auto; background:#fff; border:1px solid #e2e8f0;
+          border-radius:16px; overflow:hidden; }
+  .head { padding:28px 32px; border-bottom:1px solid #e2e8f0; }
+  .brand { font-weight:700; color:#2563eb; letter-spacing:-.02em; }
+  h1 { font-size:22px; margin:12px 0 4px; }
+  .sub { color:#64748b; font-size:14px; }
+  .scorecard { display:flex; align-items:center; gap:24px; padding:28px 32px; background:#f8fafc; }
+  .grade { font-size:64px; font-weight:800; line-height:1; color:#dc2626; }
+  .score { font-size:15px; color:#334155; }
+  .score b { font-size:20px; }
+  .body { padding:8px 32px 28px; }
+  h2 { font-size:16px; margin:24px 0 8px; }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:10px 6px; border-bottom:1px solid #eef2f6; vertical-align:top; font-size:14px; }
+  .ico { width:24px; font-weight:800; font-size:16px; text-align:center; }
+  .note { color:#64748b; font-size:13px; margin-top:3px; }
+  .cost { background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:16px 20px; margin:20px 0; }
+  .cost b { color:#b91c1c; }
+  .badge { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; }
+  .badge.ok { background:#ecfdf5; color:#059669; }
+  .badge.no { background:#f1f5f9; color:#64748b; }
+  .ans { font-size:13px; color:#334155; margin-top:6px; }
+  .muted { color:#94a3b8; }
+  .cta { display:inline-block; background:#2563eb; color:#fff; text-decoration:none;
+         padding:12px 22px; border-radius:10px; font-weight:600; margin-top:8px; }
+  .foot { padding:20px 32px; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:12px; }
+</style></head>
+<body><div class="wrap">
+  <div class="head">
+    <div class="brand">◆ Attestly</div>
+    <h1>Security Questionnaire Readiness — Beta SaaS</h1>
+    <div class="sub">How prepared your team is to answer vendor security questionnaires fast.</div>
+  </div>
+  <div class="scorecard">
+    <div class="grade">D</div>
+    <div class="score"><b>40/100</b><br>High risk — you are likely losing deals to slow responses.</div>
+  </div>
+  <div class="body">
+    <h2>What we looked at</h2>
+    <table>
+        <tr>
+          <td class="ico" style="color:#dc2626">✕</td>
+          <td><strong>Maintains a reusable answer library</strong><div class="note">Re-typing the same answers is the #1 time sink; a reusable library is where 80% of the speed-up comes from.</div></td>
+        </tr>
+        <tr>
+          <td class="ico" style="color:#dc2626">✕</td>
+          <td><strong>Typically responds within 3 business days</strong><div class="note">78% of buyers pick whoever responds first; slow turnaround silently loses deals.</div></td>
+        </tr>
+        <tr>
+          <td class="ico" style="color:#dc2626">✕</td>
+          <td><strong>Has a completed SIG or CAIQ on file</strong><div class="note">A completed standard questionnaire becomes the template for answering the next one fast.</div></td>
+        </tr>
+        <tr>
+          <td class="ico" style="color:#dc2626">✕</td>
+          <td><strong>Volume is manageable for the current process</strong><div class="note">Rising questionnaire volume breaks manual processes exactly when you are trying to close bigger deals.</div></td>
+        </tr>
+        <tr>
+          <td class="ico" style="color:#059669">✓</td>
+          <td><strong>Holds SOC 2 / ISO 27001</strong></td>
+        </tr>
+        <tr>
+          <td class="ico" style="color:#059669">✓</td>
+          <td><strong>Public trust / security page</strong></td>
+        </tr>
+        <tr>
+          <td class="ico" style="color:#059669">✓</td>
+          <td><strong>A named owner for questionnaires</strong></td>
+        </tr></table>
+
+    <div class="cost">
+      At ~5 questionnaires/month, your team spends roughly
+      <b>42 recoverable hours every month</b> re-answering the same
+      questions — about <b>$54,000/year</b> of loaded time, before counting
+      deals slowed or lost to late responses.
+    </div>
+    
+        <h2>Live proof — 62% of a standard questionnaire auto-answered</h2>
+        <p class="muted">We ran a standard security questionnaire through Attestly using only a
+        generic starter library. With your own approved answers loaded, coverage climbs fast.</p>
+        <table class="sample">
+            <tr><td><strong>Do you enforce MFA for all staff?</strong><br><span class="badge ok">auto-answered · 80%</span><div class="ans">Yes. MFA is enforced for all employee access to internal systems, our identity provider (SSO), cloud infrastructure consoles, and code repositories. Access without a second factor …</div></td></tr>
+            <tr><td><strong>Is customer data encrypted at rest and in transit?</strong><br><span class="badge ok">auto-answered · 100%</span><div class="ans">Yes. All data in transit is encrypted using TLS 1.2 or higher. HTTP is redirected to HTTPS, HSTS is enabled, and internal service-to-service traffic within our cloud environment is…</div></td></tr>
+            <tr><td><strong>Do you have a SOC 2 Type II report?</strong><br><span class="badge ok">auto-answered · 100%</span><div class="ans">We maintain a SOC 2 Type II attestation covering the Security trust services criteria. A copy of the current report is available under NDA on request through your account contact.</div></td></tr>
+            <tr><td><strong>How long do you retain data after contract termination?</strong><br><span class="badge ok">auto-answered · 100%</span><div class="ans">Upon termination, customer data is retained for a short wind-down window (typically 30 days) to allow export, after which it is deleted from production systems. Backups age out on …</div></td></tr>
+            <tr><td><strong>Do you conduct annual penetration testing?</strong><br><span class="badge ok">auto-answered · 100%</span><div class="ans">Yes. We engage an independent third party to perform penetration testing at least annually and after significant architectural changes. A summary of the most recent test is availab…</div></td></tr>
+            <tr><td><strong>Will you notify us of a data breach, and how quickly?</strong><br><span class="badge no">needs input</span><div class="ans"><span class="muted">no match yet — becomes reusable once answered once</span></div></td></tr>
+            <tr><td><strong>Do you support SCIM user provisioning for our identity provider?</strong><br><span class="badge no">needs input</span><div class="ans"><span class="muted">no match yet — becomes reusable once answered once</span></div></td></tr>
+            <tr><td><strong>Can you provide a completed HECVAT for higher-education procurement?</strong><br><span class="badge no">needs input</span><div class="ans"><span class="muted">no match yet — becomes reusable once answered once</span></div></td></tr></table>
+
+    <h2>Close the gap</h2>
+    <p class="muted">Attestly turns your approved answers into a reusable bank, auto-answers the
+    repeats, and drafts the rest — so questionnaires take minutes, not weeks.</p>
+    <a class="cta" href="https://app.proofq.io">Answer your next questionnaire free →</a>
+  </div>
+  <div class="foot">Prepared by Attestly. Estimates are directional, based on the signals provided.</div>
+</div></body></html>

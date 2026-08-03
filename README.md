@@ -110,6 +110,21 @@ For each question:
    returning a confidence score and a `needs_review` flag.
 4. Approved answers **flow back into the Bank**, so reuse compounds.
 
+## Readiness Assessment (sales asset)
+
+Generate a shareable, self-contained readiness report to send prospects
+(assessment-based selling — see [`SALES_PLAYBOOK.md`](SALES_PLAYBOOK.md)):
+
+```bash
+cd backend
+python -m app.make_assessment "Prospect Inc" --soc2 --trust-page --volume 6 \
+  --cta "https://app.yourbrand.io" --out prospect.html
+```
+
+Or via the public API: `POST /v1/assessment` (JSON) and
+`POST /v1/assessment/report` (HTML). Example output:
+`backend/sample_data/sample_assessment_report.html`.
+
 ## Pricing
 
 | Plan | Price | Answers/mo | Bank |

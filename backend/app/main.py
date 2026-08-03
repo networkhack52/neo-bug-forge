@@ -12,9 +12,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
-from . import __version__, billing, config, db, engine, export, parsing
+from . import __version__, assessment as assess, billing, config, db, engine, export, parsing
+from .report import render as render_report
 
 
 @asynccontextmanager
@@ -81,6 +82,44 @@ def health() -> dict:
 @app.get("/v1/plans")
 def plans() -> dict:
     return {"plans": config.TIERS}
+
+
+# --------------------------------------------------------------------------
+# Readiness assessment (public — lead magnet / outbound asset)
+# --------------------------------------------------------------------------
+@app.post("/v1/assessment")
+def assessment_json(body: dict) -> dict:
+    company = (body.get("company") or "Your company").strip()
+    signals = body.get("signals") or {}
+    volume = int(body.get("monthly_questionnaires", 4) or 4)
+    a = assess.score_company(company, signals, monthly_questionnaires=volume)
+    if body.get("include_sample", True):
+        a = assess.with_live_sample(a)
+    return {
+        "company": a.company,
+        "score": a.score,
+        "grade": a.grade,
+        "grade_summary": a.grade_summary,
+        "findings": [
+            {"label": f.label, "ok": f.ok, "weight": f.weight, "note": f.note} for f in a.findings
+        ],
+        "monthly_questionnaires": a.monthly_questionnaires,
+        "hours_saved_per_month": a.hours_saved_per_month,
+        "annual_time_cost": a.annual_time_cost,
+        "autoanswer_rate": a.autoanswer_rate,
+        "sample": a.sample,
+    }
+
+
+@app.post("/v1/assessment/report")
+def assessment_report(body: dict) -> HTMLResponse:
+    company = (body.get("company") or "Your company").strip()
+    signals = body.get("signals") or {}
+    volume = int(body.get("monthly_questionnaires", 4) or 4)
+    a = assess.score_company(company, signals, monthly_questionnaires=volume)
+    if body.get("include_sample", True):
+        a = assess.with_live_sample(a)
+    return HTMLResponse(render_report(a, cta_url=body.get("cta_url", config.APP_BASE_URL)))
 
 
 # --------------------------------------------------------------------------

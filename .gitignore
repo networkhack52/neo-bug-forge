@@ -13,6 +13,9 @@ backend/data/
 # Generated artifacts
 backend/sample_data/sample_questionnaire.xlsx
 backend/sample_data/sample_questionnaire_ANSWERED.xlsx
+# Per-prospect assessment reports (keep the committed sample in sample_data/)
+/assessment_*.html
+backend/assessment_*.html
 
 # Node / Vite
 node_modules/
