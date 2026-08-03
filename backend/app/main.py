@@ -255,9 +255,9 @@ def approve_item(item_id: int, body: dict, org: dict = Depends(require_org)) -> 
 
 
 def retrieval_close(a: str, b: str) -> bool:
-    from rapidfuzz import fuzz
+    from . import fuzzy
 
-    return fuzz.token_set_ratio(a, b) >= 95
+    return fuzzy.token_set_ratio(a, b) >= 95
 
 
 @app.get("/v1/questionnaires/{qid}/export")

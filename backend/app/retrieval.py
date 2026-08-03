@@ -12,9 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from rapidfuzz import fuzz, process
-
-from . import config
+from . import config, fuzzy
 
 
 @dataclass
@@ -26,12 +24,12 @@ class Match:
     score: float
 
 
-def _scorer(query: str, choice: str, *, score_cutoff: float = 0, **_: object) -> float:
-    # Blend two views: token_set (semantic-ish overlap) and partial (substring).
-    # rapidfuzz passes score_cutoff/other kwargs to custom scorers, so absorb them.
+def _scorer(query: str, choice: str) -> float:
+    # Blend two views: token_set (order/duplication-insensitive overlap) and a
+    # sort+substring blend (catches close phrasings and embedded matches).
     return max(
-        fuzz.token_set_ratio(query, choice),
-        0.6 * fuzz.token_sort_ratio(query, choice) + 0.4 * fuzz.partial_ratio(query, choice),
+        fuzzy.token_set_ratio(query, choice),
+        0.6 * fuzzy.token_sort_ratio(query, choice) + 0.4 * fuzzy.partial_ratio(query, choice),
     )
 
 
@@ -39,20 +37,16 @@ def rank(question: str, bank: list[dict], limit: int = config.CONTEXT_TOP_K) -> 
     """Return the top ``limit`` Answer-Bank matches, best first."""
     if not bank:
         return []
-    choices = {a["id"]: a["question"] for a in bank}
-    by_id = {a["id"]: a for a in bank}
-    results = process.extract(
-        question,
-        choices,
-        scorer=_scorer,
-        limit=limit,
+    scored = sorted(
+        (( _scorer(question, a["question"]), a) for a in bank),
+        key=lambda pair: pair[0],
+        reverse=True,
     )
     matches: list[Match] = []
-    for _matched_text, score, aid in results:
-        a = by_id[aid]
+    for score, a in scored[:limit]:
         matches.append(
             Match(
-                answer_id=aid,
+                answer_id=a["id"],
                 question=a["question"],
                 answer=a["answer"],
                 category=a.get("category", "general"),
