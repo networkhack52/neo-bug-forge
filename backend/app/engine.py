@@ -9,7 +9,7 @@ compound per customer — that is the retention moat.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from . import db, retrieval
 from .drafting import draft_answer
@@ -24,6 +24,8 @@ class AnsweredItem:
     match_type: str
     matched_answer_id: int | None
     needs_review: bool
+    citations: list[str] = field(default_factory=list)
+    verification: str = "skipped"
 
 
 def answer_question(org_id: int, item_id: int, question: str, bank: list[dict]) -> AnsweredItem:
@@ -40,6 +42,8 @@ def answer_question(org_id: int, item_id: int, question: str, bank: list[dict]) 
             match_type="reuse",
             matched_answer_id=reusable.answer_id,
             needs_review=False,
+            citations=[reusable.question],   # a reused answer is its own source
+            verification="supported",
         )
     else:
         ctx = retrieval.context_matches(matches)
@@ -52,6 +56,8 @@ def answer_question(org_id: int, item_id: int, question: str, bank: list[dict]) 
             match_type=d.match_type,
             matched_answer_id=ctx[0].answer_id if ctx else None,
             needs_review=d.needs_review,
+            citations=d.citations,
+            verification=d.verification,
         )
 
     db.update_item(
@@ -61,6 +67,8 @@ def answer_question(org_id: int, item_id: int, question: str, bank: list[dict]) 
         match_type=result.match_type,
         matched_answer_id=result.matched_answer_id,
         needs_review=result.needs_review,
+        citations=result.citations,
+        verification=result.verification,
     )
     return result
 

@@ -64,10 +64,20 @@ CREATE TABLE IF NOT EXISTS questionnaire_items (
     matched_answer_id INTEGER,
     needs_review    INTEGER NOT NULL DEFAULT 1,
     status          TEXT NOT NULL DEFAULT 'pending', -- pending | approved
+    citations       TEXT DEFAULT '[]',     -- JSON list of source questions the model cited
+    verification    TEXT DEFAULT 'skipped',-- supported | unsupported | skipped
     created_at      REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_items_q ON questionnaire_items(questionnaire_id);
 """
+
+# Columns added after v1 — applied idempotently for existing databases.
+_MIGRATIONS = {
+    "questionnaire_items": {
+        "citations": "TEXT DEFAULT '[]'",
+        "verification": "TEXT DEFAULT 'skipped'",
+    },
+}
 
 
 def connect() -> sqlite3.Connection:
@@ -96,6 +106,12 @@ def init_db() -> None:
     conn = connect()
     try:
         conn.executescript(SCHEMA)
+        # Idempotent column migrations for pre-existing databases.
+        for table, columns in _MIGRATIONS.items():
+            existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+            for name, decl in columns.items():
+                if name not in existing:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
         conn.commit()
     finally:
         conn.close()
@@ -239,12 +255,17 @@ def update_item(
     match_type: str,
     matched_answer_id: Optional[int],
     needs_review: bool,
+    citations: Optional[list] = None,
+    verification: str = "skipped",
 ) -> None:
+    import json as _json
+
     with cursor() as cur:
         cur.execute(
             "UPDATE questionnaire_items SET answer = ?, confidence = ?, match_type = ?, "
-            "matched_answer_id = ?, needs_review = ? WHERE id = ?",
-            (answer, confidence, match_type, matched_answer_id, int(needs_review), item_id),
+            "matched_answer_id = ?, needs_review = ?, citations = ?, verification = ? WHERE id = ?",
+            (answer, confidence, match_type, matched_answer_id, int(needs_review),
+             _json.dumps(citations or []), verification, item_id),
         )
 
 
