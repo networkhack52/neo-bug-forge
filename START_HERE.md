@@ -12,10 +12,10 @@ and `SALES_PLAYBOOK.md` (getting customers); this file is the master sequence.
 ---
 
 ## Step 1 — Install the tools (one time)
-You need three things installed. Check each in a terminal:
-```bash
+You need three things installed. Check each in **PowerShell**:
+```powershell
 git --version        # any recent version
-python3 --version    # need 3.11 or newer
+python --version     # need 3.11 or newer  (if not found, try:  py --version)
 node --version       # need 18 or newer
 ```
 If any is missing: Git → https://git-scm.com · Python → https://python.org/downloads
@@ -28,9 +28,8 @@ The finished code currently sits on a branch of the *old* repo
 (`attestly-only`). This moves it into your new, separate `attestly` repo. Run it
 once, from wherever you keep projects (e.g. `Documents`):
 
-```bash
-git clone --branch attestly-only --single-branch \
-  https://github.com/networkhack52/neo-bug-forge.git attestly
+```powershell
+git clone --branch attestly-only --single-branch https://github.com/networkhack52/neo-bug-forge.git attestly
 cd attestly
 git branch -m main
 git remote set-url origin https://github.com/networkhack52/attestly.git
@@ -44,20 +43,22 @@ repo.
 ---
 
 ## Step 3 — Run it locally and confirm it works (no keys needed)
-**Backend** (terminal 1):
-```bash
+**Backend** (PowerShell window 1). A virtual environment keeps things clean:
+```powershell
 cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1     # if blocked, first run:  Set-ExecutionPolicy -Scope Process Bypass
 pip install -r requirements.txt
-python run_demo.py          # watch it answer a sample questionnaire end-to-end
-python -m pytest -q         # should say "17 passed"
+python run_demo.py               # watch it answer a sample questionnaire end-to-end
+python -m pytest -q              # should say "17 passed"
 python -m uvicorn app.main:app --port 8000   # leave this running
 ```
 
-**Frontend** (terminal 2 — open a new terminal, go back to the attestly folder):
-```bash
+**Frontend** (PowerShell window 2 — open a new window, `cd` back into the attestly folder):
+```powershell
 cd frontend
 npm install
-npm run dev                 # opens http://localhost:5173
+npm run dev                      # opens http://localhost:5173
 ```
 Open http://localhost:5173, create a company, and upload
 `backend/sample_data/sample_questionnaire.xlsx`. You should see it auto-answer.
@@ -66,10 +67,9 @@ Open http://localhost:5173, create a company, and upload
 
 ## Step 4 — Generate your first sales asset (still no keys needed)
 This is the report you send prospects (assessment-based selling):
-```bash
+```powershell
 cd backend
-python -m app.make_assessment "Some Prospect Inc" --soc2 --volume 6 \
-  --out prospect.html
+python -m app.make_assessment "Some Prospect Inc" --soc2 --volume 6 --out prospect.html
 ```
 Open `prospect.html` in a browser — that's the artifact. Full motion in
 `SALES_PLAYBOOK.md`.
@@ -78,10 +78,13 @@ Open `prospect.html` in a browser — that's the artifact. Full motion in
 
 ## Step 5 — (Optional) Lock the product name
 Rename in **one place**: open `backend/app/config.py`, change
-`BRAND_NAME = "Attestly"` to your chosen name. (Or set an env var
-`ATTESTLY_BRAND=YourName` without editing code.) Commit + push:
-```bash
-git add -A && git commit -m "Rename brand" && git push
+`BRAND_NAME = "Attestly"` to your chosen name. (Or, without editing code, set it
+for the current PowerShell session: `$env:ATTESTLY_BRAND = "YourName"`.)
+Commit + push:
+```powershell
+git add -A
+git commit -m "Rename brand"
+git push
 ```
 
 ---
