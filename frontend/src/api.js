@@ -49,7 +49,31 @@ export const api = {
     return req("/v1/questionnaires", { method: "POST", body: fd, isForm: true });
   },
   approveItem: (id, answer) => req(`/v1/items/${id}/approve`, { method: "POST", body: { answer } }),
-  exportUrl: (id) => `${BASE}/v1/questionnaires/${id}/export`,
   checkout: (tier) => req("/v1/billing/checkout", { method: "POST", body: { tier } }),
   confirm: (tier) => req("/v1/billing/confirm", { method: "POST", body: { tier } }),
 };
+
+// Download the exported .xlsx WITH the auth header, then trigger a save.
+// (A plain <a href> can't send the bearer token, so the server 401s.)
+export async function downloadExport(id, filename = `responses_${id}.xlsx`) {
+  const token = getToken();
+  const res = await fetch(`${BASE}/v1/questionnaires/${id}/export`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      detail = (await res.json()).detail || detail;
+    } catch (_) {}
+    throw new Error(detail);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api, getToken, setToken, clearToken } from "./api.js";
+import { api, getToken, setToken, clearToken, downloadExport } from "./api.js";
 
 export default function App() {
   const [me, setMe] = useState(null);
@@ -168,9 +168,16 @@ function Upload({ me, onChange }) {
             <Stat label="Questions" value={result.total_questions} />
             <Stat label="Reused from bank" value={result.reused_from_bank} accent="green" />
             <Stat label="Drafted" value={result.drafted} accent="blue" />
-            <a className="primary" href={api.exportUrl(result.questionnaire_id)}>
+            <button
+              className="primary"
+              onClick={() =>
+                downloadExport(result.questionnaire_id, "questionnaire_answers.xlsx").catch((e) =>
+                  alert("Export failed: " + e.message)
+                )
+              }
+            >
               Export .xlsx
-            </a>
+            </button>
           </div>
           <ReviewList items={result.items} onApprove={approve} />
           <button className="link" onClick={() => setResult(null)}>
@@ -303,9 +310,16 @@ function History() {
                 <span className="tag gray">{r.status}</span>
               </td>
               <td>
-                <a className="link" href={api.exportUrl(r.id)}>
+                <button
+                  className="link"
+                  onClick={() =>
+                    downloadExport(r.id, `${(r.name || "responses").replace(/\.[^.]+$/, "")}_answers.xlsx`).catch(
+                      (e) => alert("Export failed: " + e.message)
+                    )
+                  }
+                >
                   Export
-                </a>
+                </button>
               </td>
             </tr>
           ))}
