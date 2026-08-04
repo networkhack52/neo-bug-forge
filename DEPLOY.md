@@ -23,6 +23,27 @@ the API. Set a monthly spend limit in the Anthropic console as a safety net.
 
 ---
 
+## 1b. Voyage key (semantic search — optional, one-line toggle)
+
+By default retrieval matches questions **lexically** (fuzzy word overlap). Add a
+Voyage AI key and it *also* matches by **meaning**, so paraphrases like
+*"Where is data stored?"* ↔ *"In which region does customer data reside?"* match,
+and trust-document passages (SOC 2 / policies) are retrieved semantically.
+
+1. Go to <https://dash.voyageai.com> → **API Keys** → create a key.
+2. Paste it into the **backend host** as `VOYAGE_API_KEY` (step 4). That's the
+   whole toggle — nothing else changes.
+
+- **No key?** Everything still works; matching is lexical and document passages
+  are found by wording. No errors, no missing features.
+- **Cost:** `voyage-3.5-lite` is a few cents per million tokens — negligible.
+  Embeddings are computed once when an answer/document is saved.
+- **Backfill:** existing answers created before the key was added simply fall
+  back to lexical until re-saved; new ones embed automatically.
+- **Verify:** `/health` shows `"embeddings_enabled": true`.
+
+---
+
 ## 2. Stripe (self-serve billing)
 
 1. <https://dashboard.stripe.com> → create the account / use test mode first.
@@ -60,6 +81,7 @@ You'll paste `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the three
    ```
    ANTHROPIC_API_KEY      = sk-ant-...
    ANTHROPIC_MODEL        = claude-haiku-4-5-20251001
+   VOYAGE_API_KEY         = pa-...             (optional — turns on semantic search)
    STRIPE_SECRET_KEY      = sk_live_...        (or sk_test_... first)
    STRIPE_WEBHOOK_SECRET  = whsec_...
    STRIPE_PRICE_STARTER   = price_...
@@ -94,6 +116,7 @@ You'll paste `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the three
 
 ## 5. Go-live checklist
 - [ ] `/health` shows `llm_enabled: true` and `stripe_enabled: true`
+      (and `embeddings_enabled: true` if you added the Voyage key)
 - [ ] Real questionnaire upload → answers draft via Claude (not fallback)
 - [ ] Stripe **test-mode** checkout completes → webhook flips tier to paid
 - [ ] Flip Stripe to **live** keys; repeat one real $99 checkout

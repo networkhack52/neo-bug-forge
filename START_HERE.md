@@ -50,7 +50,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1     # if blocked, first run:  Set-ExecutionPolicy -Scope Process Bypass
 pip install -r requirements.txt
 python run_demo.py               # watch it answer a sample questionnaire end-to-end
-python -m pytest -q              # should say "17 passed"
+python -m pytest -q              # should say "38 passed"
 python -m uvicorn app.main:app --port 8000   # leave this running
 ```
 
@@ -92,13 +92,18 @@ git push
 ## Step 6 — Go live (only when you're ready to charge money)
 Full click-by-click steps are in **`DEPLOY.md`**. The order:
 1. **Anthropic key** — console.anthropic.com → create key (set a spend cap).
+1b. **(Optional) Voyage key** — dash.voyageai.com → create key → paste as
+   `VOYAGE_API_KEY`. This one line turns on **semantic search** (match by
+   meaning, not just wording) and semantic grounding of your SOC 2 / policy
+   docs. Skip it and everything still works lexically. (DEPLOY.md §1b.)
 2. **Stripe** — create 3 products ($99/$249/$499), copy the price IDs, secret
    key, and add the webhook.
 3. **Backend → Render** — root directory `backend`; paste the keys as env vars.
 4. **Frontend → Vercel** — root directory `frontend`; set `VITE_API_URL` to the
    Render URL.
 5. Verify `https://<backend>/health` shows `"llm_enabled": true,
-   "stripe_enabled": true`.
+   "stripe_enabled": true` (plus `"embeddings_enabled": true` if you added the
+   Voyage key).
 6. **Before real customers:** attach a Render Disk or move to Supabase/Postgres
    so data survives deploys (DEPLOY.md §3).
 
