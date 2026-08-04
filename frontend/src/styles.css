@@ -114,6 +114,11 @@ button, .primary, .secondary {
 .table th, .table td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: 14px; }
 .table th { background: #f8fafc; color: var(--muted); font-weight: 600; }
 
+.cycletoggle { display: inline-flex; gap: 4px; background: #f1f5f9; padding: 4px; border-radius: 10px; margin-bottom: 18px; }
+.cyc { background: none; color: var(--muted); padding: 8px 16px; border: none; font-size: 14px; }
+.cyc.active { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.cyc .save { color: var(--green); font-weight: 600; font-size: 12px; margin-left: 4px; }
+
 .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
 .plan { text-align: center; }
 .plan.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }

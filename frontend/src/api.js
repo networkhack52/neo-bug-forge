@@ -49,7 +49,8 @@ export const api = {
     return req("/v1/questionnaires", { method: "POST", body: fd, isForm: true });
   },
   approveItem: (id, answer) => req(`/v1/items/${id}/approve`, { method: "POST", body: { answer } }),
-  checkout: (tier) => req("/v1/billing/checkout", { method: "POST", body: { tier } }),
+  checkout: (tier, interval = "month") =>
+    req("/v1/billing/checkout", { method: "POST", body: { tier, interval } }),
   confirm: (tier) => req("/v1/billing/confirm", { method: "POST", body: { tier } }),
 };
 

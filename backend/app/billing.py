@@ -11,26 +11,38 @@ from typing import Optional
 
 from . import config, db
 
-# Map our tiers to Stripe Price IDs via env in production. For the demo we
-# derive amounts from config.TIERS.
+# Map (tier, interval) to Stripe Price IDs via env in production. For the demo
+# we derive amounts from config.TIERS.
 _PRICE_ENV = {
-    "starter": "STRIPE_PRICE_STARTER",
-    "growth": "STRIPE_PRICE_GROWTH",
-    "scale": "STRIPE_PRICE_SCALE",
+    ("starter", "month"): "STRIPE_PRICE_STARTER",
+    ("growth", "month"): "STRIPE_PRICE_GROWTH",
+    ("scale", "month"): "STRIPE_PRICE_SCALE",
+    ("starter", "year"): "STRIPE_PRICE_STARTER_YEARLY",
+    ("growth", "year"): "STRIPE_PRICE_GROWTH_YEARLY",
+    ("scale", "year"): "STRIPE_PRICE_SCALE_YEARLY",
 }
 
 
-def create_checkout(org: dict, tier: str) -> dict:
+def _amount(tier: str, interval: str) -> int:
+    """Dollar amount charged per billing period for a tier/interval."""
+    t = config.TIERS[tier]
+    return t["yearly_price"] if interval == "year" else t["price"]
+
+
+def create_checkout(org: dict, tier: str, interval: str = "month") -> dict:
     if tier not in config.TIERS or tier == "free":
         raise ValueError(f"Not a purchasable tier: {tier}")
+    if interval not in ("month", "year"):
+        raise ValueError(f"Not a valid billing interval: {interval}")
 
     if not config.STRIPE_ENABLED:
         # Simulated: front-end can confirm to trigger an immediate upgrade.
         return {
             "simulated": True,
-            "checkout_url": f"{config.APP_BASE_URL}/billing/success?tier={tier}&simulated=1",
+            "checkout_url": f"{config.APP_BASE_URL}/billing/success?tier={tier}&interval={interval}&simulated=1",
             "tier": tier,
-            "amount": config.TIERS[tier]["price"],
+            "interval": interval,
+            "amount": _amount(tier, interval),
         }
 
     import os
@@ -38,16 +50,17 @@ def create_checkout(org: dict, tier: str) -> dict:
     import stripe
 
     stripe.api_key = config.STRIPE_SECRET_KEY
-    price_id = os.environ.get(_PRICE_ENV[tier])
+    price_id = os.environ.get(_PRICE_ENV[(tier, interval)])
+    label = config.TIERS[tier]["name"] + (" (annual)" if interval == "year" else "")
     line_item = (
         {"price": price_id, "quantity": 1}
         if price_id
         else {
             "price_data": {
                 "currency": "usd",
-                "product_data": {"name": f"Attestly {config.TIERS[tier]['name']}"},
-                "unit_amount": config.TIERS[tier]["price"] * 100,
-                "recurring": {"interval": "month"},
+                "product_data": {"name": f"Attestly {label}"},
+                "unit_amount": _amount(tier, interval) * 100,
+                "recurring": {"interval": interval},
             },
             "quantity": 1,
         }
@@ -55,13 +68,13 @@ def create_checkout(org: dict, tier: str) -> dict:
     session = stripe.checkout.Session.create(
         mode="subscription",
         line_items=[line_item],
-        success_url=f"{config.APP_BASE_URL}/billing/success?tier={tier}",
+        success_url=f"{config.APP_BASE_URL}/billing/success?tier={tier}&interval={interval}",
         cancel_url=f"{config.APP_BASE_URL}/billing",
         client_reference_id=str(org["id"]),
         customer=org.get("stripe_customer_id") or None,
-        metadata={"org_id": str(org["id"]), "tier": tier},
+        metadata={"org_id": str(org["id"]), "tier": tier, "interval": interval},
     )
-    return {"simulated": False, "checkout_url": session.url, "tier": tier}
+    return {"simulated": False, "checkout_url": session.url, "tier": tier, "interval": interval}
 
 
 def confirm_simulated_upgrade(org_id: int, tier: str) -> None:

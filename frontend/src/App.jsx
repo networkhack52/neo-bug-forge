@@ -339,52 +339,71 @@ function History() {
 function Billing({ me, onChange }) {
   const [plans, setPlans] = useState({});
   const [msg, setMsg] = useState("");
+  const [interval, setInterval] = useState("year"); // default to annual (better value)
   useEffect(() => {
     api.plans().then((r) => setPlans(r.plans));
   }, []);
 
   async function choose(tier) {
     setMsg("");
-    const res = await api.checkout(tier);
+    const res = await api.checkout(tier, interval);
     if (res.simulated) {
       await api.confirm(tier);
-      setMsg(`Upgraded to ${tier} (simulated — no Stripe key configured).`);
+      setMsg(`Upgraded to ${tier} (${interval}ly, simulated — no Stripe key configured).`);
       onChange();
     } else {
       window.location.href = res.checkout_url;
     }
   }
 
+  const yearly = interval === "year";
+
   return (
     <div>
       <h3>Plans</h3>
       {msg && <div className="notice">{msg}</div>}
+
+      <div className="cycletoggle">
+        <button className={yearly ? "cyc" : "cyc active"} onClick={() => setInterval("month")}>
+          Monthly
+        </button>
+        <button className={yearly ? "cyc active" : "cyc"} onClick={() => setInterval("year")}>
+          Annual <span className="save">2 months free</span>
+        </button>
+      </div>
+
       <div className="plans">
-        {Object.entries(plans).map(([key, p]) => (
-          <div key={key} className={`card plan ${me.tier === key ? "current" : ""}`}>
-            <div className="planname">{p.name}</div>
-            <div className="price">
-              ${p.price}
-              <span className="muted">/mo</span>
-            </div>
-            <ul>
-              <li>{p.question_limit === 100000 ? "Unlimited" : p.question_limit} answers/mo</li>
-              <li>{p.bank_limit === 100000 ? "Unlimited" : p.bank_limit} bank entries</li>
-              <li>{p.seats} seat{p.seats > 1 ? "s" : ""}</li>
-            </ul>
-            {me.tier === key ? (
-              <button className="secondary" disabled>
-                Current plan
-              </button>
-            ) : (
-              key !== "free" && (
-                <button className="primary" onClick={() => choose(key)}>
-                  Choose {p.name}
+        {Object.entries(plans).map(([key, p]) => {
+          const effMonthly = yearly && p.price ? (p.yearly_price / 12).toFixed(2) : null;
+          return (
+            <div key={key} className={`card plan ${me.tier === key ? "current" : ""}`}>
+              <div className="planname">{p.name}</div>
+              <div className="price">
+                ${yearly ? p.yearly_price : p.price}
+                <span className="muted">{p.price === 0 ? "" : yearly ? "/yr" : "/mo"}</span>
+              </div>
+              {effMonthly && (
+                <div className="muted small">≈ ${effMonthly}/mo · save ${p.price * 12 - p.yearly_price}</div>
+              )}
+              <ul>
+                <li>{p.question_limit === 100000 ? "Unlimited" : p.question_limit} answers/mo</li>
+                <li>{p.bank_limit === 100000 ? "Unlimited" : p.bank_limit} bank entries</li>
+                <li>{p.seats} seat{p.seats > 1 ? "s" : ""}</li>
+              </ul>
+              {me.tier === key ? (
+                <button className="secondary" disabled>
+                  Current plan
                 </button>
-              )
-            )}
-          </div>
-        ))}
+              ) : (
+                key !== "free" && (
+                  <button className="primary" onClick={() => choose(key)}>
+                    Choose {p.name}
+                  </button>
+                )
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

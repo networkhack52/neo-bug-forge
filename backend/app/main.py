@@ -282,8 +282,9 @@ def export_questionnaire(qid: int, org: dict = Depends(require_org)) -> Streamin
 @app.post("/v1/billing/checkout")
 def checkout(body: dict, org: dict = Depends(require_org)) -> dict:
     tier = (body.get("tier") or "").strip()
+    interval = (body.get("interval") or "month").strip()
     try:
-        return billing.create_checkout(org, tier)
+        return billing.create_checkout(org, tier, interval)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -26,11 +26,14 @@ the API. Set a monthly spend limit in the Anthropic console as a safety net.
 ## 2. Stripe (self-serve billing)
 
 1. <https://dashboard.stripe.com> → create the account / use test mode first.
-2. **Products → Add product** three times:
-   - *Attestly Starter* — recurring, **$99/mo**
-   - *Attestly Growth* — recurring, **$249/mo**
-   - *Attestly Scale* — recurring, **$499/mo**
-   Copy each **Price ID** (`price_...`).
+2. **Products → Add product** for each tier. Add **two prices** per product —
+   a monthly and an annual ("2 months free") — and copy every **Price ID**
+   (`price_...`):
+   - *Attestly Starter* — **$99/mo** and **$990/yr**
+   - *Attestly Growth* — **$249/mo** and **$2,490/yr**
+   - *Attestly Scale* — **$499/mo** and **$4,990/yr**
+   (You can skip the annual prices at first — if the `*_YEARLY` env vars are
+   unset, the app creates the annual price inline at checkout.)
 3. **Developers → API keys** → copy the **Secret key** (`sk_test_...` then
    `sk_live_...` when you flip to live).
 4. **Developers → Webhooks → Add endpoint:**

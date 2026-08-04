@@ -46,10 +46,11 @@ CONTEXT_TOP_K = int(os.environ.get("ATTESTLY_CONTEXT_TOP_K", "5"))
 # --- Plans / metering -----------------------------------------------------
 # question_limit = billable "answers generated" per 30-day period.
 # bank_limit     = max approved entries in the Answer Bank.
+# yearly_price = "pay for 10 months, get 12" (2 months free, ~16.7% off).
 TIERS: dict[str, dict] = {
-    "free": {"name": "Free", "price": 0, "question_limit": 25, "bank_limit": 50, "seats": 1},
-    "starter": {"name": "Starter", "price": 99, "question_limit": 750, "bank_limit": 500, "seats": 1},
-    "growth": {"name": "Growth", "price": 249, "question_limit": 3000, "bank_limit": 100000, "seats": 5},
-    "scale": {"name": "Scale", "price": 499, "question_limit": 100000, "bank_limit": 100000, "seats": 25},
+    "free": {"name": "Free", "price": 0, "yearly_price": 0, "question_limit": 25, "bank_limit": 50, "seats": 1},
+    "starter": {"name": "Starter", "price": 99, "yearly_price": 990, "question_limit": 750, "bank_limit": 500, "seats": 1},
+    "growth": {"name": "Growth", "price": 249, "yearly_price": 2490, "question_limit": 3000, "bank_limit": 100000, "seats": 5},
+    "scale": {"name": "Scale", "price": 499, "yearly_price": 4990, "question_limit": 100000, "bank_limit": 100000, "seats": 25},
 }
 DEFAULT_TIER = "free"

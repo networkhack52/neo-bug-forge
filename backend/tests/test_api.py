@@ -107,3 +107,20 @@ def test_simulated_upgrade_changes_tier():
     assert r.status_code == 200
     assert r.json()["tier"] == "starter"
     assert r.json()["question_limit"] == 750
+
+
+def test_annual_checkout_charges_yearly_price():
+    token = _token()
+    r = client.post("/v1/billing/checkout", headers=_auth(token),
+                    json={"tier": "growth", "interval": "year"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["interval"] == "year"
+    assert body["amount"] == 2490  # 10 x $249, 2 months free
+
+
+def test_invalid_interval_rejected():
+    token = _token()
+    r = client.post("/v1/billing/checkout", headers=_auth(token),
+                    json={"tier": "starter", "interval": "weekly"})
+    assert r.status_code == 400
