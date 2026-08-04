@@ -1,6 +1,25 @@
 import React, { useEffect, useState } from "react";
 import { api, getToken, setToken, clearToken, downloadExport } from "./api.js";
 
+// Citations are stored as a JSON string in the DB; accept either form.
+function parseCitations(c) {
+  if (Array.isArray(c)) return c;
+  try {
+    const p = JSON.parse(c || "[]");
+    return Array.isArray(p) ? p : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+// "Open 3d", "Open 5h" — how long a questionnaire has been sitting.
+function openFor(createdAtEpoch) {
+  const hrs = (Date.now() / 1000 - createdAtEpoch) / 3600;
+  if (hrs < 1) return { label: "Open <1h", hours: hrs };
+  if (hrs < 48) return { label: `Open ${Math.round(hrs)}h`, hours: hrs };
+  return { label: `Open ${Math.round(hrs / 24)}d`, hours: hrs };
+}
+
 export default function App() {
   const [me, setMe] = useState(null);
   const [tab, setTab] = useState("upload");
@@ -121,6 +140,13 @@ function Upload({ me, onChange }) {
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [library, setLibrary] = useState([]);
+  const [sources, setSources] = useState(null); // { item, cites }
+
+  // Load the Answer Library once so citations can resolve to full source text.
+  useEffect(() => {
+    api.answers().then((r) => setLibrary(r.answers)).catch(() => {});
+  }, []);
 
   async function onFile(e) {
     const file = e.target.files[0];
@@ -193,29 +219,35 @@ function Upload({ me, onChange }) {
               Clean .xlsx
             </button>
           </div>
-          <ReviewList items={result.items} onApprove={approve} />
+          <ReviewList items={result.items} onApprove={approve} onShowSources={setSources} />
           <button className="link" onClick={() => setResult(null)}>
             ← Upload another
           </button>
         </div>
       )}
+
+      {sources && (
+        <SourcePanel data={sources} library={library} onClose={() => setSources(null)} />
+      )}
     </div>
   );
 }
 
-function ReviewList({ items, onApprove }) {
+function ReviewList({ items, onApprove, onShowSources }) {
   return (
     <div className="stack">
       {items.map((it) => (
-        <ReviewItem key={it.id} item={it} onApprove={onApprove} />
+        <ReviewItem key={it.id} item={it} onApprove={onApprove} onShowSources={onShowSources} />
       ))}
     </div>
   );
 }
 
-function ReviewItem({ item, onApprove }) {
+function ReviewItem({ item, onApprove, onShowSources }) {
   const [answer, setAnswer] = useState(item.answer);
   const approved = item.status === "approved";
+  const cites = parseCitations(item.citations);
+  const verified = item.verification === "supported";
   const badge =
     { reuse: ["Reused", "green"], drafted: ["AI draft", "blue"], fallback: ["Needs review", "amber"] }[
       item.match_type
@@ -229,17 +261,83 @@ function ReviewItem({ item, onApprove }) {
           <span className="tag amber">No status</span>
         )}
         <span className={`tag ${badge[1]}`}>{badge[0]}</span>
+        {verified && <span className="tag green" title="Checked against your approved sources">✓ Verified</span>}
         <span className="muted small">confidence {Math.round(item.confidence)}%</span>
         {approved && <span className="tag green">✓ approved</span>}
       </div>
       <div className="q">{item.question}</div>
       <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={4} />
-      {!approved && (
-        <button className="secondary" onClick={() => onApprove(item, answer)}>
-          Approve & save to library
-        </button>
-      )}
+      <div className="itemfoot">
+        {cites.length > 0 ? (
+          <button className="citebtn" onClick={() => onShowSources({ item, cites })}>
+            🔍 {cites.length} source{cites.length > 1 ? "s" : ""} — show proof
+          </button>
+        ) : (
+          <span className="muted xsmall">No grounded source — review before sending.</span>
+        )}
+        {!approved && (
+          <button className="secondary" onClick={() => onApprove(item, answer)}>
+            Approve &amp; save to library
+          </button>
+        )}
+      </div>
     </div>
+  );
+}
+
+// Audit-ready trust: click a citation to see the exact approved source the
+// answer was grounded in — proof the AI didn't fabricate it.
+function SourcePanel({ data, library, onClose }) {
+  const { item, cites } = data;
+  const norm = (s) => (s || "").trim().toLowerCase();
+  const resolved = cites.map((title) => {
+    const hit = library.find((x) => norm(x.question) === norm(title));
+    return { title, answer: hit ? hit.answer : null, category: hit ? hit.category : null };
+  });
+  return (
+    <>
+      <div className="drawer-backdrop" onClick={onClose} />
+      <aside className="drawer" role="dialog" aria-label="Answer sources">
+        <div className="drawer-head">
+          <div>
+            <div className="drawer-kicker">Grounded in your approved sources</div>
+            <h3 className="drawer-title">Proof of answer</h3>
+          </div>
+          <button className="link" onClick={onClose}>
+            Close ✕
+          </button>
+        </div>
+
+        <div className="drawer-q">{item.question}</div>
+        <div className="drawer-a">{item.answer}</div>
+        <div className="drawer-meta">
+          {item.choice && <span className="tag choice">{item.choice}</span>}
+          {item.verification === "supported" && <span className="tag green">✓ Verified</span>}
+          <span className="muted xsmall">confidence {Math.round(item.confidence)}%</span>
+        </div>
+
+        <div className="drawer-sub">Sources ({resolved.length})</div>
+        <div className="stack">
+          {resolved.map((s, i) => (
+            <div key={i} className="source-item">
+              <div className="q small">{s.title}</div>
+              {s.answer ? (
+                <div className="source-quote">{s.answer}</div>
+              ) : (
+                <div className="muted xsmall">
+                  Cited from a prior answer in your library (full text not loaded).
+                </div>
+              )}
+              {s.category && <div className="muted xsmall">{s.category}</div>}
+            </div>
+          ))}
+        </div>
+        <p className="muted xsmall drawer-foot">
+          Every answer is grounded only in answers your team already approved. Nothing here is
+          invented by the model.
+        </p>
+      </aside>
+    </>
   );
 }
 
@@ -308,25 +406,52 @@ function History() {
   useEffect(() => {
     api.listQuestionnaires().then((r) => setRows(r.questionnaires));
   }, []);
+
+  // Speed SLA: surface questionnaires still open (not exported) and how long
+  // they've been sitting — the "close the deal faster" nudge.
+  const open = rows.filter((r) => r.status !== "exported");
+  const stale = open
+    .map((r) => ({ r, age: openFor(r.created_at) }))
+    .filter((x) => x.age.hours >= 48)
+    .sort((a, b) => b.age.hours - a.age.hours);
+
   return (
     <div>
       <h3>Questionnaires</h3>
+      {stale.length > 0 && (
+        <div className="sla-banner">
+          ⏱ {stale.length} questionnaire{stale.length > 1 ? "s have" : " has"} been open over 48h —
+          the oldest for {stale[0].age.label.replace("Open ", "")}. Approve the remaining drafts to
+          close the deal.
+        </div>
+      )}
       <table className="table">
         <thead>
           <tr>
             <th>Name</th>
             <th>Questions</th>
             <th>Status</th>
+            <th>Open for</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {rows.map((r) => {
+            const age = openFor(r.created_at);
+            const isOpen = r.status !== "exported";
+            return (
             <tr key={r.id}>
               <td>{r.name}</td>
               <td>{r.total_questions}</td>
               <td>
                 <span className="tag gray">{r.status}</span>
+              </td>
+              <td>
+                {isOpen ? (
+                  <span className={age.hours >= 48 ? "sla late" : "sla"}>{age.label}</span>
+                ) : (
+                  <span className="muted xsmall">closed</span>
+                )}
               </td>
               <td>
                 {r.can_export_original && (
@@ -357,10 +482,11 @@ function History() {
                 </button>
               </td>
             </tr>
-          ))}
+            );
+          })}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={4} className="muted">
+              <td colSpan={5} className="muted">
                 No questionnaires yet.
               </td>
             </tr>
