@@ -109,6 +109,7 @@ button, .primary, .secondary {
 .tag.blue { background: #eff6ff; color: var(--blue); }
 .tag.amber { background: var(--amber-bg); color: var(--amber); }
 .tag.gray { background: #f1f5f9; color: var(--muted); }
+.tag.choice { background: #ede9fe; color: #6d28d9; }
 
 .table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .table th, .table td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: 14px; }

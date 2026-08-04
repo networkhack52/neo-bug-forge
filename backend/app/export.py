@@ -21,14 +21,16 @@ def export_simple(name: str, items: list[dict]) -> bytes:
 
     header_fill = PatternFill("solid", fgColor="1F2937")
     header_font = Font(bold=True, color="FFFFFF")
-    headers = ["#", "Question", "Answer", "Confidence", "Status"]
+    # "Response" is the compliance status (Yes/No/Partially/Not Applicable);
+    # "Answer" is the free-text detail — the two columns real questionnaires use.
+    headers = ["#", "Question", "Response", "Answer", "Confidence", "Status"]
     for c, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=c, value=h)
         cell.fill = header_fill
         cell.font = header_font
         cell.alignment = Alignment(vertical="center")
 
-    widths = [5, 55, 70, 12, 12]
+    widths = [5, 55, 16, 70, 12, 12]
     for c, w in enumerate(widths, 1):
         ws.column_dimensions[chr(64 + c)].width = w
 
@@ -37,12 +39,13 @@ def export_simple(name: str, items: list[dict]) -> bytes:
         r = i + 1
         ws.cell(row=r, column=1, value=i)
         ws.cell(row=r, column=2, value=item["question"]).alignment = Alignment(wrap_text=True, vertical="top")
-        ws.cell(row=r, column=3, value=item.get("answer", "")).alignment = Alignment(wrap_text=True, vertical="top")
-        ws.cell(row=r, column=4, value=round(float(item.get("confidence", 0)), 1))
+        ws.cell(row=r, column=3, value=item.get("choice", "")).alignment = Alignment(vertical="top")
+        ws.cell(row=r, column=4, value=item.get("answer", "")).alignment = Alignment(wrap_text=True, vertical="top")
+        ws.cell(row=r, column=5, value=round(float(item.get("confidence", 0)), 1))
         status = "review" if item.get("needs_review") else "ok"
-        scell = ws.cell(row=r, column=5, value=status)
+        ws.cell(row=r, column=6, value=status)
         if item.get("needs_review"):
-            for c in range(1, 6):
+            for c in range(1, len(headers) + 1):
                 ws.cell(row=r, column=c).fill = review_fill
 
     buf = io.BytesIO()

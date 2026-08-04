@@ -14,6 +14,19 @@ def test_offline_draft_is_flagged_and_uncited():
     assert d.needs_review is True
     assert d.citations == []
     assert d.verification == "skipped"
+    # The nearest answer starts with "Yes" -> compliance status is inferred.
+    assert d.choice == "Yes"
+
+
+def test_choice_helpers_map_to_enum():
+    assert drafting.normalize_choice("compliant") == "Yes"
+    assert drafting.normalize_choice("non-compliant") == "No"
+    assert drafting.normalize_choice("Partial") == "Partially"
+    assert drafting.normalize_choice("n/a") == "Not Applicable"
+    assert drafting.normalize_choice("maybe") == ""
+    assert drafting.infer_choice("No, we do not sell data.") == "No"
+    assert drafting.infer_choice("Not applicable — we don't process cards.") == "Not Applicable"
+    assert drafting.infer_choice("It depends.") == ""
 
 
 def test_offline_draft_no_context_refuses():

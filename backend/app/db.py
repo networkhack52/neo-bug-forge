@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS questionnaire_items (
     matched_answer_id INTEGER,
     needs_review    INTEGER NOT NULL DEFAULT 1,
     status          TEXT NOT NULL DEFAULT 'pending', -- pending | approved
+    choice          TEXT DEFAULT '',       -- Yes | No | Partially | Not Applicable | ''
     citations       TEXT DEFAULT '[]',     -- JSON list of source questions the model cited
     verification    TEXT DEFAULT 'skipped',-- supported | unsupported | skipped
     created_at      REAL NOT NULL
@@ -74,6 +75,7 @@ CREATE INDEX IF NOT EXISTS idx_items_q ON questionnaire_items(questionnaire_id);
 # Columns added after v1 — applied idempotently for existing databases.
 _MIGRATIONS = {
     "questionnaire_items": {
+        "choice": "TEXT DEFAULT ''",
         "citations": "TEXT DEFAULT '[]'",
         "verification": "TEXT DEFAULT 'skipped'",
     },
@@ -255,6 +257,7 @@ def update_item(
     match_type: str,
     matched_answer_id: Optional[int],
     needs_review: bool,
+    choice: str = "",
     citations: Optional[list] = None,
     verification: str = "skipped",
 ) -> None:
@@ -263,9 +266,10 @@ def update_item(
     with cursor() as cur:
         cur.execute(
             "UPDATE questionnaire_items SET answer = ?, confidence = ?, match_type = ?, "
-            "matched_answer_id = ?, needs_review = ?, citations = ?, verification = ? WHERE id = ?",
+            "matched_answer_id = ?, needs_review = ?, choice = ?, citations = ?, "
+            "verification = ? WHERE id = ?",
             (answer, confidence, match_type, matched_answer_id, int(needs_review),
-             _json.dumps(citations or []), verification, item_id),
+             choice, _json.dumps(citations or []), verification, item_id),
         )
 
 

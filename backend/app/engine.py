@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from . import db, retrieval
-from .drafting import draft_answer
+from .drafting import draft_answer, infer_choice
 
 
 @dataclass
@@ -24,6 +24,7 @@ class AnsweredItem:
     match_type: str
     matched_answer_id: int | None
     needs_review: bool
+    choice: str = ""
     citations: list[str] = field(default_factory=list)
     verification: str = "skipped"
 
@@ -42,6 +43,7 @@ def answer_question(org_id: int, item_id: int, question: str, bank: list[dict]) 
             match_type="reuse",
             matched_answer_id=reusable.answer_id,
             needs_review=False,
+            choice=infer_choice(reusable.answer),
             citations=[reusable.question],   # a reused answer is its own source
             verification="supported",
         )
@@ -56,6 +58,7 @@ def answer_question(org_id: int, item_id: int, question: str, bank: list[dict]) 
             match_type=d.match_type,
             matched_answer_id=ctx[0].answer_id if ctx else None,
             needs_review=d.needs_review,
+            choice=d.choice,
             citations=d.citations,
             verification=d.verification,
         )
@@ -67,6 +70,7 @@ def answer_question(org_id: int, item_id: int, question: str, bank: list[dict]) 
         match_type=result.match_type,
         matched_answer_id=result.matched_answer_id,
         needs_review=result.needs_review,
+        choice=result.choice,
         citations=result.citations,
         verification=result.verification,
     )

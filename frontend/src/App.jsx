@@ -209,6 +209,11 @@ function ReviewItem({ item, onApprove }) {
   return (
     <div className={`card item ${item.needs_review && !approved ? "review" : ""}`}>
       <div className="itemhead">
+        {item.choice ? (
+          <span className="tag choice">{item.choice}</span>
+        ) : (
+          <span className="tag amber">No status</span>
+        )}
         <span className={`tag ${badge[1]}`}>{badge[0]}</span>
         <span className="muted small">confidence {Math.round(item.confidence)}%</span>
         {approved && <span className="tag green">✓ approved</span>}
