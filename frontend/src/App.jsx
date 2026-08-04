@@ -36,7 +36,7 @@ export default function App() {
         <div className="usage">
           <span className="pill">{me.tier_name}</span>
           <span className="muted">
-            {me.questions_used}/{me.question_limit} answers · Bank {me.bank_size}
+            {me.questions_used}/{me.question_limit} answers · Library {me.bank_size}
           </span>
           <button
             className="link"
@@ -53,7 +53,7 @@ export default function App() {
       <nav className="tabs">
         {[
           ["upload", "Answer a questionnaire"],
-          ["bank", "Answer Bank"],
+          ["bank", "Answer Library"],
           ["history", "History"],
           ["billing", "Plan & Billing"],
         ].map(([k, label]) => (
@@ -166,17 +166,31 @@ function Upload({ me, onChange }) {
         <div>
           <div className="statsrow">
             <Stat label="Questions" value={result.total_questions} />
-            <Stat label="Reused from bank" value={result.reused_from_bank} accent="green" />
+            <Stat label="Reused from library" value={result.reused_from_bank} accent="green" />
             <Stat label="Drafted" value={result.drafted} accent="blue" />
+            {result.can_export_original && (
+              <button
+                className="primary"
+                onClick={() =>
+                  downloadExport(
+                    result.questionnaire_id,
+                    `questionnaire_filled.${result.source_kind === "csv" ? "csv" : "xlsx"}`,
+                    true
+                  ).catch((e) => alert("Export failed: " + e.message))
+                }
+              >
+                Download filled original
+              </button>
+            )}
             <button
-              className="primary"
+              className="secondary"
               onClick={() =>
                 downloadExport(result.questionnaire_id, "questionnaire_answers.xlsx").catch((e) =>
                   alert("Export failed: " + e.message)
                 )
               }
             >
-              Export .xlsx
+              Clean .xlsx
             </button>
           </div>
           <ReviewList items={result.items} onApprove={approve} />
@@ -222,7 +236,7 @@ function ReviewItem({ item, onApprove }) {
       <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={4} />
       {!approved && (
         <button className="secondary" onClick={() => onApprove(item, answer)}>
-          Approve & save to bank
+          Approve & save to library
         </button>
       )}
     </div>
@@ -264,7 +278,7 @@ function Bank({ me, onChange }) {
           <input placeholder="Question" value={q} onChange={(e) => setQ(e.target.value)} required />
           <textarea placeholder="Your approved answer" value={a} onChange={(e) => setA(e.target.value)} rows={4} required />
           {err && <div className="error">{err}</div>}
-          <button className="primary">Add to bank</button>
+          <button className="primary">Add to library</button>
         </form>
         <p className="muted small">
           {me.bank_size}/{me.bank_limit === 100000 ? "∞" : me.bank_limit} entries. Every answer you approve
@@ -315,6 +329,22 @@ function History() {
                 <span className="tag gray">{r.status}</span>
               </td>
               <td>
+                {r.can_export_original && (
+                  <button
+                    className="link"
+                    onClick={() =>
+                      downloadExport(
+                        r.id,
+                        `${(r.name || "responses").replace(/\.[^.]+$/, "")}_filled.${
+                          r.source_kind === "csv" ? "csv" : "xlsx"
+                        }`,
+                        true
+                      ).catch((e) => alert("Export failed: " + e.message))
+                    }
+                  >
+                    Filled original
+                  </button>
+                )}
                 <button
                   className="link"
                   onClick={() =>
@@ -323,7 +353,7 @@ function History() {
                     )
                   }
                 >
-                  Export
+                  Clean
                 </button>
               </td>
             </tr>
@@ -392,7 +422,7 @@ function Billing({ me, onChange }) {
               )}
               <ul>
                 <li>{p.question_limit === 100000 ? "Unlimited" : p.question_limit} answers/mo</li>
-                <li>{p.bank_limit === 100000 ? "Unlimited" : p.bank_limit} bank entries</li>
+                <li>{p.bank_limit === 100000 ? "Unlimited" : p.bank_limit} library entries</li>
                 <li>{p.seats} seat{p.seats > 1 ? "s" : ""}</li>
               </ul>
               {me.tier === key ? (

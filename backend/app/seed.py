@@ -1,4 +1,4 @@
-"""Seed a demo org and load the starter Answer Bank.
+"""Seed a demo org and load the starter Answer Library.
 
 Run:  python -m app.seed
 Prints the demo org's API token.
@@ -38,6 +38,6 @@ if __name__ == "__main__":
     print(f"  name       : {org['name']}")
     print(f"  tier       : {org['tier']}")
     print(f"  API token  : {org['api_token']}")
-    print(f"  Answer Bank: {size} approved answers loaded")
+    print(f"  Answer Library: {size} approved answers loaded")
     print(f"  LLM enabled: {config.LLM_ENABLED}  (drafting uses Claude when a key is set)")
     print("=" * 60)

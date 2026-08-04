@@ -56,9 +56,10 @@ export const api = {
 
 // Download the exported .xlsx WITH the auth header, then trigger a save.
 // (A plain <a href> can't send the bearer token, so the server 401s.)
-export async function downloadExport(id, filename = `responses_${id}.xlsx`) {
+export async function downloadExport(id, filename = `responses_${id}.xlsx`, original = false) {
   const token = getToken();
-  const res = await fetch(`${BASE}/v1/questionnaires/${id}/export`, {
+  const qs = original ? "?original=true" : "";
+  const res = await fetch(`${BASE}/v1/questionnaires/${id}/export${qs}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) {

@@ -6,7 +6,7 @@ decision keep the door open to the two-sided endgame.
 
 ## Now — Seller side (the beachhead) ✅ shipping
 Help B2B SaaS **vendors** answer security questionnaires in minutes.
-- Upload questionnaire → reuse from Answer Bank → draft the rest with Claude →
+- Upload questionnaire → reuse from Answer Library → draft the rest with Claude →
   review → export.
 - Trust-hardened engine: grounded-only answers, verifiable **citations**, a
   **verification pass**, human-review gate, injection defense.
@@ -14,7 +14,7 @@ Help B2B SaaS **vendors** answer security questionnaires in minutes.
 - **Why first:** clear payer, acute pain, self-serve. One ICP, one motion.
 
 ## Next — Trust Profile export (small, high-leverage)
-An org's Answer Bank *is* its **Trust Profile**. Let a seller export/share it:
+An org's Answer Library *is* its **Trust Profile**. Let a seller export/share it:
 - A clean, branded "security response" export (already have xlsx export).
 - A shareable, read-only Trust Profile link a seller can send to any buyer.
 - **Why:** every answered questionnaire now carries an Attestly footprint to the

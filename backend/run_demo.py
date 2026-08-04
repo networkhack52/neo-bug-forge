@@ -34,7 +34,7 @@ def main() -> None:
 
     org = seed_demo()
     bank_size = db.count_answers(org["id"])
-    print(f"1. Seeded org '{org['name']}' with {bank_size} approved answers in the Answer Bank.")
+    print(f"1. Seeded org '{org['name']}' with {bank_size} approved answers in the Answer Library.")
 
     sample_path = build_sample()
     data = sample_path.read_bytes()
@@ -82,7 +82,7 @@ def main() -> None:
             from app.main import retrieval_close
             if not any(retrieval_close(it["question"], b["question"]) for b in db.list_answers(org["id"])):
                 db.add_answer(org["id"], it["question"], it["answer"], source="questionnaire")
-    print(f"   Answer Bank grew from {bank_size} -> {db.count_answers(org['id'])} "
+    print(f"   Answer Library grew from {bank_size} -> {db.count_answers(org['id'])} "
           f"(next questionnaire reuses more, costs less).")
     print("\n=== demo complete ===\n")
 

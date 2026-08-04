@@ -33,11 +33,11 @@ honest model must show the downside.
 - The Base case needs **~200 paying customers**. Against a multi-billion-dollar, fast-growing market this is a rounding error of share — the constraint is **distribution, not demand**.
 
 ### 4. Gross margin = 88%
-- COGS is almost entirely Claude tokens, and **only net-new (drafted) questions cost anything — reuse from the Answer Bank is free**. In the demo, 26% of questions were reused on the *first* questionnaire with a cold bank; that rate climbs as the bank compounds.
+- COGS is almost entirely Claude tokens, and **only net-new (drafted) questions cost anything — reuse from the Answer Library is free**. In the demo, 26% of questions were reused on the *first* questionnaire with a cold bank; that rate climbs as the bank compounds.
 - A drafted answer is ≈3k input + 0.7k output tokens. At **Claude Haiku 4.5 pricing (~$1 / $5 per million tokens)** that is **< $0.01 per answer**. Even a heavy customer drafting thousands of answers/month costs a few dollars; infra (Render + Supabase + Vercel) is ~$100/mo total. 88% is conservative.
 
 ### 5. Churn = 5%/month (Base)
-- Typical self-serve SMB/mid-market logo churn. **Mitigant baked into the product:** the Answer Bank is the customer's own compounding asset — leaving means abandoning a growing, curated answer library, which raises switching cost over time (the retention moat from the scorecard).
+- Typical self-serve SMB/mid-market logo churn. **Mitigant baked into the product:** the Answer Library is the customer's own compounding asset — leaving means abandoning a growing, curated answer library, which raises switching cost over time (the retention moat from the scorecard).
 
 ### 6. Costs
 - **Fixed:** $300/mo (hosting, domain, transactional email, misc tools). **No founder salary** — net profit is measured pre-owner-compensation, consistent with the goal of the business *generating* $100k.

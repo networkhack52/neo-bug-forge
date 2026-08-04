@@ -27,7 +27,7 @@ tier**, so using it *is* onboarding.
   instantly, with confidence flags. This is the existing `/v1/fix`-style flow
   on the Free plan (25 answers/mo).
 - **Gate the export, not the value:** answers show on screen free; downloading
-  the filled `.xlsx` or saving to an Answer Bank requires an email (account
+  the filled `.xlsx` or saving to an Answer Library requires an email (account
   creation). This maximizes both SEO dwell-time *and* signups.
 - Natural upgrade path: "You have 25 free answers. This questionnaire has 84.
   Upgrade to finish it." — the metering already enforces this.
@@ -122,7 +122,7 @@ questionnaire take`, `security questionnaire best practices`,
 ### Integration directories (highest-leverage discovery)
 - **Vanta & Drata integration/partner directories** — their customers *are* our
   ICP and are actively handling security reviews. Build a lightweight
-  integration (pull existing policies/evidence into the Answer Bank) and list in
+  integration (pull existing policies/evidence into the Answer Library) and list in
   both marketplaces. This is the best-fit channel we have.
 - **Conveyor / Trust Center adjacency** — content + comparison, not integration.
 

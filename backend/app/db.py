@@ -49,6 +49,12 @@ CREATE TABLE IF NOT EXISTS questionnaires (
     status       TEXT NOT NULL DEFAULT 'processing', -- processing | ready | exported
     total_questions INTEGER NOT NULL DEFAULT 0,
     answered_questions INTEGER NOT NULL DEFAULT 0,
+    source_bytes BLOB,                    -- original upload, for write-back export
+    source_kind  TEXT DEFAULT 'xlsx',     -- xlsx | csv
+    sheet_name   TEXT,                     -- worksheet the questions were read from
+    question_col INTEGER,                  -- 1-based column layout captured at parse time
+    answer_col   INTEGER,
+    detail_col   INTEGER,
     created_at   REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_q_org ON questionnaires(org_id);
@@ -57,6 +63,7 @@ CREATE TABLE IF NOT EXISTS questionnaire_items (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     questionnaire_id INTEGER NOT NULL REFERENCES questionnaires(id),
     row_index       INTEGER NOT NULL,
+    excel_row       INTEGER NOT NULL DEFAULT 0, -- 1-based source row, for write-back
     question        TEXT NOT NULL,
     answer          TEXT DEFAULT '',
     confidence      REAL DEFAULT 0,
@@ -78,6 +85,15 @@ _MIGRATIONS = {
         "choice": "TEXT DEFAULT ''",
         "citations": "TEXT DEFAULT '[]'",
         "verification": "TEXT DEFAULT 'skipped'",
+        "excel_row": "INTEGER NOT NULL DEFAULT 0",
+    },
+    "questionnaires": {
+        "source_bytes": "BLOB",
+        "source_kind": "TEXT DEFAULT 'xlsx'",
+        "sheet_name": "TEXT",
+        "question_col": "INTEGER",
+        "answer_col": "INTEGER",
+        "detail_col": "INTEGER",
     },
 }
 
@@ -230,22 +246,35 @@ def bump_reuse(answer_id: int) -> None:
 # --------------------------------------------------------------------------
 # Questionnaires + items
 # --------------------------------------------------------------------------
-def create_questionnaire(org_id: int, name: str, source_filename: str, total: int) -> int:
+def create_questionnaire(
+    org_id: int,
+    name: str,
+    source_filename: str,
+    total: int,
+    source_bytes: Optional[bytes] = None,
+    source_kind: str = "xlsx",
+    sheet_name: Optional[str] = None,
+    question_col: Optional[int] = None,
+    answer_col: Optional[int] = None,
+    detail_col: Optional[int] = None,
+) -> int:
     with cursor() as cur:
         cur.execute(
-            "INSERT INTO questionnaires (org_id, name, source_filename, total_questions, created_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (org_id, name, source_filename, total, time.time()),
+            "INSERT INTO questionnaires (org_id, name, source_filename, total_questions, "
+            "source_bytes, source_kind, sheet_name, question_col, answer_col, detail_col, "
+            "created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (org_id, name, source_filename, total, source_bytes, source_kind, sheet_name,
+             question_col, answer_col, detail_col, time.time()),
         )
         return int(cur.lastrowid)
 
 
-def add_item(questionnaire_id: int, row_index: int, question: str) -> int:
+def add_item(questionnaire_id: int, row_index: int, question: str, excel_row: int = 0) -> int:
     with cursor() as cur:
         cur.execute(
-            "INSERT INTO questionnaire_items (questionnaire_id, row_index, question, created_at) "
-            "VALUES (?, ?, ?, ?)",
-            (questionnaire_id, row_index, question.strip(), time.time()),
+            "INSERT INTO questionnaire_items (questionnaire_id, row_index, excel_row, question, "
+            "created_at) VALUES (?, ?, ?, ?, ?)",
+            (questionnaire_id, row_index, excel_row, question.strip(), time.time()),
         )
         return int(cur.lastrowid)
 

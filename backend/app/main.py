@@ -51,6 +51,13 @@ def require_org(authorization: str | None = Header(default=None)) -> dict:
     return db.roll_period_if_needed(org)
 
 
+def public_questionnaire(q: dict) -> dict:
+    """Strip the stored source BLOB and expose a write-back availability flag."""
+    out = {k: v for k, v in q.items() if k != "source_bytes"}
+    out["can_export_original"] = export.can_export_original(q)
+    return out
+
+
 def usage_view(org: dict) -> dict:
     tier = config.TIERS[org["tier"]]
     return {
@@ -153,7 +160,7 @@ def create_answer(body: dict, org: dict = Depends(require_org)) -> dict:
     if not q or not a:
         raise HTTPException(status_code=400, detail="question and answer are required")
     if db.count_answers(org["id"]) >= config.TIERS[org["tier"]]["bank_limit"]:
-        raise HTTPException(status_code=402, detail="Answer Bank limit reached for your plan")
+        raise HTTPException(status_code=402, detail="Answer Library limit reached for your plan")
     return db.add_answer(org["id"], q, a, body.get("category", "general"), body.get("source", "manual"))
 
 
@@ -197,9 +204,14 @@ async def upload_questionnaire(
             f"remain on your plan this period.",
         )
 
-    qid = db.create_questionnaire(org["id"], file.filename or "Questionnaire", file.filename or "", n_questions)
+    qid = db.create_questionnaire(
+        org["id"], file.filename or "Questionnaire", file.filename or "", n_questions,
+        source_bytes=data, source_kind=parsed.kind, sheet_name=parsed.sheet_name,
+        question_col=parsed.question_col, answer_col=parsed.answer_col,
+        detail_col=parsed.detail_col,
+    )
     for eq in parsed.questions:
-        db.add_item(qid, eq.row_index, eq.question)
+        db.add_item(qid, eq.row_index, eq.question, excel_row=eq.excel_row)
 
     engine.answer_questionnaire(org["id"], qid)
     db.increment_usage(org["id"], n_questions)
@@ -211,13 +223,15 @@ async def upload_questionnaire(
         "total_questions": n_questions,
         "reused_from_bank": reused,
         "drafted": n_questions - reused,
+        "can_export_original": parsed.answer_col is not None,
+        "source_kind": parsed.kind,
         "items": items,
     }
 
 
 @app.get("/v1/questionnaires")
 def list_questionnaires(org: dict = Depends(require_org)) -> dict:
-    return {"questionnaires": db.list_questionnaires(org["id"])}
+    return {"questionnaires": [public_questionnaire(q) for q in db.list_questionnaires(org["id"])]}
 
 
 @app.get("/v1/questionnaires/{qid}")
@@ -225,7 +239,7 @@ def get_questionnaire(qid: int, org: dict = Depends(require_org)) -> dict:
     q = db.get_questionnaire(qid, org["id"])
     if not q:
         raise HTTPException(status_code=404, detail="Not found")
-    return {"questionnaire": q, "items": db.list_items(qid)}
+    return {"questionnaire": public_questionnaire(q), "items": db.list_items(qid)}
 
 
 @app.post("/v1/items/{item_id}/approve")
@@ -261,17 +275,33 @@ def retrieval_close(a: str, b: str) -> bool:
 
 
 @app.get("/v1/questionnaires/{qid}/export")
-def export_questionnaire(qid: int, org: dict = Depends(require_org)) -> StreamingResponse:
+def export_questionnaire(
+    qid: int, original: bool = False, org: dict = Depends(require_org)
+) -> StreamingResponse:
     q = db.get_questionnaire(qid, org["id"])
     if not q:
         raise HTTPException(status_code=404, detail="Not found")
     items = db.list_items(qid)
-    data = export.export_simple(q["name"], items)
+    base = q["name"].rsplit(".", 1)[0] or "responses"
+
+    # "Filled original" returns the customer's own template with cells filled;
+    # falls back to the clean workbook when we didn't capture the source.
+    if original and export.can_export_original(q):
+        data = export.export_original(q, items)
+        if (q.get("source_kind") or "xlsx").lower() == "csv":
+            media_type, filename = "text/csv", f"{base}_filled.csv"
+        else:
+            media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            filename = f"{base}_filled.xlsx"
+    else:
+        data = export.export_simple(q["name"], items)
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        filename = f"{base}_answers.xlsx"
+
     db.set_questionnaire_status(qid, "exported")
-    filename = (q["name"].rsplit(".", 1)[0] or "responses") + "_answers.xlsx"
     return StreamingResponse(
         io.BytesIO(data),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

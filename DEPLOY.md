@@ -18,7 +18,7 @@ Vercel** — mirroring the existing Neo Bug Forge setup.
    (cheapest; keeps the 88% margin in the model). Use a larger model only if
    draft quality needs it.
 
-**Cost control:** reuse from the Answer Bank costs $0; only net-new drafts hit
+**Cost control:** reuse from the Answer Library costs $0; only net-new drafts hit
 the API. Set a monthly spend limit in the Anthropic console as a safety net.
 
 ---

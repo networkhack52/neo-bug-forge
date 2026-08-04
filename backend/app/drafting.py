@@ -280,7 +280,7 @@ def _verify(draft: Draft, context: list[Match]) -> None:
             if claims:
                 draft.answer += (
                     "\n\n[Attestly review: these claims were not fully supported by your "
-                    "Answer Bank — verify before sending: " + "; ".join(map(str, claims[:3])) + "]"
+                    "Answer Library — verify before sending: " + "; ".join(map(str, claims[:3])) + "]"
                 )
     except Exception:
         draft.verification = "skipped"  # never let verification break the draft

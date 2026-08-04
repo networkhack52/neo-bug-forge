@@ -8,7 +8,7 @@ Upload a questionnaire; Attestly reuses your **approved answers** for anything
 it has seen before and drafts the rest with Claude, then hands you a filled
 `.xlsx` to review and send.
 
-> The moat is the customer's own **Answer Bank**: every answer they approve is
+> The moat is the customer's own **Answer Library**: every answer they approve is
 > saved and reused, so accuracy climbs and API cost falls with every
 > questionnaire — and switching away means abandoning a curated asset.
 
@@ -104,7 +104,7 @@ With `ANTHROPIC_API_KEY` set, unmatched questions are drafted by
 ## How answering works
 
 For each question:
-1. **Rank** the Answer Bank with fuzzy/lexical matching.
+1. **Rank** the Answer Library with fuzzy/lexical matching.
 2. If the top match ≥ 88% → **reuse it verbatim** (instant, $0 API, consistent).
 3. Otherwise → **draft with Claude**, grounded in the closest prior answers,
    returning a confidence score and a `needs_review` flag.
