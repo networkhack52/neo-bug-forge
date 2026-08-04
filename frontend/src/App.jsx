@@ -73,6 +73,7 @@ export default function App() {
         {[
           ["upload", "Answer a questionnaire"],
           ["bank", "Answer Library"],
+          ["documents", "Trust Documents"],
           ["history", "History"],
           ["billing", "Plan & Billing"],
         ].map(([k, label]) => (
@@ -85,6 +86,7 @@ export default function App() {
       <main className="content">
         {tab === "upload" && <Upload me={me} onChange={refresh} />}
         {tab === "bank" && <Bank me={me} onChange={refresh} />}
+        {tab === "documents" && <Documents />}
         {tab === "history" && <History />}
         {tab === "billing" && <Billing me={me} onChange={refresh} />}
       </main>
@@ -290,9 +292,20 @@ function ReviewItem({ item, onApprove, onShowSources }) {
 function SourcePanel({ data, library, onClose }) {
   const { item, cites } = data;
   const norm = (s) => (s || "").trim().toLowerCase();
-  const resolved = cites.map((title) => {
-    const hit = library.find((x) => norm(x.question) === norm(title));
-    return { title, answer: hit ? hit.answer : null, category: hit ? hit.category : null };
+  // Citations may be legacy strings or structured { title, text, kind }.
+  const resolved = cites.map((cite) => {
+    const c = typeof cite === "string" ? { title: cite, text: "", kind: "library" } : cite || {};
+    const title = c.title || "";
+    let text = c.text || "";
+    let category = null;
+    if (c.kind !== "document") {
+      const hit = library.find((x) => norm(x.question) === norm(title));
+      if (hit) {
+        if (!text) text = hit.answer;
+        category = hit.category;
+      }
+    }
+    return { title, text, kind: c.kind || "library", category };
   });
   return (
     <>
@@ -320,24 +333,106 @@ function SourcePanel({ data, library, onClose }) {
         <div className="stack">
           {resolved.map((s, i) => (
             <div key={i} className="source-item">
-              <div className="q small">{s.title}</div>
-              {s.answer ? (
-                <div className="source-quote">{s.answer}</div>
+              <div className="source-tophead">
+                <span className={`tag ${s.kind === "document" ? "blue" : "gray"}`}>
+                  {s.kind === "document" ? "📄 Document" : "✔ Approved answer"}
+                </span>
+                <span className="q small">{s.title}</span>
+              </div>
+              {s.text ? (
+                <div className="source-quote">{s.text}</div>
               ) : (
-                <div className="muted xsmall">
-                  Cited from a prior answer in your library (full text not loaded).
-                </div>
+                <div className="muted xsmall">Cited source (exact text not loaded).</div>
               )}
               {s.category && <div className="muted xsmall">{s.category}</div>}
             </div>
           ))}
         </div>
         <p className="muted xsmall drawer-foot">
-          Every answer is grounded only in answers your team already approved. Nothing here is
-          invented by the model.
+          Every answer is grounded only in your approved answers and trust documents. The
+          highlighted spans are the exact text the model cited — nothing here is invented.
         </p>
       </aside>
     </>
+  );
+}
+
+function Documents() {
+  const [docs, setDocs] = useState([]);
+  const [enabled, setEnabled] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function load() {
+    const r = await api.documents();
+    setDocs(r.documents);
+    setEnabled(r.embeddings_enabled);
+  }
+  useEffect(() => {
+    load().catch((e) => setErr(e.message));
+  }, []);
+
+  async function onFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setBusy(true);
+    setErr("");
+    try {
+      await api.uploadDocument(file);
+      await load();
+    } catch (e) {
+      setErr(e.message);
+    }
+    setBusy(false);
+  }
+
+  async function remove(id) {
+    await api.deleteDocument(id);
+    await load();
+  }
+
+  return (
+    <div className="grid2">
+      <div className="card">
+        <h3>Add a trust document</h3>
+        <p className="muted small">
+          Upload your SOC 2 report, security policies, or DPA (PDF or text). Drafted answers will
+          cite the exact passage they came from — proof for a reviewing CTO that nothing is
+          invented.
+        </p>
+        <label className="primary filebtn">
+          {busy ? "Indexing…" : "Upload document"}
+          <input type="file" accept=".pdf,.txt,.md" onChange={onFile} hidden />
+        </label>
+        {err && <div className="error">{err}</div>}
+        <p className="muted xsmall" style={{ marginTop: 12 }}>
+          {enabled
+            ? "Semantic search is ON — passages are matched by meaning."
+            : "Semantic search is OFF (no embeddings key) — passages are matched lexically. Set VOYAGE_API_KEY to enable meaning-based grounding."}
+        </p>
+      </div>
+      <div>
+        <h3>{docs.length} document{docs.length === 1 ? "" : "s"}</h3>
+        <div className="stack">
+          {docs.map((d) => (
+            <div key={d.id} className="card compact">
+              <div className="itemhead">
+                <span className="tag blue">📄 {d.kind}</span>
+                <span className="q small">{d.name}</span>
+              </div>
+              <div className="muted xsmall">
+                {d.chunk_count} passage{d.chunk_count === 1 ? "" : "s"} ·{" "}
+                {Math.round(d.char_count / 1000)}k chars
+              </div>
+              <button className="link" onClick={() => remove(d.id)}>
+                Remove
+              </button>
+            </div>
+          ))}
+          {docs.length === 0 && <p className="muted small">No documents yet.</p>}
+        </div>
+      </div>
+    </div>
   );
 }
 

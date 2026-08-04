@@ -1,18 +1,22 @@
-"""Answer-Bank retrieval.
+"""Answer-Library retrieval — lexical fuzzy matching, blended with semantics.
 
 Security-questionnaire questions repeat near-verbatim across vendors, so a
-strong lexical/fuzzy matcher over the org's own approved answers beats a
-generic semantic index for the common case — and needs no embedding API.
+strong lexical/fuzzy matcher over the org's own approved answers already wins
+the common case with no embedding API. ``token_set_ratio`` is
+order/duplication insensitive, so "Do you encrypt data at rest?" matches
+"Is data at rest encrypted?" highly.
 
-``token_set_ratio`` is order/duplication insensitive, so
-"Do you encrypt data at rest?" matches "Is data at rest encrypted?" highly.
+When a Voyage key is configured, we additionally blend a semantic cosine score
+so paraphrases that share little surface wording ("Where is data stored?" vs
+"In which region does customer data reside?") still match. The blend is a
+``max``: semantics can only *raise* recall, never drop a strong lexical hit.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional
 
-from . import config, fuzzy
+from . import config, embeddings, fuzzy
 
 
 @dataclass
@@ -34,14 +38,26 @@ def _scorer(query: str, choice: str) -> float:
 
 
 def rank(question: str, bank: list[dict], limit: int = config.CONTEXT_TOP_K) -> list[Match]:
-    """Return the top ``limit`` Answer-Bank matches, best first."""
+    """Return the top ``limit`` Answer-Library matches, best first."""
     if not bank:
         return []
-    scored = sorted(
-        (( _scorer(question, a["question"]), a) for a in bank),
-        key=lambda pair: pair[0],
-        reverse=True,
-    )
+
+    # Optional semantic layer: embed the query once, cosine against stored
+    # question vectors. Skipped entirely (query_vec == []) when disabled.
+    query_vec = embeddings.embed_one(question, input_type="query")
+
+    scored: list[tuple[float, dict]] = []
+    for a in bank:
+        lexical = _scorer(question, a["question"])
+        final = lexical
+        if query_vec:
+            vec = embeddings.from_blob(a.get("embedding"))
+            if vec:
+                semantic = embeddings.cosine(query_vec, vec) * config.SEMANTIC_WEIGHT
+                final = max(final, semantic)
+        scored.append((final, a))
+
+    scored.sort(key=lambda pair: pair[0], reverse=True)
     matches: list[Match] = []
     for score, a in scored[:limit]:
         matches.append(

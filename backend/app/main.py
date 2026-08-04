@@ -14,7 +14,7 @@ from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Uplo
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
-from . import __version__, assessment as assess, billing, config, db, engine, export, parsing
+from . import __version__, assessment as assess, billing, config, db, documents, engine, export, parsing
 from .report import render as render_report
 
 
@@ -49,6 +49,11 @@ def require_org(authorization: str | None = Header(default=None)) -> dict:
     if not org:
         raise HTTPException(status_code=401, detail="Invalid token")
     return db.roll_period_if_needed(org)
+
+
+def public_answer(a: dict) -> dict:
+    """Drop the stored embedding BLOB before returning an answer over the API."""
+    return {k: v for k, v in a.items() if k != "embedding"}
 
 
 def public_questionnaire(q: dict) -> dict:
@@ -151,7 +156,7 @@ def me(org: dict = Depends(require_org)) -> dict:
 # --------------------------------------------------------------------------
 @app.get("/v1/answers")
 def get_answers(org: dict = Depends(require_org)) -> dict:
-    return {"answers": db.list_answers(org["id"])}
+    return {"answers": [public_answer(a) for a in db.list_answers(org["id"])]}
 
 
 @app.post("/v1/answers")
@@ -161,7 +166,7 @@ def create_answer(body: dict, org: dict = Depends(require_org)) -> dict:
         raise HTTPException(status_code=400, detail="question and answer are required")
     if db.count_answers(org["id"]) >= config.TIERS[org["tier"]]["bank_limit"]:
         raise HTTPException(status_code=402, detail="Answer Library limit reached for your plan")
-    return db.add_answer(org["id"], q, a, body.get("category", "general"), body.get("source", "manual"))
+    return public_answer(db.add_answer(org["id"], q, a, body.get("category", "general"), body.get("source", "manual")))
 
 
 @app.post("/v1/answers/bulk")
@@ -177,6 +182,36 @@ def bulk_answers(body: dict, org: dict = Depends(require_org)) -> dict:
             db.add_answer(org["id"], q, a, row.get("category", "general"), row.get("source", "import"))
             created += 1
     return {"created": created, "bank_size": db.count_answers(org["id"])}
+
+
+# --------------------------------------------------------------------------
+# Trust documents (SOC 2, policies) — grounding sources for drafted answers
+# --------------------------------------------------------------------------
+@app.get("/v1/documents")
+def get_documents(org: dict = Depends(require_org)) -> dict:
+    return {
+        "documents": db.list_documents(org["id"]),
+        "embeddings_enabled": config.EMBEDDINGS_ENABLED,
+    }
+
+
+@app.post("/v1/documents")
+async def upload_document(file: UploadFile = File(...), org: dict = Depends(require_org)) -> dict:
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=422, detail="Empty file")
+    try:
+        doc = documents.ingest(org["id"], file.filename or "document", data)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    return {"document": doc}
+
+
+@app.delete("/v1/documents/{doc_id}")
+def delete_document(doc_id: int, org: dict = Depends(require_org)) -> dict:
+    if not db.delete_document(org["id"], doc_id):
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"deleted": True}
 
 
 # --------------------------------------------------------------------------

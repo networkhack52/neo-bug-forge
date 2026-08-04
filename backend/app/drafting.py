@@ -105,14 +105,17 @@ class Draft:
     needs_review: bool
     match_type: str  # drafted | fallback
     choice: str = ""                                      # Yes | No | Partially | Not Applicable | ""
-    citations: list[str] = field(default_factory=list)   # source titles the model actually cited
+    # Structured sources the model actually cited: each is
+    # {"title": str, "text": <exact cited span>, "kind": "library"|"document"}.
+    citations: list[dict] = field(default_factory=list)
     verification: str = "skipped"                         # supported | unsupported | skipped
 
 
 FALLBACK_MIN_SIMILARITY = 70.0  # below this an offline fallback must not paste a prior answer
 
 
-def _build_user_prompt(question: str, context: list[Match]) -> str:
+def _build_user_prompt(question: str, context: list[Match], documents: list | None = None) -> str:
+    documents = documents or []
     lines = ["QUESTION:", question, "", "CONTEXT — previously approved answers:"]
     if context:
         for i, m in enumerate(context, 1):
@@ -120,6 +123,11 @@ def _build_user_prompt(question: str, context: list[Match]) -> str:
             lines.append(f"    A: {m.answer}")
     else:
         lines.append("(no closely related prior answers)")
+    if documents:
+        lines.append("")
+        lines.append("CONTEXT — trust documents (SOC 2 report / security policies):")
+        for i, d in enumerate(documents, 1):
+            lines.append(f"[D{i}] {d.doc_name}: {d.text[:600]}")
     lines.append("")
     lines.append("Draft the best answer to QUESTION grounded in the CONTEXT, as strict JSON.")
     return "\n".join(lines)
@@ -158,29 +166,36 @@ def _messages_endpoint() -> str:
     return f"{config.ANTHROPIC_BASE_URL}/v1/messages"
 
 
-def _context_documents(context: list[Match]) -> list[dict]:
-    """Each context Q&A becomes a citable document block."""
-    docs = []
-    for m in context:
-        docs.append({
-            "type": "document",
-            "source": {"type": "text", "media_type": "text/plain", "data": m.answer},
-            "title": m.question,
-            "citations": {"enabled": True},
-        })
-    return docs
+def _sources(context: list[Match], documents: list) -> list[dict]:
+    """Unify approved answers and trust-document passages into citable sources."""
+    sources = [{"title": m.question, "kind": "library", "data": m.answer} for m in context]
+    sources += [{"title": d.doc_name, "kind": "document", "data": d.text} for d in documents]
+    return sources
 
 
-def draft_answer(question: str, context: list[Match]) -> Draft:
+def _source_documents(sources: list[dict]) -> list[dict]:
+    """Each source becomes a citable ``document`` block (title + full text)."""
+    return [{
+        "type": "document",
+        "source": {"type": "text", "media_type": "text/plain", "data": s["data"]},
+        "title": s["title"],
+        "citations": {"enabled": True},
+    } for s in sources]
+
+
+def draft_answer(question: str, context: list[Match], documents: list | None = None) -> Draft:
+    documents = documents or []
     if not config.LLM_ENABLED:
         return _fallback(question, context)
 
     # Build a request that (a) grounds the model in citable documents and
     # (b) asks for the structured JSON verdict. Citations attach to the spans
-    # the model actually used, giving verifiable sourcing.
+    # the model actually used, giving verifiable sourcing — including the exact
+    # span of a SOC 2 report or policy when trust documents are attached.
+    sources = _sources(context, documents)
     user_content: list[dict] = []
-    if config.CITATIONS_ENABLED and context:
-        user_content.extend(_context_documents(context))
+    if config.CITATIONS_ENABLED and sources:
+        user_content.extend(_source_documents(sources))
         user_content.append({
             "type": "text",
             "text": (
@@ -191,7 +206,7 @@ def draft_answer(question: str, context: list[Match]) -> Draft:
             ),
         })
     else:
-        user_content.append({"type": "text", "text": _build_user_prompt(question, context)})
+        user_content.append({"type": "text", "text": _build_user_prompt(question, context, documents)})
 
     payload = {
         "model": config.ANTHROPIC_MODEL,
@@ -208,7 +223,7 @@ def draft_answer(question: str, context: list[Match]) -> Draft:
 
         blocks = body.get("content", [])
         text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
-        cited_titles = _collect_citations(blocks, context)
+        cited = _collect_citations(blocks, sources)
         parsed = _extract_json(text)
 
         answer_text = parsed.get("answer", text).strip()
@@ -219,15 +234,15 @@ def draft_answer(question: str, context: list[Match]) -> Draft:
             needs_review=bool(parsed.get("needs_review", True)),
             match_type="drafted",
             choice=choice,
-            citations=cited_titles,
+            citations=cited,
         )
         # A drafted answer with zero citations is ungrounded — flag it.
-        if config.CITATIONS_ENABLED and context and not cited_titles:
+        if config.CITATIONS_ENABLED and sources and not cited:
             draft.needs_review = True
             draft.confidence = min(draft.confidence, 50.0)
 
         if config.VERIFY_ENABLED:
-            _verify(draft, context)
+            _verify(draft, context, documents)
         return draft
     except Exception as exc:  # network/parse errors must not break the batch
         fb = _fallback(question, context)
@@ -235,26 +250,39 @@ def draft_answer(question: str, context: list[Match]) -> Draft:
         return fb
 
 
-def _collect_citations(blocks: list[dict], context: list[Match]) -> list[str]:
-    """Map returned citations back to the source questions they came from."""
-    titles: list[str] = []
+def _collect_citations(blocks: list[dict], sources: list[dict], cap: int = 6) -> list[dict]:
+    """Map returned citations to their source, capturing the exact cited span."""
+    out: list[dict] = []
+    seen: set = set()
     for b in blocks:
         for c in (b.get("citations") or []):
+            idx = c.get("document_index")
             title = c.get("document_title")
-            if title is None:
-                idx = c.get("document_index")
-                if isinstance(idx, int) and 0 <= idx < len(context):
-                    title = context[idx].question
-            if title and title not in titles:
-                titles.append(title)
-    return titles
+            kind = "library"
+            if isinstance(idx, int) and 0 <= idx < len(sources):
+                src = sources[idx]
+                title = title or src["title"]
+                kind = src["kind"]
+            if not title:
+                continue
+            span = (c.get("cited_text") or "").strip()
+            key = (title, span)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append({"title": title, "text": span, "kind": kind})
+            if len(out) >= cap:
+                return out
+    return out
 
 
-def _verify(draft: Draft, context: list[Match]) -> None:
+def _verify(draft: Draft, context: list[Match], documents: list | None = None) -> None:
     """Chain-of-verification: second pass that checks the draft against context."""
-    if not context or not draft.answer:
+    documents = documents or []
+    supporting = [m.answer for m in context] + [d.text for d in documents]
+    if not supporting or not draft.answer:
         return
-    ctx_text = "\n".join(f"- {m.answer}" for m in context)
+    ctx_text = "\n".join(f"- {s}" for s in supporting)
     payload = {
         "model": config.ANTHROPIC_MODEL,
         "max_tokens": 300,

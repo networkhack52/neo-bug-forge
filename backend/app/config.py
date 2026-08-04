@@ -29,6 +29,19 @@ LLM_ENABLED = bool(ANTHROPIC_API_KEY)
 CITATIONS_ENABLED = os.environ.get("ATTESTLY_CITATIONS", "1") not in ("0", "false", "False")
 VERIFY_ENABLED = os.environ.get("ATTESTLY_VERIFY", "1") not in ("0", "false", "False")
 
+# --- Embeddings (semantic retrieval) --------------------------------------
+# Optional: when a Voyage AI key is present, answers/documents are embedded and
+# retrieval blends semantic similarity with the lexical score. Without a key the
+# system degrades cleanly to the pure lexical/fuzzy matcher (no new services).
+VOYAGE_API_KEY = os.environ.get("VOYAGE_API_KEY", "").strip()
+VOYAGE_MODEL = os.environ.get("VOYAGE_MODEL", "voyage-3.5-lite")
+VOYAGE_BASE_URL = os.environ.get("VOYAGE_BASE_URL", "https://api.voyageai.com")
+EMBEDDINGS_ENABLED = bool(VOYAGE_API_KEY)
+# Semantic cosine (0-1) is scaled to 0-100 and blended with the lexical score.
+# A match's final score is max(lexical, semantic * SEMANTIC_WEIGHT), so semantic
+# can only *raise* recall — it never drops a strong lexical match.
+SEMANTIC_WEIGHT = float(os.environ.get("ATTESTLY_SEMANTIC_WEIGHT", "100"))
+
 # --- Stripe ---------------------------------------------------------------
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "").strip()
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()

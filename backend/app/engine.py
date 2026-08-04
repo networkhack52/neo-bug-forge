@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from . import db, retrieval
+from . import db, documents, retrieval
 from .drafting import draft_answer, infer_choice
 
 
@@ -25,7 +25,7 @@ class AnsweredItem:
     matched_answer_id: int | None
     needs_review: bool
     choice: str = ""
-    citations: list[str] = field(default_factory=list)
+    citations: list[dict] = field(default_factory=list)
     verification: str = "skipped"
 
 
@@ -44,12 +44,14 @@ def answer_question(org_id: int, item_id: int, question: str, bank: list[dict]) 
             matched_answer_id=reusable.answer_id,
             needs_review=False,
             choice=infer_choice(reusable.answer),
-            citations=[reusable.question],   # a reused answer is its own source
+            # A reused answer is its own source.
+            citations=[{"title": reusable.question, "text": reusable.answer, "kind": "library"}],
             verification="supported",
         )
     else:
         ctx = retrieval.context_matches(matches)
-        d = draft_answer(question, ctx)
+        docs = documents.search(org_id, question)
+        d = draft_answer(question, ctx, docs)
         result = AnsweredItem(
             item_id=item_id,
             question=question,

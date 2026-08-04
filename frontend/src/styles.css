@@ -151,6 +151,7 @@ button, .primary, .secondary {
 .drawer-meta { display: flex; gap: 8px; align-items: center; margin: 10px 0 18px; flex-wrap: wrap; }
 .drawer-sub { font-weight: 700; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 10px; }
 .source-item { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.source-tophead { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .source-quote { border-left: 3px solid var(--green); background: #ecfdf5; padding: 8px 12px; margin-top: 6px; font-size: 13px; white-space: pre-wrap; }
 .drawer-foot { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 12px; }
 

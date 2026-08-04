@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS answers (
     source       TEXT DEFAULT 'manual',
     status       TEXT NOT NULL DEFAULT 'approved',   -- approved | draft
     times_reused INTEGER NOT NULL DEFAULT 0,
+    embedding    BLOB,                                -- float32 question vector (optional)
     created_at   REAL NOT NULL,
     updated_at   REAL NOT NULL
 );
@@ -77,6 +78,29 @@ CREATE TABLE IF NOT EXISTS questionnaire_items (
     created_at      REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_items_q ON questionnaire_items(questionnaire_id);
+
+CREATE TABLE IF NOT EXISTS documents (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id       INTEGER NOT NULL REFERENCES orgs(id),
+    name         TEXT NOT NULL,
+    kind         TEXT NOT NULL DEFAULT 'pdf',   -- pdf | text
+    char_count   INTEGER NOT NULL DEFAULT 0,
+    chunk_count  INTEGER NOT NULL DEFAULT 0,
+    created_at   REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_docs_org ON documents(org_id);
+
+CREATE TABLE IF NOT EXISTS document_chunks (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id  INTEGER NOT NULL REFERENCES documents(id),
+    org_id       INTEGER NOT NULL REFERENCES orgs(id),
+    ordinal      INTEGER NOT NULL,
+    text         TEXT NOT NULL,
+    embedding    BLOB,
+    created_at   REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_chunks_org ON document_chunks(org_id);
+CREATE INDEX IF NOT EXISTS idx_chunks_doc ON document_chunks(document_id);
 """
 
 # Columns added after v1 — applied idempotently for existing databases.
@@ -94,6 +118,9 @@ _MIGRATIONS = {
         "question_col": "INTEGER",
         "answer_col": "INTEGER",
         "detail_col": "INTEGER",
+    },
+    "answers": {
+        "embedding": "BLOB",
     },
 }
 
@@ -206,15 +233,34 @@ def add_answer(
     status: str = "approved",
 ) -> dict:
     now = time.time()
+    # Best-effort semantic vector for the question (None when embeddings are off).
+    from . import embeddings
+
+    vec = embeddings.embed_one(question.strip(), input_type="document")
+    blob = embeddings.to_blob(vec) if vec else None
     with cursor() as cur:
         cur.execute(
-            "INSERT INTO answers (org_id, question, answer, category, source, status, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (org_id, question.strip(), answer.strip(), category, source, status, now, now),
+            "INSERT INTO answers (org_id, question, answer, category, source, status, "
+            "embedding, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (org_id, question.strip(), answer.strip(), category, source, status, blob, now, now),
         )
         aid = cur.lastrowid
         row = cur.execute("SELECT * FROM answers WHERE id = ?", (aid,)).fetchone()
     return dict(row)
+
+
+def set_answer_embedding(answer_id: int, blob: bytes) -> None:
+    with cursor() as cur:
+        cur.execute("UPDATE answers SET embedding = ? WHERE id = ?", (blob, answer_id))
+
+
+def answers_missing_embeddings(org_id: int, limit: int = 200) -> list[dict]:
+    with cursor() as cur:
+        rows = cur.execute(
+            "SELECT id, question FROM answers WHERE org_id = ? AND embedding IS NULL LIMIT ?",
+            (org_id, limit),
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def list_answers(org_id: int, status: str = "approved") -> list[dict]:
@@ -349,3 +395,61 @@ def set_questionnaire_status(qid: int, status: str) -> None:
 def set_answered_count(qid: int, n: int) -> None:
     with cursor() as cur:
         cur.execute("UPDATE questionnaires SET answered_questions = ? WHERE id = ?", (n, qid))
+
+
+# --------------------------------------------------------------------------
+# Trust documents (SOC 2, policies) + chunks
+# --------------------------------------------------------------------------
+def create_document(org_id: int, name: str, kind: str, char_count: int,
+                    chunks: list[tuple[str, Optional[bytes]]]) -> dict:
+    """Insert a document and its (text, embedding) chunks in one transaction."""
+    now = time.time()
+    with cursor() as cur:
+        cur.execute(
+            "INSERT INTO documents (org_id, name, kind, char_count, chunk_count, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (org_id, name, kind, char_count, len(chunks), now),
+        )
+        doc_id = int(cur.lastrowid)
+        for ordinal, (text, blob) in enumerate(chunks):
+            cur.execute(
+                "INSERT INTO document_chunks (document_id, org_id, ordinal, text, embedding, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (doc_id, org_id, ordinal, text, blob, now),
+            )
+        row = cur.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
+    return dict(row)
+
+
+def list_documents(org_id: int) -> list[dict]:
+    with cursor() as cur:
+        rows = cur.execute(
+            "SELECT id, name, kind, char_count, chunk_count, created_at FROM documents "
+            "WHERE org_id = ? ORDER BY created_at DESC",
+            (org_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def list_chunks(org_id: int) -> list[dict]:
+    """All chunks for an org, with their document name — for grounding search."""
+    with cursor() as cur:
+        rows = cur.execute(
+            "SELECT c.id, c.text, c.embedding, c.ordinal, d.name AS doc_name "
+            "FROM document_chunks c JOIN documents d ON d.id = c.document_id "
+            "WHERE c.org_id = ?",
+            (org_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_document(org_id: int, doc_id: int) -> bool:
+    with cursor() as cur:
+        owned = cur.execute(
+            "SELECT 1 FROM documents WHERE id = ? AND org_id = ?", (doc_id, org_id)
+        ).fetchone()
+        if not owned:
+            return False
+        cur.execute("DELETE FROM document_chunks WHERE document_id = ? AND org_id = ?", (doc_id, org_id))
+        cur.execute("DELETE FROM documents WHERE id = ? AND org_id = ?", (doc_id, org_id))
+    return True
