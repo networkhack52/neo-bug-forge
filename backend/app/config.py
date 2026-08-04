@@ -18,6 +18,11 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 DB_PATH = os.environ.get("ATTESTLY_DB_PATH", str(DATA_DIR / "attestly.db"))
 
+# Reject oversized uploads before parsing them — untrusted files (PDF/xlsx) are
+# a DoS surface (parser blow-ups, embedding cost), so cap the bytes we accept.
+MAX_UPLOAD_MB = int(os.environ.get("ATTESTLY_MAX_UPLOAD_MB", "20"))
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+
 # --- Anthropic (Claude) ---------------------------------------------------
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")

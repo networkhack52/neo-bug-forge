@@ -51,6 +51,14 @@ def require_org(authorization: str | None = Header(default=None)) -> dict:
     return db.roll_period_if_needed(org)
 
 
+def _reject_if_oversized(data: bytes) -> None:
+    if len(data) > config.MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large (max {config.MAX_UPLOAD_MB} MB).",
+        )
+
+
 def public_answer(a: dict) -> dict:
     """Drop the stored embedding BLOB before returning an answer over the API."""
     return {k: v for k, v in a.items() if k != "embedding"}
@@ -200,6 +208,7 @@ async def upload_document(file: UploadFile = File(...), org: dict = Depends(requ
     data = await file.read()
     if not data:
         raise HTTPException(status_code=422, detail="Empty file")
+    _reject_if_oversized(data)
     try:
         doc = documents.ingest(org["id"], file.filename or "document", data)
     except ValueError as e:
@@ -222,6 +231,7 @@ async def upload_questionnaire(
     file: UploadFile = File(...), org: dict = Depends(require_org)
 ) -> dict:
     data = await file.read()
+    _reject_if_oversized(data)
     parsed = parsing.parse(file.filename or "upload.xlsx", data)
     if not parsed.questions:
         raise HTTPException(status_code=422, detail="No questions detected in the file")

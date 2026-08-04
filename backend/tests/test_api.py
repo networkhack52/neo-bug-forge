@@ -35,6 +35,17 @@ def test_health():
     assert r.json()["status"] == "ok"
 
 
+def test_oversized_upload_is_rejected(monkeypatch):
+    from app import config
+
+    monkeypatch.setattr(config, "MAX_UPLOAD_BYTES", 1024)  # 1 KB cap for the test
+    token = _token()
+    big = b"x" * 2048
+    r = client.post("/v1/documents", headers=_auth(token),
+                    files={"file": ("big.txt", big, "text/plain")})
+    assert r.status_code == 413
+
+
 def test_auth_required():
     assert client.get("/v1/me").status_code == 401
     assert client.get("/v1/me", headers=_auth("bogus")).status_code == 401
