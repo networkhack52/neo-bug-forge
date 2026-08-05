@@ -36,7 +36,9 @@ async function req(path, { method = "GET", body, isForm = false } = {}) {
 export const api = {
   health: () => req("/health"),
   plans: () => req("/v1/plans"),
-  signup: (name, email) => req("/v1/signup", { method: "POST", body: { name, email } }),
+  signup: (name, email, password) =>
+    req("/v1/signup", { method: "POST", body: { name, email, password } }),
+  login: (email, password) => req("/v1/login", { method: "POST", body: { email, password } }),
   me: () => req("/v1/me"),
   answers: () => req("/v1/answers"),
   addAnswer: (a) => req("/v1/answers", { method: "POST", body: a }),

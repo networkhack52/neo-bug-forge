@@ -95,17 +95,22 @@ export default function App() {
 }
 
 function Onboarding({ onDone }) {
+  const [mode, setMode] = useState("signup"); // signup | login
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const login = mode === "login";
 
   async function submit(e) {
     e.preventDefault();
     setBusy(true);
     setErr("");
     try {
-      const { api_token } = await api.signup(name, email);
+      const { api_token } = login
+        ? await api.login(email, password)
+        : await api.signup(name, email, password);
       setToken(api_token);
       onDone();
     } catch (e) {
@@ -126,13 +131,41 @@ function Onboarding({ onDone }) {
           answers and drafts the rest, then hands you a filled spreadsheet to review and send.
         </p>
         <form onSubmit={submit} className="stack">
-          <input placeholder="Company name" value={name} onChange={(e) => setName(e.target.value)} required />
-          <input placeholder="Work email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          {!login && (
+            <input placeholder="Company name" value={name} onChange={(e) => setName(e.target.value)} required />
+          )}
+          <input
+            placeholder="Work email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            placeholder={login ? "Password" : "Choose a password (8+ characters)"}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
           {err && <div className="error">{err}</div>}
           <button className="primary" disabled={busy}>
-            {busy ? "Creating…" : "Start free — 25 answers, no card"}
+            {busy ? "Please wait…" : login ? "Log in" : "Start free — 25 answers, no card"}
           </button>
         </form>
+        <p className="muted small" style={{ marginTop: 12 }}>
+          {login ? "New to Attestly? " : "Already have an account? "}
+          <button
+            className="link"
+            style={{ display: "inline", padding: 0 }}
+            onClick={() => {
+              setErr("");
+              setMode(login ? "signup" : "login");
+            }}
+          >
+            {login ? "Create an account" : "Log in"}
+          </button>
+        </p>
       </div>
     </div>
   );

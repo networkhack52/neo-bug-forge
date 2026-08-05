@@ -1,4 +1,5 @@
 import io
+import uuid
 
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
@@ -9,8 +10,10 @@ client = TestClient(app)
 
 
 def _token():
-    r = client.post("/v1/signup", json={"name": "Test Co", "email": "t@example.com"})
-    assert r.status_code == 200
+    # Unique email per call — signup now enforces one account per email.
+    email = f"t-{uuid.uuid4().hex[:8]}@example.com"
+    r = client.post("/v1/signup", json={"name": "Test Co", "email": email, "password": "supersecret"})
+    assert r.status_code == 200, r.text
     return r.json()["api_token"]
 
 
@@ -60,6 +63,28 @@ def test_oversized_upload_is_rejected(monkeypatch):
 def test_auth_required():
     assert client.get("/v1/me").status_code == 401
     assert client.get("/v1/me", headers=_auth("bogus")).status_code == 401
+
+
+def test_signup_requires_email_and_password():
+    assert client.post("/v1/signup", json={"name": "X", "email": "bad", "password": "supersecret"}).status_code == 400
+    assert client.post("/v1/signup", json={"name": "X", "email": "a@b.com", "password": "short"}).status_code == 400
+
+
+def test_signup_dedupes_email_and_login_returns_same_org():
+    email = f"owner-{uuid.uuid4().hex[:8]}@example.com"
+    r1 = client.post("/v1/signup", json={"name": "Acme", "email": email, "password": "supersecret"})
+    assert r1.status_code == 200
+    org_id = r1.json()["org_id"]
+    # Second signup with the same email is rejected.
+    assert client.post("/v1/signup", json={"name": "Acme2", "email": email, "password": "supersecret"}).status_code == 409
+    # Login with the right password returns the SAME org (and its data/token).
+    ok = client.post("/v1/login", json={"email": email, "password": "supersecret"})
+    assert ok.status_code == 200
+    assert ok.json()["org_id"] == org_id
+    # Wrong password is rejected.
+    assert client.post("/v1/login", json={"email": email, "password": "nope"}).status_code == 401
+    # Unknown email is rejected the same way.
+    assert client.post("/v1/login", json={"email": "ghost@example.com", "password": "x"}).status_code == 401
 
 
 def test_full_flow_signup_bank_upload_export():

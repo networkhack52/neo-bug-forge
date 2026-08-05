@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS orgs (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     name          TEXT NOT NULL,
     email         TEXT,
+    password_hash TEXT,
     api_token     TEXT NOT NULL UNIQUE,
     tier          TEXT NOT NULL DEFAULT 'free',
     stripe_customer_id TEXT,
@@ -122,6 +123,9 @@ _MIGRATIONS = {
     "answers": {
         "embedding": "BLOB",
     },
+    "orgs": {
+        "password_hash": "TEXT",
+    },
 }
 
 
@@ -165,14 +169,15 @@ def init_db() -> None:
 # --------------------------------------------------------------------------
 # Orgs
 # --------------------------------------------------------------------------
-def create_org(name: str, email: Optional[str] = None, tier: str = config.DEFAULT_TIER) -> dict:
+def create_org(name: str, email: Optional[str] = None, tier: str = config.DEFAULT_TIER,
+               password_hash: Optional[str] = None) -> dict:
     token = "atl_" + secrets.token_urlsafe(24)
     now = time.time()
     with cursor() as cur:
         cur.execute(
-            "INSERT INTO orgs (name, email, api_token, tier, period_start, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (name, email, token, tier, now, now),
+            "INSERT INTO orgs (name, email, password_hash, api_token, tier, period_start, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (name, email, password_hash, token, tier, now, now),
         )
         org_id = cur.lastrowid
     return get_org(org_id)  # type: ignore[return-value]
@@ -187,6 +192,14 @@ def get_org(org_id: int) -> Optional[dict]:
 def get_org_by_token(token: str) -> Optional[dict]:
     with cursor() as cur:
         row = cur.execute("SELECT * FROM orgs WHERE api_token = ?", (token,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_org_by_email(email: str) -> Optional[dict]:
+    with cursor() as cur:
+        row = cur.execute(
+            "SELECT * FROM orgs WHERE email = ? ORDER BY id LIMIT 1", (email.strip().lower(),)
+        ).fetchone()
     return dict(row) if row else None
 
 

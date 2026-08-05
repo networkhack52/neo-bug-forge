@@ -14,7 +14,7 @@ from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Uplo
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
-from . import __version__, assessment as assess, billing, config, db, documents, engine, export, parsing
+from . import __version__, assessment as assess, billing, config, db, documents, engine, export, parsing, passwords
 from .report import render as render_report
 
 
@@ -149,9 +149,28 @@ def assessment_report(body: dict) -> HTMLResponse:
 @app.post("/v1/signup")
 def signup(body: dict) -> dict:
     name = (body.get("name") or "").strip()
+    email = (body.get("email") or "").strip().lower()
+    password = body.get("password") or ""
     if not name:
-        raise HTTPException(status_code=400, detail="name is required")
-    org = db.create_org(name=name, email=body.get("email"))
+        raise HTTPException(status_code=400, detail="Company name is required")
+    if "@" not in email or "." not in email:
+        raise HTTPException(status_code=400, detail="A valid work email is required")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if db.get_org_by_email(email):
+        raise HTTPException(status_code=409, detail="An account with this email already exists — log in instead")
+    org = db.create_org(name=name, email=email, password_hash=passwords.hash_password(password))
+    return {"org_id": org["id"], "api_token": org["api_token"], "tier": org["tier"]}
+
+
+@app.post("/v1/login")
+def login(body: dict) -> dict:
+    email = (body.get("email") or "").strip().lower()
+    password = body.get("password") or ""
+    org = db.get_org_by_email(email)
+    # Same error whether the email or the password is wrong (no account enumeration).
+    if not org or not org.get("password_hash") or not passwords.verify_password(password, org["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
     return {"org_id": org["id"], "api_token": org["api_token"], "tier": org["tier"]}
 
 
