@@ -549,32 +549,34 @@ function History() {
                 )}
               </td>
               <td>
-                {r.can_export_original && (
+                <div className="rowactions">
+                  {r.can_export_original && (
+                    <button
+                      className="link"
+                      onClick={() =>
+                        downloadExport(
+                          r.id,
+                          `${(r.name || "responses").replace(/\.[^.]+$/, "")}_filled.${
+                            r.source_kind === "csv" ? "csv" : "xlsx"
+                          }`,
+                          true
+                        ).catch((e) => alert("Export failed: " + e.message))
+                      }
+                    >
+                      Filled original
+                    </button>
+                  )}
                   <button
                     className="link"
                     onClick={() =>
-                      downloadExport(
-                        r.id,
-                        `${(r.name || "responses").replace(/\.[^.]+$/, "")}_filled.${
-                          r.source_kind === "csv" ? "csv" : "xlsx"
-                        }`,
-                        true
-                      ).catch((e) => alert("Export failed: " + e.message))
+                      downloadExport(r.id, `${(r.name || "responses").replace(/\.[^.]+$/, "")}_answers.xlsx`).catch(
+                        (e) => alert("Export failed: " + e.message)
+                      )
                     }
                   >
-                    Filled original
+                    Clean
                   </button>
-                )}
-                <button
-                  className="link"
-                  onClick={() =>
-                    downloadExport(r.id, `${(r.name || "responses").replace(/\.[^.]+$/, "")}_answers.xlsx`).catch(
-                      (e) => alert("Export failed: " + e.message)
-                    )
-                  }
-                >
-                  Clean
-                </button>
+                </div>
               </td>
             </tr>
             );

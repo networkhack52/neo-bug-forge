@@ -129,6 +129,7 @@ button, .primary, .secondary {
 .plan ul { list-style: none; padding: 0; margin: 0 0 16px; text-align: left; font-size: 14px; }
 .plan li { padding: 4px 0; border-bottom: 1px dashed var(--line); }
 
+.rowactions { display: inline-flex; gap: 16px; align-items: center; }
 .itemfoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
 .citebtn {
   background: #eff6ff; color: var(--blue); border: 1px solid #dbeafe;
