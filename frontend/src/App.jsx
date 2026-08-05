@@ -441,6 +441,8 @@ function Bank({ me, onChange }) {
   const [q, setQ] = useState("");
   const [a, setA] = useState("");
   const [err, setErr] = useState("");
+  const [seeding, setSeeding] = useState(false);
+  const [msg, setMsg] = useState("");
 
   async function load() {
     setAnswers((await api.answers()).answers);
@@ -463,6 +465,25 @@ function Bank({ me, onChange }) {
     }
   }
 
+  async function seed() {
+    setSeeding(true);
+    setErr("");
+    setMsg("");
+    try {
+      const r = await api.seedStarter();
+      setMsg(
+        r.created > 0
+          ? `Added ${r.created} starter answers${r.skipped ? ` (${r.skipped} already present)` : ""}.`
+          : "You already have these starter answers."
+      );
+      await load();
+      onChange();
+    } catch (e) {
+      setErr(e.message);
+    }
+    setSeeding(false);
+  }
+
   return (
     <div className="grid2">
       <div className="card">
@@ -477,6 +498,16 @@ function Bank({ me, onChange }) {
           {me.bank_size}/{me.bank_limit === 100000 ? "∞" : me.bank_limit} entries. Every answer you approve
           from a questionnaire lands here automatically.
         </p>
+        <div className="seedbox">
+          <div className="small">
+            <strong>New here?</strong> Load a starter set of common security answers (MFA,
+            encryption, SOC 2, GDPR, incident response…) to review and edit as your own.
+          </div>
+          <button className="secondary" onClick={seed} disabled={seeding}>
+            {seeding ? "Loading…" : "Load starter answers"}
+          </button>
+          {msg && <div className="notice small">{msg}</div>}
+        </div>
       </div>
       <div>
         <h3>{answers.length} approved answers</h3>

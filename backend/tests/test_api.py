@@ -35,6 +35,17 @@ def test_health():
     assert r.json()["status"] == "ok"
 
 
+def test_seed_starter_loads_and_is_idempotent():
+    token = _token()
+    r1 = client.post("/v1/answers/seed_starter", headers=_auth(token)).json()
+    assert r1["created"] > 20            # the bundled starter set
+    assert r1["bank_size"] == r1["created"]
+    # Second call adds nothing (everything already present / deduped).
+    r2 = client.post("/v1/answers/seed_starter", headers=_auth(token)).json()
+    assert r2["created"] == 0
+    assert r2["skipped"] >= r1["created"]
+
+
 def test_oversized_upload_is_rejected(monkeypatch):
     from app import config
 

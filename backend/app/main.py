@@ -178,6 +178,31 @@ def create_answer(body: dict, org: dict = Depends(require_org)) -> dict:
     return public_answer(db.add_answer(org["id"], q, a, body.get("category", "general"), body.get("source", "manual")))
 
 
+@app.post("/v1/answers/seed_starter")
+def seed_starter(org: dict = Depends(require_org)) -> dict:
+    """One-click: load the bundled 37-answer starter Library, deduped."""
+    from . import seed
+
+    limit = config.TIERS[org["tier"]]["bank_limit"]
+    existing = db.list_answers(org["id"])
+    seen = [b["question"] for b in existing]
+    created = skipped = 0
+    for e in seed.starter_entries():
+        if db.count_answers(org["id"]) >= limit:
+            break
+        q = (e.get("question") or "").strip()
+        a = (e.get("answer") or "").strip()
+        if not q or not a:
+            continue
+        if any(retrieval_close(q, prev) for prev in seen):
+            skipped += 1
+            continue
+        db.add_answer(org["id"], q, a, e.get("category", "general"), source="starter")
+        seen.append(q)  # dedup within this batch too
+        created += 1
+    return {"created": created, "skipped": skipped, "bank_size": db.count_answers(org["id"])}
+
+
 @app.post("/v1/answers/bulk")
 def bulk_answers(body: dict, org: dict = Depends(require_org)) -> dict:
     rows = body.get("answers") or []

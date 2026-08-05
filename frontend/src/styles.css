@@ -130,6 +130,8 @@ button, .primary, .secondary {
 .plan li { padding: 4px 0; border-bottom: 1px dashed var(--line); }
 
 .rowactions { display: inline-flex; gap: 16px; align-items: center; }
+.seedbox { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 10px; }
+.notice.small { font-size: 13px; padding: 8px 12px; }
 .itemfoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
 .citebtn {
   background: #eff6ff; color: var(--blue); border: 1px solid #dbeafe;

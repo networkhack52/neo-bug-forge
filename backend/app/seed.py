@@ -20,10 +20,14 @@ def seed_demo(name: str = "Acme SaaS (demo)", tier: str = "growth") -> dict:
     return org
 
 
+def starter_entries() -> list[dict]:
+    """The bundled starter Answer Library (question/answer/category dicts)."""
+    return json.loads(STARTER.read_text(encoding="utf-8"))
+
+
 def load_starter_bank(org_id: int) -> int:
-    entries = json.loads(STARTER.read_text(encoding="utf-8"))
     n = 0
-    for e in entries:
+    for e in starter_entries():
         db.add_answer(org_id, e["question"], e["answer"], e.get("category", "general"), source="starter")
         n += 1
     return n
