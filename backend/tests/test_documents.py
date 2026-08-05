@@ -42,22 +42,30 @@ def test_delete_document_is_scoped():
     assert documents.search(org["id"], "background checks") == []
 
 
-def test_collect_citations_captures_span_and_kind():
-    sources = [
-        {"title": "Do you encrypt data at rest?", "kind": "library", "data": "Yes, AES-256."},
-        {"title": "SOC2_2024.pdf", "kind": "document", "data": "All data is encrypted at rest using AES-256."},
+class _Doc:
+    def __init__(self, name, text=""):
+        self.doc_name = name
+        self.text = text
+
+
+def test_parse_citations_maps_source_and_kind():
+    docs = [_Doc("SOC2_2024.pdf")]
+    raw = [
+        {"source": "SOC2_2024.pdf", "quote": "encrypted at rest using AES-256"},
+        {"source": "Do you encrypt data at rest?", "quote": "Yes, AES-256."},
     ]
-    blocks = [{
-        "type": "text",
-        "text": "We encrypt at rest.",
-        "citations": [
-            {"document_index": 1, "document_title": "SOC2_2024.pdf",
-             "cited_text": "encrypted at rest using AES-256"},
-        ],
-    }]
-    cites = drafting._collect_citations(blocks, sources)
-    assert cites == [{
-        "title": "SOC2_2024.pdf",
-        "text": "encrypted at rest using AES-256",
-        "kind": "document",
-    }]
+    cites = drafting._parse_citations(raw, docs)
+    assert cites[0] == {"title": "SOC2_2024.pdf",
+                        "text": "encrypted at rest using AES-256", "kind": "document"}
+    assert cites[1]["kind"] == "library"
+
+
+def test_parse_citations_handles_junk():
+    assert drafting._parse_citations(None, []) == []
+    assert drafting._parse_citations("nope", []) == []
+    assert drafting._parse_citations([{"source": "", "quote": ""}, "x"], []) == []
+
+
+def test_strip_cite_tags_removes_inline_markup():
+    dirty = 'We encrypt at rest. <cite index="1-2">AES-256</cite> everywhere.'
+    assert drafting._strip_cite_tags(dirty) == "We encrypt at rest. AES-256 everywhere."
