@@ -27,9 +27,12 @@ def to_blob(vec: list[float]) -> bytes:
     return array.array(_FLOAT, vec).tobytes()
 
 
-def from_blob(blob: bytes | None) -> list[float]:
+def from_blob(blob) -> list[float]:
     if not blob:
         return []
+    # Postgres (psycopg) may hand back a memoryview for BYTEA; normalise to bytes.
+    if not isinstance(blob, (bytes, bytearray)):
+        blob = bytes(blob)
     a = array.array(_FLOAT)
     a.frombytes(blob)
     return list(a)

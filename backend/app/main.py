@@ -97,6 +97,7 @@ def health() -> dict:
         "llm_enabled": config.LLM_ENABLED,
         "stripe_enabled": config.STRIPE_ENABLED,
         "embeddings_enabled": config.EMBEDDINGS_ENABLED,
+        "storage": "postgres" if config.USE_POSTGRES else "sqlite",
     }
 
 

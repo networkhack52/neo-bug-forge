@@ -6,6 +6,7 @@ existing Supabase/Postgres instance; swap ``connect()`` for a psycopg pool.
 """
 from __future__ import annotations
 
+import re
 import secrets
 import sqlite3
 import time
@@ -13,6 +14,9 @@ from contextlib import contextmanager
 from typing import Iterator, Optional
 
 from . import config
+
+# When True, storage is Postgres (via DATABASE_URL); otherwise local SQLite.
+PG = config.USE_POSTGRES
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS orgs (
@@ -129,7 +133,16 @@ _MIGRATIONS = {
 }
 
 
-def connect() -> sqlite3.Connection:
+def _pg_connect():
+    import psycopg
+    from psycopg.rows import dict_row
+
+    return psycopg.connect(config.DATABASE_URL, row_factory=dict_row)
+
+
+def connect():
+    if PG:
+        return _pg_connect()
     conn = sqlite3.connect(config.DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -137,12 +150,48 @@ def connect() -> sqlite3.Connection:
     return conn
 
 
+class _Cursor:
+    """Thin wrapper so the same SQL (with ? placeholders) runs on SQLite or PG.
+
+    Translates ? -> %s for Postgres and exposes ``insert()`` which returns the new
+    row id on both backends (RETURNING id on PG, lastrowid on SQLite).
+    """
+
+    def __init__(self, raw):
+        self._raw = raw
+
+    @staticmethod
+    def _sql(sql: str) -> str:
+        return sql.replace("?", "%s") if PG else sql
+
+    def execute(self, sql: str, params=()):
+        self._raw.execute(self._sql(sql), params)
+        return self
+
+    def executemany(self, sql: str, seq):
+        self._raw.executemany(self._sql(sql), seq)
+        return self
+
+    def insert(self, sql: str, params=()) -> int:
+        if PG:
+            self._raw.execute(self._sql(sql) + " RETURNING id", params)
+            return int(self._raw.fetchone()["id"])
+        self._raw.execute(sql, params)
+        return int(self._raw.lastrowid)
+
+    def fetchone(self):
+        return self._raw.fetchone()
+
+    def fetchall(self):
+        return self._raw.fetchall()
+
+
 @contextmanager
-def cursor() -> Iterator[sqlite3.Cursor]:
+def cursor() -> Iterator[_Cursor]:
     conn = connect()
     try:
         cur = conn.cursor()
-        yield cur
+        yield _Cursor(cur)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -151,17 +200,37 @@ def cursor() -> Iterator[sqlite3.Cursor]:
         conn.close()
 
 
+# SQLite -> Postgres DDL: identity columns, byte and float types.
+def _to_pg_ddl(sql: str) -> str:
+    sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
+    sql = re.sub(r"\bBLOB\b", "BYTEA", sql)
+    sql = re.sub(r"\bREAL\b", "DOUBLE PRECISION", sql)
+    return sql
+
+
 def init_db() -> None:
     conn = connect()
     try:
-        conn.executescript(SCHEMA)
-        # Idempotent column migrations for pre-existing databases.
-        for table, columns in _MIGRATIONS.items():
-            existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
-            for name, decl in columns.items():
-                if name not in existing:
-                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
-        conn.commit()
+        if PG:
+            with conn.cursor() as cur:
+                for stmt in _to_pg_ddl(SCHEMA).split(";"):
+                    if stmt.strip():
+                        cur.execute(stmt)
+                # Postgres supports ADD COLUMN IF NOT EXISTS — idempotent migrations.
+                for table, columns in _MIGRATIONS.items():
+                    for name, decl in columns.items():
+                        cur.execute(
+                            f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {name} {_to_pg_ddl(decl)}"
+                        )
+            conn.commit()
+        else:
+            conn.executescript(SCHEMA)
+            for table, columns in _MIGRATIONS.items():
+                existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+                for name, decl in columns.items():
+                    if name not in existing:
+                        conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+            conn.commit()
     finally:
         conn.close()
 
@@ -174,12 +243,11 @@ def create_org(name: str, email: Optional[str] = None, tier: str = config.DEFAUL
     token = "atl_" + secrets.token_urlsafe(24)
     now = time.time()
     with cursor() as cur:
-        cur.execute(
+        org_id = cur.insert(
             "INSERT INTO orgs (name, email, password_hash, api_token, tier, period_start, created_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (name, email, password_hash, token, tier, now, now),
         )
-        org_id = cur.lastrowid
     return get_org(org_id)  # type: ignore[return-value]
 
 
@@ -252,12 +320,11 @@ def add_answer(
     vec = embeddings.embed_one(question.strip(), input_type="document")
     blob = embeddings.to_blob(vec) if vec else None
     with cursor() as cur:
-        cur.execute(
+        aid = cur.insert(
             "INSERT INTO answers (org_id, question, answer, category, source, status, "
             "embedding, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (org_id, question.strip(), answer.strip(), category, source, status, blob, now, now),
         )
-        aid = cur.lastrowid
         row = cur.execute("SELECT * FROM answers WHERE id = ?", (aid,)).fetchone()
     return dict(row)
 
@@ -348,24 +415,22 @@ def create_questionnaire(
     detail_col: Optional[int] = None,
 ) -> int:
     with cursor() as cur:
-        cur.execute(
+        return cur.insert(
             "INSERT INTO questionnaires (org_id, name, source_filename, total_questions, "
             "source_bytes, source_kind, sheet_name, question_col, answer_col, detail_col, "
             "created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (org_id, name, source_filename, total, source_bytes, source_kind, sheet_name,
              question_col, answer_col, detail_col, time.time()),
         )
-        return int(cur.lastrowid)
 
 
 def add_item(questionnaire_id: int, row_index: int, question: str, excel_row: int = 0) -> int:
     with cursor() as cur:
-        cur.execute(
+        return cur.insert(
             "INSERT INTO questionnaire_items (questionnaire_id, row_index, excel_row, question, "
             "created_at) VALUES (?, ?, ?, ?, ?)",
             (questionnaire_id, row_index, excel_row, question.strip(), time.time()),
         )
-        return int(cur.lastrowid)
 
 
 def update_item(
@@ -448,12 +513,11 @@ def create_document(org_id: int, name: str, kind: str, char_count: int,
     """Insert a document and its (text, embedding) chunks in one transaction."""
     now = time.time()
     with cursor() as cur:
-        cur.execute(
+        doc_id = cur.insert(
             "INSERT INTO documents (org_id, name, kind, char_count, chunk_count, created_at) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             (org_id, name, kind, char_count, len(chunks), now),
         )
-        doc_id = int(cur.lastrowid)
         for ordinal, (text, blob) in enumerate(chunks):
             cur.execute(
                 "INSERT INTO document_chunks (document_id, org_id, ordinal, text, embedding, created_at) "

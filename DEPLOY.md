@@ -86,6 +86,7 @@ You'll paste `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the three
    ANTHROPIC_API_KEY      = sk-ant-...
    ANTHROPIC_MODEL        = claude-haiku-4-5-20251001
    VOYAGE_API_KEY         = pa-...             (optional — turns on semantic search)
+   DATABASE_URL           = postgresql://...   (Supabase — durable storage, see §3b)
    STRIPE_SECRET_KEY      = sk_live_...        (or sk_test_... first)
    STRIPE_WEBHOOK_SECRET  = whsec_...
    STRIPE_PRICE_STARTER   = price_...
@@ -96,10 +97,34 @@ You'll paste `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the three
 4. Deploy. Verify: `curl https://<your-backend>/health` →
    `"llm_enabled": true, "stripe_enabled": true`.
 
-> **Persistence note:** SQLite is fine for launch/pilot. Attach a Render Disk
-> (mount at `/data`, set `ATTESTLY_DB_PATH=/data/attestly.db`) so data survives
-> deploys, **or** migrate to the existing Supabase/Postgres — the schema in
-> `db.py` maps over directly. Do this before real customer data lands.
+---
+
+## 3b. Durable storage → Supabase Postgres (recommended)
+
+Without `DATABASE_URL` the app stores data in a local SQLite file, which on
+Render's default (ephemeral) filesystem **resets on every deploy**. For real
+customers, point it at Postgres — the app auto-detects `DATABASE_URL`, uses
+Postgres, and **creates all its tables on first startup** (no manual SQL).
+
+1. <https://supabase.com> → your project → **Connect** (top bar) → **Connection
+   string** → **Transaction pooler** (port `6543`). It looks like:
+   ```
+   postgresql://postgres.<ref>:<PASSWORD>@aws-0-<region>.pooler.supabase.com:6543/postgres
+   ```
+   Use the **pooler** (6543), not the direct connection — the app opens a
+   connection per request, and the pooler is built for that.
+2. Replace `<PASSWORD>` with your database password (URL-encode any special
+   characters). If the connection is refused, append `?sslmode=require`.
+3. Paste it into Render as `DATABASE_URL` and redeploy.
+4. Verify: `/health` shows `"storage": "postgres"`. (SQLite shows
+   `"storage": "sqlite"`.)
+
+> Local dev and the test suite ignore `DATABASE_URL` unless you set it, so they
+> stay on zero-setup SQLite. The full suite also passes against Postgres.
+
+> **Alternative:** a Render Disk keeps SQLite instead (mount `/data`, set
+> `ATTESTLY_DB_PATH=/data/attestly.db`) — simplest, but $7/mo and no managed
+> backups. Supabase (Postgres) is free and the better long-term foundation.
 
 ---
 

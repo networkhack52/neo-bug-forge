@@ -18,6 +18,12 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 DB_PATH = os.environ.get("ATTESTLY_DB_PATH", str(DATA_DIR / "attestly.db"))
 
+# When DATABASE_URL is set (e.g. a Supabase Postgres connection string), the app
+# uses Postgres for durable storage; otherwise it uses the local SQLite file.
+# Local dev and tests stay on SQLite with zero setup.
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+USE_POSTGRES = bool(DATABASE_URL)
+
 # Reject oversized uploads before parsing them — untrusted files (PDF/xlsx) are
 # a DoS surface (parser blow-ups, embedding cost), so cap the bytes we accept.
 MAX_UPLOAD_MB = int(os.environ.get("ATTESTLY_MAX_UPLOAD_MB", "20"))
