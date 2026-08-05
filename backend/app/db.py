@@ -263,6 +263,36 @@ def answers_missing_embeddings(org_id: int, limit: int = 200) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def set_chunk_embedding(chunk_id: int, blob: bytes) -> None:
+    with cursor() as cur:
+        cur.execute("UPDATE document_chunks SET embedding = ? WHERE id = ?", (blob, chunk_id))
+
+
+def rows_missing_embeddings(table: str, text_col: str) -> list[dict]:
+    """All rows (across orgs) in ``table`` whose embedding is NULL.
+
+    ``table``/``text_col`` are code-controlled constants — never user input."""
+    assert table in ("answers", "document_chunks")
+    assert text_col in ("question", "text")
+    with cursor() as cur:
+        rows = cur.execute(
+            f"SELECT id, {text_col} AS text FROM {table} WHERE embedding IS NULL ORDER BY id"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def set_embeddings_batch(table: str, pairs: list) -> None:
+    """Bulk-write (id, blob) embedding pairs in one transaction."""
+    assert table in ("answers", "document_chunks")
+    if not pairs:
+        return
+    with cursor() as cur:
+        cur.executemany(
+            f"UPDATE {table} SET embedding = ? WHERE id = ?",
+            [(blob, row_id) for row_id, blob in pairs],
+        )
+
+
 def list_answers(org_id: int, status: str = "approved") -> list[dict]:
     with cursor() as cur:
         rows = cur.execute(

@@ -38,8 +38,12 @@ and trust-document passages (SOC 2 / policies) are retrieved semantically.
   are found by wording. No errors, no missing features.
 - **Cost:** `voyage-3.5-lite` is a few cents per million tokens — negligible.
   Embeddings are computed once when an answer/document is saved.
-- **Backfill:** existing answers created before the key was added simply fall
-  back to lexical until re-saved; new ones embed automatically.
+- **Backfill:** new answers/documents embed automatically. To embed everything
+  created *before* you added the key, run the one-shot (locally, or in a Render
+  Shell) — safe to re-run, only touches rows without a vector:
+  ```
+  python -m app.backfill_embeddings
+  ```
 - **Verify:** `/health` shows `"embeddings_enabled": true`.
 
 ---

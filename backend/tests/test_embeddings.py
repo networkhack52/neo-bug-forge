@@ -1,6 +1,4 @@
-import math
-
-from app import config, embeddings, retrieval
+from app import backfill_embeddings, config, db, documents, embeddings, retrieval
 
 
 def test_blob_roundtrip_and_cosine():
@@ -42,3 +40,31 @@ def test_rank_blends_semantic_when_enabled(monkeypatch):
     matches = retrieval.rank("Where is my data stored geographically?", bank, limit=2)
     assert matches[0].answer_id == 1
     assert matches[0].score >= 90  # cosine 1.0 * SEMANTIC_WEIGHT
+
+
+def test_backfill_embeds_missing_rows(monkeypatch):
+    db.init_db()
+    org = db.create_org("Backfill Co")
+    # Create rows while embeddings are OFF -> stored with NULL embedding.
+    monkeypatch.setattr(config, "EMBEDDINGS_ENABLED", False)
+    db.add_answer(org["id"], "Do you encrypt data at rest?", "Yes, AES-256.")
+    documents.ingest(org["id"], "policy.txt", b"Access requires MFA via Okta for all systems.")
+    assert db.rows_missing_embeddings("answers", "question")
+    assert db.rows_missing_embeddings("document_chunks", "text")
+
+    # Turn embeddings ON with a deterministic stub, then backfill.
+    monkeypatch.setattr(config, "EMBEDDINGS_ENABLED", True)
+    monkeypatch.setattr(
+        embeddings, "embed_texts",
+        lambda texts, input_type=None: [[0.1, 0.2, 0.3] for _ in texts],
+    )
+    n = backfill_embeddings.backfill()
+    assert n >= 2
+    # Every row now has an embedding.
+    assert db.rows_missing_embeddings("answers", "question") == []
+    assert db.rows_missing_embeddings("document_chunks", "text") == []
+
+
+def test_backfill_noop_when_disabled(monkeypatch):
+    monkeypatch.setattr(config, "EMBEDDINGS_ENABLED", False)
+    assert backfill_embeddings.backfill() == 0
