@@ -29,6 +29,13 @@ USE_POSTGRES = bool(DATABASE_URL)
 MAX_UPLOAD_MB = int(os.environ.get("ATTESTLY_MAX_UPLOAD_MB", "20"))
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
+# Per-IP rate limits (count, window_seconds) on abuse-prone endpoints. Disabled
+# in tests via ATTESTLY_RATE_LIMIT=0.
+RATE_LIMIT_ENABLED = os.environ.get("ATTESTLY_RATE_LIMIT", "1") not in ("0", "false", "False")
+RL_LOGIN = (10, 300)        # 10 attempts / 5 min — brute-force guard
+RL_SIGNUP = (8, 3600)       # 8 new accounts / hour — mass-signup / cost guard
+RL_ASSESSMENT = (20, 3600)  # 20 / hour — public endpoint, bounds compute cost
+
 # --- Anthropic (Claude) ---------------------------------------------------
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")

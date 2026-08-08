@@ -14,7 +14,10 @@ from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Uplo
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
-from . import __version__, assessment as assess, billing, config, db, documents, engine, export, parsing, passwords
+from . import (
+    __version__, assessment as assess, billing, config, db, documents, engine, export,
+    parsing, passwords, ratelimit,
+)
 from .report import render as render_report
 
 
@@ -49,6 +52,19 @@ def require_org(authorization: str | None = Header(default=None)) -> dict:
     if not org:
         raise HTTPException(status_code=401, detail="Invalid token")
     return db.roll_period_if_needed(org)
+
+
+def rate_limit(request: Request, bucket: str, rule: tuple) -> None:
+    """Raise 429 if the caller's IP exceeds `rule` = (limit, window_seconds)."""
+    if not config.RATE_LIMIT_ENABLED:
+        return
+    limit, window = rule
+    if not ratelimit.allow(bucket, ratelimit.client_ip(request), limit, window):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests — please slow down and try again shortly.",
+            headers={"Retry-After": str(window)},
+        )
 
 
 def _reject_if_oversized(data: bytes) -> None:
@@ -110,7 +126,8 @@ def plans() -> dict:
 # Readiness assessment (public — lead magnet / outbound asset)
 # --------------------------------------------------------------------------
 @app.post("/v1/assessment")
-def assessment_json(body: dict) -> dict:
+def assessment_json(body: dict, request: Request) -> dict:
+    rate_limit(request, "assessment", config.RL_ASSESSMENT)
     company = (body.get("company") or "Your company").strip()
     signals = body.get("signals") or {}
     volume = int(body.get("monthly_questionnaires", 4) or 4)
@@ -134,7 +151,8 @@ def assessment_json(body: dict) -> dict:
 
 
 @app.post("/v1/assessment/report")
-def assessment_report(body: dict) -> HTMLResponse:
+def assessment_report(body: dict, request: Request) -> HTMLResponse:
+    rate_limit(request, "assessment", config.RL_ASSESSMENT)
     company = (body.get("company") or "Your company").strip()
     signals = body.get("signals") or {}
     volume = int(body.get("monthly_questionnaires", 4) or 4)
@@ -148,7 +166,8 @@ def assessment_report(body: dict) -> HTMLResponse:
 # Signup / me
 # --------------------------------------------------------------------------
 @app.post("/v1/signup")
-def signup(body: dict) -> dict:
+def signup(body: dict, request: Request) -> dict:
+    rate_limit(request, "signup", config.RL_SIGNUP)
     name = (body.get("name") or "").strip()
     email = (body.get("email") or "").strip().lower()
     password = body.get("password") or ""
@@ -165,7 +184,8 @@ def signup(body: dict) -> dict:
 
 
 @app.post("/v1/login")
-def login(body: dict) -> dict:
+def login(body: dict, request: Request) -> dict:
+    rate_limit(request, "login", config.RL_LOGIN)
     email = (body.get("email") or "").strip().lower()
     password = body.get("password") or ""
     org = db.get_org_by_email(email)

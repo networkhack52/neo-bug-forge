@@ -7,3 +7,4 @@ os.environ["ATTESTLY_DATA_DIR"] = _tmp
 os.environ["ATTESTLY_DB_PATH"] = os.path.join(_tmp, "test.db")
 os.environ.pop("ANTHROPIC_API_KEY", None)   # force offline drafting in tests
 os.environ.pop("STRIPE_SECRET_KEY", None)
+os.environ["ATTESTLY_RATE_LIMIT"] = "0"      # don't rate-limit the test suite's many signups
