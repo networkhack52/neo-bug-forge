@@ -241,14 +241,17 @@ def _migrate_plaintext_tokens() -> None:
     Old rows stored the raw token; hashing the stored value means a client's
     existing token still authenticates (its SHA-256 now matches). Hashes are 64
     hex chars, raw tokens ~36, so the length filter makes this a safe no-op on
-    already-migrated databases."""
-    with cursor() as cur:
-        rows = cur.execute("SELECT id, api_token FROM orgs WHERE length(api_token) < 60").fetchall()
-        for r in rows:
-            cur.execute(
-                "UPDATE orgs SET api_token = ? WHERE id = ?",
-                (tokens.hash_token(r["api_token"]), r["id"]),
-            )
+    already-migrated databases. A hiccup here must never stop the app booting."""
+    try:
+        with cursor() as cur:
+            rows = cur.execute("SELECT id, api_token FROM orgs WHERE length(api_token) < 60").fetchall()
+            for r in rows:
+                cur.execute(
+                    "UPDATE orgs SET api_token = ? WHERE id = ?",
+                    (tokens.hash_token(r["api_token"]), r["id"]),
+                )
+    except Exception:
+        pass  # non-fatal: worst case, affected clients just log in again
 
 
 # --------------------------------------------------------------------------
