@@ -40,6 +40,7 @@ export const api = {
     req("/v1/signup", { method: "POST", body: { name, email, password } }),
   login: (email, password) => req("/v1/login", { method: "POST", body: { email, password } }),
   me: () => req("/v1/me"),
+  rotateToken: () => req("/v1/token/rotate", { method: "POST" }),
   answers: () => req("/v1/answers"),
   addAnswer: (a) => req("/v1/answers", { method: "POST", body: a }),
   bulkAnswers: (answers) => req("/v1/answers/bulk", { method: "POST", body: { answers } }),

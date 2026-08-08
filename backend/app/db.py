@@ -7,13 +7,12 @@ existing Supabase/Postgres instance; swap ``connect()`` for a psycopg pool.
 from __future__ import annotations
 
 import re
-import secrets
 import sqlite3
 import time
 from contextlib import contextmanager
 from typing import Iterator, Optional
 
-from . import config
+from . import config, tokens
 
 # When True, storage is Postgres (via DATABASE_URL); otherwise local SQLite.
 PG = config.USE_POSTGRES
@@ -233,6 +232,23 @@ def init_db() -> None:
             conn.commit()
     finally:
         conn.close()
+    _migrate_plaintext_tokens()
+
+
+def _migrate_plaintext_tokens() -> None:
+    """One-time, idempotent: hash any legacy plaintext API tokens in place.
+
+    Old rows stored the raw token; hashing the stored value means a client's
+    existing token still authenticates (its SHA-256 now matches). Hashes are 64
+    hex chars, raw tokens ~36, so the length filter makes this a safe no-op on
+    already-migrated databases."""
+    with cursor() as cur:
+        rows = cur.execute("SELECT id, api_token FROM orgs WHERE length(api_token) < 60").fetchall()
+        for r in rows:
+            cur.execute(
+                "UPDATE orgs SET api_token = ? WHERE id = ?",
+                (tokens.hash_token(r["api_token"]), r["id"]),
+            )
 
 
 # --------------------------------------------------------------------------
@@ -240,15 +256,25 @@ def init_db() -> None:
 # --------------------------------------------------------------------------
 def create_org(name: str, email: Optional[str] = None, tier: str = config.DEFAULT_TIER,
                password_hash: Optional[str] = None) -> dict:
-    token = "atl_" + secrets.token_urlsafe(24)
+    raw_token = tokens.new_token()
     now = time.time()
     with cursor() as cur:
         org_id = cur.insert(
             "INSERT INTO orgs (name, email, password_hash, api_token, tier, period_start, created_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (name, email, password_hash, token, tier, now, now),
+            (name, email, password_hash, tokens.hash_token(raw_token), tier, now, now),
         )
-    return get_org(org_id)  # type: ignore[return-value]
+    org = get_org(org_id)  # stored value is the hash
+    org["api_token"] = raw_token  # return the usable token once; only its hash is persisted
+    return org  # type: ignore[return-value]
+
+
+def rotate_token(org_id: int) -> str:
+    """Issue a fresh token (invalidating the old one). Returns the raw token once."""
+    raw_token = tokens.new_token()
+    with cursor() as cur:
+        cur.execute("UPDATE orgs SET api_token = ? WHERE id = ?", (tokens.hash_token(raw_token), org_id))
+    return raw_token
 
 
 def get_org(org_id: int) -> Optional[dict]:
@@ -259,7 +285,9 @@ def get_org(org_id: int) -> Optional[dict]:
 
 def get_org_by_token(token: str) -> Optional[dict]:
     with cursor() as cur:
-        row = cur.execute("SELECT * FROM orgs WHERE api_token = ?", (token,)).fetchone()
+        row = cur.execute(
+            "SELECT * FROM orgs WHERE api_token = ?", (tokens.hash_token(token),)
+        ).fetchone()
     return dict(row) if row else None
 
 

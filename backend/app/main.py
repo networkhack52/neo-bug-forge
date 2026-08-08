@@ -192,12 +192,21 @@ def login(body: dict, request: Request) -> dict:
     # Same error whether the email or the password is wrong (no account enumeration).
     if not org or not org.get("password_hash") or not passwords.verify_password(password, org["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    return {"org_id": org["id"], "api_token": org["api_token"], "tier": org["tier"]}
+    # Only the token hash is stored, so we can't return the old token — mint a
+    # fresh one for this login (invalidates any previously issued token).
+    raw_token = db.rotate_token(org["id"])
+    return {"org_id": org["id"], "api_token": raw_token, "tier": org["tier"]}
 
 
 @app.get("/v1/me")
 def me(org: dict = Depends(require_org)) -> dict:
     return usage_view(org)
+
+
+@app.post("/v1/token/rotate")
+def rotate_token_endpoint(org: dict = Depends(require_org)) -> dict:
+    """Revoke the current API token and issue a new one (e.g. if it leaked)."""
+    return {"api_token": db.rotate_token(org["id"])}
 
 
 # --------------------------------------------------------------------------

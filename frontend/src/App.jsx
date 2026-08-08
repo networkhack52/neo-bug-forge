@@ -727,6 +727,29 @@ function Billing({ me, onChange }) {
           );
         })}
       </div>
+
+      <div className="card" style={{ marginTop: 24 }}>
+        <h3>Security</h3>
+        <p className="muted small">
+          Your API key authenticates this browser. If you think it may have been exposed, rotate it
+          — this immediately invalidates the old key and signs out any other sessions.
+        </p>
+        <button
+          className="secondary"
+          onClick={async () => {
+            if (!confirm("Rotate your API key? Other signed-in sessions will be logged out.")) return;
+            try {
+              const { api_token } = await api.rotateToken();
+              setToken(api_token);
+              setMsg("API key rotated — other sessions are now signed out.");
+            } catch (e) {
+              setMsg("Could not rotate key: " + e.message);
+            }
+          }}
+        >
+          Rotate API key
+        </button>
+      </div>
     </div>
   );
 }
