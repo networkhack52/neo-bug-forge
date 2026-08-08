@@ -65,6 +65,20 @@ def test_auth_required():
     assert client.get("/v1/me", headers=_auth("bogus")).status_code == 401
 
 
+def test_cors_locked_to_known_origins():
+    ok = client.get("/health", headers={"Origin": "https://attestly-gamma.vercel.app"})
+    assert ok.headers.get("access-control-allow-origin") == "https://attestly-gamma.vercel.app"
+    # An unknown origin is not echoed back (no wildcard).
+    bad = client.get("/health", headers={"Origin": "https://evil.example.com"})
+    assert bad.headers.get("access-control-allow-origin") not in ("*", "https://evil.example.com")
+
+
+def test_security_headers_present():
+    h = client.get("/health").headers
+    assert h.get("x-content-type-options") == "nosniff"
+    assert h.get("x-frame-options") == "DENY"
+
+
 def test_signup_requires_email_and_password():
     assert client.post("/v1/signup", json={"name": "X", "email": "bad", "password": "supersecret"}).status_code == 400
     assert client.post("/v1/signup", json={"name": "X", "email": "a@b.com", "password": "short"}).status_code == 400

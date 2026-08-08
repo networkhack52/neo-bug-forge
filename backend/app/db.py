@@ -136,7 +136,11 @@ def _pg_connect():
     import psycopg
     from psycopg.rows import dict_row
 
-    return psycopg.connect(config.DATABASE_URL, row_factory=dict_row)
+    kwargs = {"row_factory": dict_row}
+    # Enforce TLS to the database unless the URL already sets an sslmode.
+    if "sslmode" not in config.DATABASE_URL:
+        kwargs["sslmode"] = "require"
+    return psycopg.connect(config.DATABASE_URL, **kwargs)
 
 
 def connect():
