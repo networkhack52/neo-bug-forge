@@ -11,6 +11,12 @@ from typing import Optional
 
 from . import config, db
 
+
+class WebhookError(Exception):
+    """A Stripe webhook could not be trusted (missing/invalid signature or misconfig).
+
+    Raised so the caller returns 400 and NEVER acts on an unverified event."""
+
 # Map (tier, interval) to Stripe Price IDs via env in production. For the demo
 # we derive amounts from config.TIERS.
 _PRICE_ENV = {
@@ -89,15 +95,22 @@ def handle_webhook(payload: bytes, sig_header: Optional[str]) -> dict:
     if not config.STRIPE_ENABLED:
         return {"handled": False, "reason": "stripe disabled"}
 
+    # Fail closed: a webhook that upgrades billing tiers must be cryptographically
+    # verified. Without a configured secret or a valid signature we reject it —
+    # never parse an unverified payload, or anyone could POST a fake
+    # "checkout.session.completed" and upgrade an org for free.
+    if not config.STRIPE_WEBHOOK_SECRET:
+        raise WebhookError("Webhook secret not configured — refusing to process unverified event")
+    if not sig_header:
+        raise WebhookError("Missing Stripe-Signature header")
+
     import stripe
 
     stripe.api_key = config.STRIPE_SECRET_KEY
-    if config.STRIPE_WEBHOOK_SECRET and sig_header:
+    try:
         event = stripe.Webhook.construct_event(payload, sig_header, config.STRIPE_WEBHOOK_SECRET)
-    else:
-        import json
-
-        event = json.loads(payload)
+    except Exception as exc:  # bad payload or bad signature -> reject, act on nothing
+        raise WebhookError(f"Signature verification failed: {type(exc).__name__}") from exc
 
     etype = event.get("type") if isinstance(event, dict) else event["type"]
     obj = (event.get("data", {}) if isinstance(event, dict) else event["data"]).get("object", {})

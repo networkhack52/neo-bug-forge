@@ -424,5 +424,9 @@ def confirm(body: dict, org: dict = Depends(require_org)) -> dict:
 @app.post("/v1/stripe/webhook")
 async def stripe_webhook(request: Request, stripe_signature: str | None = Header(default=None)) -> JSONResponse:
     payload = await request.body()
-    result = billing.handle_webhook(payload, stripe_signature)
+    try:
+        result = billing.handle_webhook(payload, stripe_signature)
+    except billing.WebhookError as e:
+        # Untrusted event — reject and do nothing.
+        raise HTTPException(status_code=400, detail=str(e))
     return JSONResponse(result)
