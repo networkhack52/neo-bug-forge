@@ -364,22 +364,28 @@ function SourcePanel({ data, library, onClose }) {
 
         <div className="drawer-sub">Sources ({resolved.length})</div>
         <div className="stack">
-          {resolved.map((s, i) => (
-            <div key={i} className="source-item">
-              <div className="source-tophead">
-                <span className={`tag ${s.kind === "document" ? "blue" : "gray"}`}>
-                  {s.kind === "document" ? "📄 Document" : "✔ Approved answer"}
-                </span>
-                <span className="q small">{s.title}</span>
+          {resolved.map((s, i) => {
+            const isDoc = s.kind === "document";
+            // Drop the label prefix the model echoes back ("Document: x" / "Approved answer").
+            const name = (s.title || "").replace(/^document:\s*/i, "").trim();
+            const generic = !name || /^approved answer$/i.test(name);
+            return (
+              <div key={i} className="source-item">
+                <div className="source-tophead">
+                  <span className={`tag ${isDoc ? "blue" : "gray"}`}>
+                    {isDoc ? "📄 Document" : "✔ Approved answer"}
+                  </span>
+                  {!generic && <span className="q small">{name}</span>}
+                </div>
+                {s.text ? (
+                  <div className="source-quote">{s.text}</div>
+                ) : (
+                  <div className="muted xsmall">Cited source (exact text not loaded).</div>
+                )}
+                {s.category && <div className="muted xsmall">{s.category}</div>}
               </div>
-              {s.text ? (
-                <div className="source-quote">{s.text}</div>
-              ) : (
-                <div className="muted xsmall">Cited source (exact text not loaded).</div>
-              )}
-              {s.category && <div className="muted xsmall">{s.category}</div>}
-            </div>
-          ))}
+            );
+          })}
         </div>
         <p className="muted xsmall drawer-foot">
           Every answer is grounded only in your approved answers and trust documents. The
