@@ -9,9 +9,10 @@ compound per customer — that is the retention moat.
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
-from . import db, documents, retrieval
+from . import config, db, documents, embeddings, retrieval
 from .drafting import draft_answer, infer_choice
 
 
@@ -30,7 +31,10 @@ class AnsweredItem:
 
 
 def answer_question(org_id: int, item_id: int, question: str, bank: list[dict]) -> AnsweredItem:
-    matches = retrieval.rank(question, bank)
+    # Embed the query once and reuse it for both bank ranking and doc search
+    # (avoids a second identical embedding call per drafted question).
+    query_vec = embeddings.embed_one(question, input_type="query")
+    matches = retrieval.rank(question, bank, query_vec=query_vec)
     reusable = retrieval.best_reusable(matches)
 
     if reusable is not None:
@@ -50,7 +54,7 @@ def answer_question(org_id: int, item_id: int, question: str, bank: list[dict]) 
         )
     else:
         ctx = retrieval.context_matches(matches)
-        docs = documents.search(org_id, question)
+        docs = documents.search(org_id, question, query_vec=query_vec)
         d = draft_answer(question, ctx, docs)
         result = AnsweredItem(
             item_id=item_id,
@@ -82,9 +86,23 @@ def answer_question(org_id: int, item_id: int, question: str, bank: list[dict]) 
 def answer_questionnaire(org_id: int, questionnaire_id: int) -> list[AnsweredItem]:
     bank = db.list_answers(org_id, status="approved")
     items = db.list_items(questionnaire_id)
-    out: list[AnsweredItem] = []
-    for it in items:
-        out.append(answer_question(org_id, it["id"], it["question"], bank))
+    out: list[AnsweredItem | None] = [None] * len(items)
+
+    # Answer questions concurrently — each drafted one makes several sequential
+    # API calls, so parallelism cuts wall time roughly by the worker count.
+    workers = max(1, min(config.ANSWER_CONCURRENCY, len(items)))
+    if workers == 1 or len(items) <= 1:
+        for i, it in enumerate(items):
+            out[i] = answer_question(org_id, it["id"], it["question"], bank)
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futures = {
+                ex.submit(answer_question, org_id, it["id"], it["question"], bank): i
+                for i, it in enumerate(items)
+            }
+            for fut in as_completed(futures):
+                out[futures[fut]] = fut.result()
+
     db.set_answered_count(questionnaire_id, len(out))
     db.set_questionnaire_status(questionnaire_id, "ready")
-    return out
+    return out  # type: ignore[return-value]

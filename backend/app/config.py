@@ -82,6 +82,9 @@ FUZZY_REUSE_THRESHOLD = float(os.environ.get("ATTESTLY_FUZZY_THRESHOLD", "88"))
 FUZZY_CONTEXT_THRESHOLD = float(os.environ.get("ATTESTLY_CONTEXT_THRESHOLD", "45"))
 # How many context Q&A pairs to hand the model.
 CONTEXT_TOP_K = int(os.environ.get("ATTESTLY_CONTEXT_TOP_K", "5"))
+# Questions answered concurrently per questionnaire (each drafted one makes
+# several sequential API calls, so parallelism is the main latency win).
+ANSWER_CONCURRENCY = int(os.environ.get("ATTESTLY_ANSWER_CONCURRENCY", "6"))
 
 # --- Plans / metering -----------------------------------------------------
 # question_limit = billable "answers generated" per 30-day period.

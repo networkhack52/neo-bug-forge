@@ -37,14 +37,18 @@ def _scorer(query: str, choice: str) -> float:
     )
 
 
-def rank(question: str, bank: list[dict], limit: int = config.CONTEXT_TOP_K) -> list[Match]:
-    """Return the top ``limit`` Answer-Library matches, best first."""
+def rank(question: str, bank: list[dict], limit: int = config.CONTEXT_TOP_K,
+         query_vec: list[float] | None = None) -> list[Match]:
+    """Return the top ``limit`` Answer-Library matches, best first.
+
+    Pass ``query_vec`` to reuse an already-computed query embedding."""
     if not bank:
         return []
 
     # Optional semantic layer: embed the query once, cosine against stored
     # question vectors. Skipped entirely (query_vec == []) when disabled.
-    query_vec = embeddings.embed_one(question, input_type="query")
+    if query_vec is None:
+        query_vec = embeddings.embed_one(question, input_type="query")
 
     scored: list[tuple[float, dict]] = []
     for a in bank:

@@ -106,12 +106,16 @@ def ingest(org_id: int, filename: str, data: bytes) -> dict:
     return db.create_document(org_id, filename or "document", kind, len(text), chunks)
 
 
-def search(org_id: int, question: str, k: int = MAX_GROUND_CHUNKS) -> list[DocMatch]:
-    """Top document passages relevant to a question (semantic, else lexical)."""
+def search(org_id: int, question: str, k: int = MAX_GROUND_CHUNKS,
+           query_vec: list[float] | None = None) -> list[DocMatch]:
+    """Top document passages relevant to a question (semantic, else lexical).
+
+    Pass ``query_vec`` to reuse an already-computed query embedding."""
     rows = db.list_chunks(org_id)
     if not rows:
         return []
-    query_vec = embeddings.embed_one(question, input_type="query")
+    if query_vec is None:
+        query_vec = embeddings.embed_one(question, input_type="query")
     scored: list[tuple[float, dict]] = []
     for r in rows:
         if query_vec:
