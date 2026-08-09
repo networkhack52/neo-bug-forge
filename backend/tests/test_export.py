@@ -90,6 +90,22 @@ def test_export_original_csv_roundtrip():
     assert "TLS 1.2+." in out
 
 
+def test_clean_answer_strips_internal_notes():
+    dirty = ("We store data in the EU.\n\n[Attestly review: these claims were not fully "
+             "supported by your Answer Library — verify before sending: eligible customers]")
+    assert export.clean_answer(dirty) == "We store data in the EU."
+    assert export.clean_answer("Yes.\n\n[Attestly: model call failed: TimeoutException]") == "Yes."
+
+
+def test_cell_text_avoids_duplicate_status_prefix():
+    # Answer already leads with the status -> no "Yes — Yes." doubling.
+    assert export._cell_text("Yes", "Yes. MFA is enforced.", False) == ("Yes. MFA is enforced.", "")
+    # Answer doesn't lead with the status -> prepend it.
+    assert export._cell_text("Yes", "MFA is enforced.", False) == ("Yes — MFA is enforced.", "")
+    # Internal notes are stripped here too.
+    assert export._cell_text("No", "No. [Attestly review: check]", False)[0] == "No."
+
+
 def test_can_export_original_flag():
     assert export.can_export_original({"source_bytes": b"x", "answer_col": 2}) is True
     assert export.can_export_original({"source_bytes": None, "answer_col": 2}) is False

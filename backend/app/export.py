@@ -12,9 +12,18 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
+
+# Internal review/status notes (e.g. "[Attestly review: …]") are for the review
+# screen only — strip them from anything the customer receives.
+_NOTE_RE = re.compile(r"\s*\[Attestly[^\]]*\]", re.IGNORECASE)
+
+
+def clean_answer(text: str) -> str:
+    return _NOTE_RE.sub("", text or "").strip()
 
 
 def export_simple(name: str, items: list[dict]) -> bytes:
@@ -43,7 +52,7 @@ def export_simple(name: str, items: list[dict]) -> bytes:
         ws.cell(row=r, column=1, value=i)
         ws.cell(row=r, column=2, value=item["question"]).alignment = Alignment(wrap_text=True, vertical="top")
         ws.cell(row=r, column=3, value=item.get("choice", "")).alignment = Alignment(vertical="top")
-        ws.cell(row=r, column=4, value=item.get("answer", "")).alignment = Alignment(wrap_text=True, vertical="top")
+        ws.cell(row=r, column=4, value=clean_answer(item.get("answer", ""))).alignment = Alignment(wrap_text=True, vertical="top")
         ws.cell(row=r, column=5, value=round(float(item.get("confidence", 0)), 1))
         status = "review" if item.get("needs_review") else "ok"
         ws.cell(row=r, column=6, value=status)
@@ -64,10 +73,13 @@ def _cell_text(choice: str, answer: str, detail_col: bool) -> tuple[str, str]:
     are combined into the single answer column.
     """
     choice = (choice or "").strip()
-    answer = (answer or "").strip()
+    answer = clean_answer(answer)
     if detail_col:
         return choice, answer
     if choice and answer:
+        # Avoid "Yes — Yes. …" when the answer already opens with the status.
+        if answer.lower().startswith(choice.lower()):
+            return answer, ""
         return f"{choice} — {answer}", ""
     return (choice or answer), ""
 
