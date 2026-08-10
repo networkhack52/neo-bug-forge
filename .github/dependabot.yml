@@ -1,0 +1,34 @@
+# Automated dependency scanning. Dependabot opens PRs when dependencies fall
+# behind or have advisories, so patching is continuous instead of manual.
+version: 2
+updates:
+  # Backend (Python) — reads backend/requirements.txt
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "backend"]
+    groups:
+      # Bundle routine minor/patch bumps into one PR; majors come separately
+      # so breaking upgrades stay individually reviewable.
+      backend-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # Frontend (npm) — reads frontend/package.json + package-lock.json
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "frontend"]
+    groups:
+      frontend-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # Keep GitHub Actions workflows current too (harmless if none exist yet).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "ci"]
