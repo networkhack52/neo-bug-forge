@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Attestly</title>
+<style>
+  :root{--paper:#f4f6f6;--surface:#fff;--ink:#14181c;--muted:#58636d;--line:#e0e5e8;--accent:#0a7d6b;--warn:#9a6b12;--warn-bg:#fbf1dc;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#0d1315;--surface:#141b1e;--ink:#e8eef0;--muted:#8a97a0;--line:#232e33;--accent:#2dd4bf;--warn:#e2b357;--warn-bg:#2a2011;}}
+  :root[data-theme="dark"]{--paper:#0d1315;--surface:#141b1e;--ink:#e8eef0;--muted:#8a97a0;--line:#232e33;--accent:#2dd4bf;--warn:#e2b357;--warn-bg:#2a2011;}
+  *{box-sizing:border-box;} body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.65;font-size:16px;}
+  .wrap{max-width:760px;margin:0 auto;padding:40px 24px 80px;}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.02em;font-size:18px;text-decoration:none;color:var(--ink);}
+  .mark{width:20px;height:20px;border-radius:6px;background:var(--accent);color:var(--paper);display:grid;place-items:center;font-size:12px;font-weight:800;}
+  h1{font-size:2rem;letter-spacing:-.02em;margin:26px 0 4px;} h2{font-size:1.15rem;letter-spacing:-.01em;margin:34px 0 8px;}
+  p,li{color:var(--ink);} .muted{color:var(--muted);}
+  a{color:var(--accent);}
+  .meta{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;}
+  .flag{margin:22px 0;padding:14px 16px;border-radius:10px;background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 34%,transparent);font-size:14px;color:var(--ink);}
+  .flag b{color:var(--warn);}
+  ul{padding-left:20px;} li{margin:5px 0;}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px;}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+  hr{border:none;border-top:1px solid var(--line);margin:38px 0;}
+  .back{font-size:14px;text-decoration:none;color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="brand" href="/"><span class="mark">◆</span> Attestly</a>
+  <h1>Privacy Policy</h1>
+  <p class="meta">Last updated: [DATE] · Effective: [DATE]</p>
+
+  <div class="flag">
+    <b>⚠ Template — not legal advice.</b> This template was generated for Attestly and is not a substitute for
+    review by a qualified attorney or privacy specialist. Fill in every <b>[bracketed]</b> field and confirm the
+    subprocessor list matches your live setup before publishing.
+  </div>
+
+  <p>This Privacy Policy explains how [LEGAL ENTITY NAME] (“Attestly”, “we”) collects, uses, and protects
+  information when you use Attestly (the “Service”).</p>
+
+  <h2>1. Information we collect</h2>
+  <ul>
+    <li><b>Account information</b> — your company name, work email, and a password (stored only as a salted hash, never in plain text).</li>
+    <li><b>Content you upload</b> — security questionnaires, trust documents (e.g., SOC 2 reports, security policies), and the answers you approve. We call this “Your Content.”</li>
+    <li><b>Usage data</b> — basic operational data such as counts of questionnaires processed and answers generated, used for metering and to run the Service.</li>
+  </ul>
+
+  <h2>2. How we use your information</h2>
+  <p>We use your information solely to provide and operate the Service: to authenticate you, to generate and store
+  answers to your questionnaires, to enforce plan limits, and to process payments. <b>We do not sell your data, and we
+  do not use Your Content to train our own or any third party’s AI models.</b></p>
+
+  <h2>3. AI processing and subprocessors</h2>
+  <p>To generate answers, Attestly sends the relevant questionnaire questions and excerpts of the documents and prior
+  answers you provide to third-party AI providers via their APIs. These providers process the data to return a drafted
+  answer or a semantic match and, under their API terms, <b>do not use API inputs to train their models.</b> We share
+  the minimum necessary and only to deliver the Service to you.</p>
+  <table>
+    <thead><tr><th>Subprocessor</th><th>Purpose</th><th>Data shared</th></tr></thead>
+    <tbody>
+      <tr><td>Anthropic (Claude API)</td><td>Draft answers from your context</td><td>Question text + relevant document/answer excerpts</td></tr>
+      <tr><td>Voyage AI</td><td>Semantic matching (embeddings)</td><td>Question and answer/document text</td></tr>
+      <tr><td>Stripe</td><td>Payments &amp; billing</td><td>Billing details (handled by Stripe)</td></tr>
+      <tr><td>Render</td><td>Application hosting</td><td>Service data in transit/at rest</td></tr>
+      <tr><td>Supabase</td><td>Database hosting</td><td>Account data, Your Content</td></tr>
+      <tr><td>Vercel</td><td>Frontend/app hosting</td><td>Static app assets; no document content</td></tr>
+    </tbody>
+  </table>
+  <p class="muted">Keep this table accurate to your live configuration. If you disable a provider (e.g., semantic search), remove it.</p>
+
+  <h2>4. Data retention and deletion</h2>
+  <p>We retain Your Content for as long as your account is active so the Service can reuse your approved answers. You
+  can delete documents in the app at any time. On account closure, we delete or anonymize your data within a
+  reasonable period, except where retention is required by law. To request deletion, contact us at [CONTACT EMAIL].</p>
+
+  <h2>5. How we protect your data</h2>
+  <ul>
+    <li>Passwords and API tokens are stored as hashes, never in plain text.</li>
+    <li>Data is encrypted in transit (TLS) and at rest.</li>
+    <li>Access to the Service is scoped to your organization; your content is used only to answer your own questionnaires.</li>
+    <li>We apply rate limiting and other safeguards against abuse.</li>
+  </ul>
+
+  <h2>6. Your rights</h2>
+  <p>Depending on your location (e.g., under GDPR or CCPA), you may have the right to access, correct, export, or
+  delete your personal data, and to object to or restrict certain processing. To exercise these rights, contact
+  [CONTACT EMAIL]. If we process personal data on your behalf as a processor, we will support your obligations to your
+  own customers, including via a Data Processing Agreement on request.</p>
+
+  <h2>7. Cookies and local storage</h2>
+  <p>The app stores an authentication token in your browser’s local storage to keep you signed in. We do not use
+  third-party advertising or tracking cookies.</p>
+
+  <h2>8. International transfers</h2>
+  <p>Your data may be processed in countries other than your own (including where our subprocessors operate). Where
+  required, we rely on appropriate safeguards such as Standard Contractual Clauses.</p>
+
+  <h2>9. Children</h2>
+  <p>The Service is not directed to individuals under 18, and we do not knowingly collect their data.</p>
+
+  <h2>10. Changes to this policy</h2>
+  <p>We may update this policy; material changes will be posted here with a new “Last updated” date.</p>
+
+  <h2>11. Contact</h2>
+  <p>Questions or requests: <a href="mailto:[CONTACT EMAIL]">[CONTACT EMAIL]</a>.</p>
+
+  <hr>
+  <a class="back" href="/">← Back to Attestly</a>
+</div>
+</body>
+</html>

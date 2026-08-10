@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Attestly — the self-serve tool that answers security questionnaires (SIG, CAIQ) for B2B SaaS. Every answer is grounded in your SOC 2 and policies, and cites its exact source. No demo, no annual contract. Start free.">
+<meta property="og:title" content="Attestly — Answer security questionnaires with receipts">
+<meta property="og:description" content="Self-serve. Grounded in your own SOC 2 and policies. Every answer cites its source. Start free — 25 answers, no card.">
+<meta name="theme-color" content="#0a7d6b">
+<title>Attestly — Answer security questionnaires with receipts</title>
+<style>
+  :root {
+    --paper: #f4f6f6;
+    --surface: #ffffff;
+    --ink: #14181c;
+    --muted: #58636d;
+    --line: #e0e5e8;
+    --accent: #0a7d6b;
+    --accent-ink: #ffffff;
+    --hi-bg: #d6efe8;
+    --hi-bar: #0a7d6b;
+    --warn: #9a6b12;
+    --warn-bg: #fbf1dc;
+    --shadow: 0 1px 2px rgba(20,24,28,.05), 0 12px 32px -12px rgba(20,24,28,.18);
+    --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --maxw: 1080px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0d1315;
+      --surface: #141b1e;
+      --ink: #e8eef0;
+      --muted: #8a97a0;
+      --line: #232e33;
+      --accent: #2dd4bf;
+      --accent-ink: #06231e;
+      --hi-bg: #0f3a33;
+      --hi-bar: #2dd4bf;
+      --warn: #e2b357;
+      --warn-bg: #2a2011;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 40px -16px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0d1315;
+    --surface: #141b1e;
+    --ink: #e8eef0;
+    --muted: #8a97a0;
+    --line: #232e33;
+    --accent: #2dd4bf;
+    --accent-ink: #06231e;
+    --hi-bg: #0f3a33;
+    --hi-bar: #2dd4bf;
+    --warn: #e2b357;
+    --warn-bg: #2a2011;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 40px -16px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+  a { color: inherit; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  h1, h2, h3 { text-wrap: balance; letter-spacing: -0.02em; line-height: 1.08; margin: 0; }
+  h1 { font-size: clamp(2.3rem, 6vw, 3.9rem); font-weight: 800; }
+  h2 { font-size: clamp(1.7rem, 3.5vw, 2.4rem); font-weight: 800; }
+  h3 { font-size: 1.18rem; font-weight: 700; letter-spacing: -0.01em; }
+  p { margin: 0; }
+  .lede { font-size: clamp(1.05rem, 2vw, 1.28rem); color: var(--muted); max-width: 40ch; }
+
+  /* ---- top bar ---- */
+  header.nav {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-in { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; letter-spacing: -0.02em; font-size: 19px; }
+  .mark {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: var(--accent); color: var(--accent-ink);
+    display: grid; place-items: center; font-size: 13px; font-weight: 800;
+    transform: rotate(0deg);
+  }
+  .nav a.ghost { text-decoration: none; color: var(--muted); font-size: 15px; font-weight: 600; }
+  .nav a.ghost:hover { color: var(--ink); }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--sans); font-weight: 700; font-size: 15px;
+    padding: 11px 18px; border-radius: 9px; text-decoration: none;
+    background: var(--accent); color: var(--accent-ink);
+    border: 1px solid transparent; cursor: pointer;
+    transition: transform .12s ease, filter .12s ease;
+  }
+  .btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+  .btn.big { padding: 15px 26px; font-size: 17px; border-radius: 11px; }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  .btn.ghost:hover { border-color: var(--ink); filter: none; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+  /* ---- hero ---- */
+  .hero { padding: 74px 0 40px; }
+  .hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 52px; align-items: center; }
+  .hero .cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
+  .assure { margin-top: 16px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); letter-spacing: .01em; }
+  .reveal { opacity: 0; transform: translateY(14px); animation: rise .7s cubic-bezier(.2,.7,.2,1) forwards; }
+  .reveal.d1 { animation-delay: .06s; } .reveal.d2 { animation-delay: .14s; } .reveal.d3 { animation-delay: .22s; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+
+  /* ---- the signature proof card ---- */
+  .proof {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .proof-head { display: flex; align-items: center; gap: 8px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+  .proof-head .fname { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-left: 6px; }
+  .proof-body { padding: 18px 18px 20px; }
+  .tagrow { display: flex; gap: 7px; align-items: center; margin-bottom: 11px; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 999px; font-weight: 600;
+  }
+  .chip.yes { background: var(--hi-bg); color: var(--accent); }
+  .chip.verified { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .chip.conf { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  .q { font-weight: 700; font-size: 1.02rem; margin-bottom: 8px; }
+  .a { color: var(--ink); font-size: .97rem; line-height: 1.55; }
+  .src-label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 16px 0 7px; }
+  .src {
+    background: var(--hi-bg); border-left: 3px solid var(--hi-bar);
+    padding: 10px 13px; border-radius: 0 8px 8px 0;
+    font-size: .9rem; line-height: 1.5;
+  }
+  .src .from { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--accent); margin-bottom: 4px; letter-spacing: .04em; }
+
+  /* ---- generic section ---- */
+  section { padding: 58px 0; border-top: 1px solid var(--line); }
+  .sec-head { max-width: 46ch; margin-bottom: 34px; }
+  .sec-head h2 { margin-top: 10px; }
+  .sec-head p { color: var(--muted); margin-top: 12px; }
+
+  /* problem strip */
+  .problem { background: var(--surface); }
+  .problem .row { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+  .problem blockquote {
+    margin: 0; font-size: clamp(1.25rem, 2.6vw, 1.7rem); font-weight: 600; letter-spacing: -0.01em;
+    line-height: 1.32;
+  }
+  .problem blockquote .hl { background: var(--hi-bg); box-shadow: 0 0 0 2px var(--hi-bg); border-radius: 3px; }
+  .problem .note { color: var(--muted); font-size: .98rem; }
+
+  /* steps */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .step { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  .step .n { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: .1em; font-weight: 600; }
+  .step h3 { margin: 12px 0 8px; }
+  .step p { color: var(--muted); font-size: .96rem; }
+
+  /* pillars */
+  .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .pillar { padding: 4px 0; }
+  .pillar .k { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+  .pillar h3 { margin: 10px 0 9px; }
+  .pillar p { color: var(--muted); font-size: .97rem; }
+
+  /* faq */
+  .faq { display: grid; gap: 0; border-top: 1px solid var(--line); }
+  details.qa { border-bottom: 1px solid var(--line); padding: 4px 0; }
+  details.qa summary {
+    list-style: none; cursor: pointer; padding: 18px 40px 18px 2px; position: relative;
+    font-weight: 700; font-size: 1.06rem; letter-spacing: -0.01em;
+  }
+  details.qa summary::-webkit-details-marker { display: none; }
+  details.qa summary::after {
+    content: "+"; position: absolute; right: 4px; top: 15px;
+    font-family: var(--mono); font-size: 1.3rem; color: var(--accent); font-weight: 400; transition: transform .18s ease;
+  }
+  details.qa[open] summary::after { transform: rotate(45deg); }
+  details.qa .ans { padding: 0 40px 20px 2px; color: var(--muted); font-size: 1rem; max-width: 68ch; }
+
+  /* cta band */
+  .band {
+    background: var(--ink); color: var(--paper); border-radius: 20px;
+    padding: 52px 40px; text-align: center; margin: 12px 0;
+  }
+  .band h2 { color: var(--surface); }
+  .band p { color: color-mix(in srgb, var(--paper) 72%, transparent); margin: 12px auto 26px; max-width: 46ch; }
+  .band .btn { background: var(--accent); color: var(--accent-ink); }
+
+  /* footer */
+  footer.foot { border-top: 1px solid var(--line); padding: 40px 0 56px; }
+  .foot-grid { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+  .foot a { color: var(--muted); text-decoration: none; font-size: 14px; }
+  .foot a:hover { color: var(--ink); }
+  .foot .links { display: flex; gap: 22px; flex-wrap: wrap; }
+  .disclaimer {
+    margin-top: 26px; font-size: 12.5px; color: var(--muted); background: var(--warn-bg);
+    border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); border-radius: 10px; padding: 12px 15px;
+  }
+  .disclaimer b { color: var(--warn); }
+
+  @media (max-width: 860px) {
+    .hero-grid, .problem .row { grid-template-columns: 1fr; gap: 30px; }
+    .steps, .pillars { grid-template-columns: 1fr; }
+    .hero { padding: 48px 0 24px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { animation: none; opacity: 1; transform: none; }
+    .btn { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <div class="brand"><span class="mark">◆</span> Attestly</div>
+    <div style="display:flex; align-items:center; gap:22px;">
+      <a class="ghost" href="#how">How it works</a>
+      <a class="ghost" href="#faq">FAQ</a>
+      <a class="btn" href="https://attestly-gamma.vercel.app">Start free</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero" style="border-top:none;">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="eyebrow reveal">Security questionnaires, with receipts</p>
+        <h1 class="reveal d1" style="margin-top:16px;">Answer security questionnaires in minutes — and prove every answer.</h1>
+        <p class="lede reveal d2" style="margin-top:20px;">
+          Upload a SIG, CAIQ, or any vendor questionnaire. Attestly drafts each answer from your own
+          SOC&nbsp;2 and security policies, cites the exact source, and reuses your approved answers so
+          each one gets faster.
+        </p>
+        <div class="cta-row reveal d3">
+          <a class="btn big" href="https://attestly-gamma.vercel.app">Answer your first one free →</a>
+          <a class="btn big ghost" href="#how">See how it works</a>
+        </div>
+        <p class="assure reveal d3">25 answers free · no credit card · no sales demo</p>
+      </div>
+
+      <div class="proof reveal d2" aria-label="Example answer with its cited source">
+        <div class="proof-head">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="fname">acme_vendor_questionnaire.xlsx — proof of answer</span>
+        </div>
+        <div class="proof-body">
+          <div class="tagrow">
+            <span class="chip yes">Yes</span>
+            <span class="chip verified">✓ Verified</span>
+            <span class="chip conf">confidence 95%</span>
+          </div>
+          <div class="q">Is access granted on the principle of least privilege?</div>
+          <div class="a">We grant access on the principle of least privilege using role-based access control.
+            Employees receive only the minimum access required for their role, and access is reviewed quarterly.</div>
+          <div class="src-label">Grounded in your source</div>
+          <div class="src">
+            <span class="from">📄 Acme_Information_Security_Policy.pdf</span>
+            “Access is granted on the principle of least privilege using role-based access control (RBAC).
+            Employees receive only the minimum access required for their role…”
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="problem">
+    <div class="wrap row">
+      <blockquote>
+        Copy-pasting last year’s questionnaire is how you confidently send a buyer an answer that
+        <span class="hl">stopped being true three deploys ago.</span>
+      </blockquote>
+      <p class="note">
+        Security reviews stall deals for days, and stale answers quietly become wrong ones. Attestly keeps
+        your answers grounded in your current documents — and shows the receipt for every one, so a
+        reviewing CTO can see nothing was invented.
+      </p>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">How it works</span>
+        <h2>Upload, review, done.</h2>
+        <p>No integration, no onboarding call. Three steps from a blank questionnaire to a filled one you can send.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="n">STEP 01</div>
+          <h3>Upload the questionnaire</h3>
+          <p>SIG, SIG Lite, CAIQ v4, VSAQ, or a custom .xlsx/.csv — including multi-column templates. We auto-detect the questions.</p>
+        </div>
+        <div class="step">
+          <div class="n">STEP 02</div>
+          <h3>Attestly answers each one</h3>
+          <p>Reused verbatim from your approved library, or drafted from your SOC&nbsp;2 and policies — each with the exact source line cited.</p>
+        </div>
+        <div class="step">
+          <div class="n">STEP 03</div>
+          <h3>Review &amp; download</h3>
+          <p>Get your own template back, filled in. Every answer you approve joins your library and makes the next questionnaire faster.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="problem">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Why Attestly</span>
+        <h2>Built for teams that need answers they can defend.</h2>
+      </div>
+      <div class="pillars">
+        <div class="pillar">
+          <div class="k">Proof, not guesses</div>
+          <h3>Every answer cites its source</h3>
+          <p>Click any answer to see the exact line from your SOC&nbsp;2 or policy it came from. If your docs don’t support it, Attestly says so instead of inventing a certification.</p>
+        </div>
+        <div class="pillar">
+          <div class="k">Self-serve</div>
+          <h3>No demo, no annual contract</h3>
+          <p>Sign up, upload, done — starts free. The enterprise suites gate everything behind a sales call and a yearly commitment. Attestly doesn’t.</p>
+        </div>
+        <div class="pillar">
+          <div class="k">It compounds</div>
+          <h3>Faster with every questionnaire</h3>
+          <p>Approved answers are reused verbatim next time — instant, free, and consistent across every questionnaire and every customer.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Questions</span>
+        <h2>Straight answers.</h2>
+      </div>
+      <div class="faq">
+        <details class="qa" open>
+          <summary>What is Attestly?</summary>
+          <div class="ans">Attestly is a self-serve tool that answers security questionnaires — SIG, CAIQ, and custom vendor questionnaires — for B2B SaaS companies. It drafts each answer from your own SOC&nbsp;2 report and security policies, cites the exact source, and reuses your approved answers so every questionnaire gets faster.</div>
+        </details>
+        <details class="qa">
+          <summary>Does it hallucinate or make up answers?</summary>
+          <div class="ans">No. Every answer is grounded in your uploaded documents and approved library, and each one shows the exact source it came from. When your documents don’t support a confident answer, Attestly flags it for review instead of inventing a certification or control.</div>
+        </details>
+        <details class="qa">
+          <summary>Do I have to talk to sales or sign an annual contract?</summary>
+          <div class="ans">No. Attestly is fully self-serve — sign up, upload a questionnaire, and get answers back. There’s a free tier (25 answers) and paid plans start at $99/month. No demo required.</div>
+        </details>
+        <details class="qa">
+          <summary>What questionnaire formats does it support?</summary>
+          <div class="ans">SIG, SIG Lite, CAIQ v4, VSAQ, and custom vendor questionnaires in .xlsx or .csv — including multi-column templates. Answers are written back into your original file so you return the customer’s own template, filled in.</div>
+        </details>
+        <details class="qa">
+          <summary>How is it different from Vanta, Loopio, or Conveyor?</summary>
+          <div class="ans">Those are enterprise platforms — sales-led, expensive, and bundling questionnaires into a larger suite. Attestly is built for small and mid-size SaaS teams: self-serve, affordable, and focused on one thing — answering questionnaires with provable, cited answers.</div>
+        </details>
+        <details class="qa">
+          <summary>Is my data secure?</summary>
+          <div class="ans">Your documents are used only to answer your own questionnaires — never to train models. Credentials and API keys are hashed, data is encrypted in transit and at rest, and you review every answer before anything is sent.</div>
+        </details>
+        <details class="qa">
+          <summary>How fast is it?</summary>
+          <div class="ans">A full questionnaire is answered in minutes, not days. Reused answers are instant; the rest are drafted in parallel.</div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section style="border-top:none;">
+    <div class="wrap">
+      <div class="band">
+        <h2>Stop dreading the security review.</h2>
+        <p>Answer your next questionnaire in minutes — with a receipt for every line.</p>
+        <a class="btn big" href="https://attestly-gamma.vercel.app">Start free — 25 answers, no card</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="brand"><span class="mark">◆</span> Attestly</div>
+      <div class="links">
+        <a href="https://attestly-gamma.vercel.app">Open the app</a>
+        <a href="/terms.html">Terms of Service</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="#faq">FAQ</a>
+      </div>
+    </div>
+    <div class="disclaimer">
+      <b>Note:</b> Attestly drafts answers to help your team respond faster — it does not replace human review.
+      You are responsible for reviewing and approving every answer before it is sent. Sample company names and
+      documents shown here are illustrative.
+    </div>
+    <p style="margin-top:18px; font-size:12.5px; color:var(--muted);">© <span id="yr">2026</span> Attestly. All rights reserved.</p>
+  </div>
+</footer>
+<script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+</body>
+</html>
