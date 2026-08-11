@@ -86,7 +86,7 @@ Questions are answered **concurrently** for speed.
 | 7 | Least-privilege DB role | ⬜ (hygiene) |
 | 8 | TLS to DB (`sslmode=require`, enforced in code) | ✅ |
 | 9 | Dependency scanning — pip-audit + npm audit clean, Dependabot on | ✅ |
-| 10 | Backups | ⬜ (hygiene) |
+| 10 | Backups — weekly pg_dump via GitHub Action | ✅ |
 
 Passwords + tokens hashed, parameterized SQL, per-tenant scoping, prompt-injection defense,
 upload size cap. Full review lives in the security scorecard section of the git history.

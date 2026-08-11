@@ -1,0 +1,56 @@
+name: Weekly database backup
+
+# Dumps the Postgres database on a schedule and stores it as a private artifact,
+# so there's always a restorable snapshot even on Supabase's free tier.
+# Requires repo secret BACKUP_DATABASE_URL (Supabase "Session pooler" string,
+# port 5432 — pg_dump does not work through the transaction pooler on 6543).
+# Optional: set BACKUP_PASSPHRASE to encrypt the dump at rest.
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"   # Mondays 03:00 UTC
+  workflow_dispatch: {}    # allow manual runs from the Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 16 client
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16
+
+      - name: Dump database
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          test -n "$BACKUP_DATABASE_URL" || { echo "::error::BACKUP_DATABASE_URL secret is not set"; exit 1; }
+          STAMP=$(date -u +%Y%m%d-%H%M)
+          /usr/lib/postgresql/16/bin/pg_dump "$BACKUP_DATABASE_URL" -Fc -f "attestly-$STAMP.dump"
+          ls -lh attestly-*.dump
+
+      - name: Encrypt dump if a passphrase is configured
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -n "$BACKUP_PASSPHRASE" ]; then
+            for f in attestly-*.dump; do
+              gpg --batch --yes --passphrase "$BACKUP_PASSPHRASE" -c "$f"
+              rm -f "$f"
+            done
+            echo "Encrypted the dump(s)."
+          else
+            echo "No BACKUP_PASSPHRASE set — uploading unencrypted (artifact is private to this repo)."
+          fi
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: attestly-db-backup
+          path: |
+            attestly-*.dump
+            attestly-*.dump.gpg
+          retention-days: 60
+          if-no-files-found: error
