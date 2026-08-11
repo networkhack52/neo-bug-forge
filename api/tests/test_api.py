@@ -431,3 +431,32 @@ class TestRetrieveFixShape:
         monkeypatch.setattr(api, "get_fix_by_id", lambda fid: None)
         resp = TestClient(app).get("/v1/fix/nope")
         assert resp.status_code == 404
+
+
+# ─── lookup_api_key: unknown key is a clean miss, not an error ──────────────────
+
+class _LookupQuery:
+    def __init__(self, data):
+        self._data = data
+    def select(self, *a, **k):  return self
+    def eq(self, *a, **k):      return self
+    def maybe_single(self):     return self
+    def execute(self):          return type("R", (), {"data": self._data})()
+
+
+class TestLookupApiKey:
+    def _patch(self, monkeypatch, data):
+        import database
+        monkeypatch.setattr(database, "get_db",
+                            lambda: type("DB", (), {"table": lambda self, _n: _LookupQuery(data)})())
+
+    def test_missing_key_returns_none(self, monkeypatch):
+        import database
+        self._patch(monkeypatch, data=None)
+        assert database.lookup_api_key("nbf_does_not_exist") is None
+
+    def test_found_key_is_returned(self, monkeypatch):
+        import database
+        row = {"id": "1", "tier": "free", "fixes_limit": 100}
+        self._patch(monkeypatch, data=row)
+        assert database.lookup_api_key("nbf_real") == row
