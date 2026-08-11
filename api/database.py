@@ -36,10 +36,13 @@ def lookup_api_key(api_key: str) -> dict | None:
             .select("*")
             .eq("key_hash", hash_key(api_key))
             .eq("is_active", True)
-            .single()
+            # maybe_single(): an unknown/invalid key is an expected miss, not an
+            # error. .single() raises (and logs a scary [DB ERROR]) on zero rows;
+            # maybe_single() returns None cleanly.
+            .maybe_single()
             .execute()
         )
-        return result.data
+        return result.data if result else None
     except Exception as e:
         print(f"[DB ERROR] lookup_api_key failed: {e}")
         return None
