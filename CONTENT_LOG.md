@@ -13,6 +13,7 @@ Ping me "post please" each morning and I'll draft the next angle and log it here
 |---|------|-------|-------------------|--------|
 | 1 | ② Build-in-public | **Answer Library** — save approved answers once, reuse them | "One thing that keeps coming up with security questionnaires: teams already have good answers…" | ✅ posted |
 | 2 | ③ Contrarian POV | **Trust / proof** — an AI that's confidently wrong is a liability; every answer cites its source | "Here's the part that actually scares me about using AI for security questionnaires…" | ✅ posted |
+| 3 | ② Build-in-public (lesson) | **Return their own spreadsheet** — v1 reformatted, nobody wanted it; now writes back into the original file | "A small thing I learned building Attestly that mattered more than I expected…" | 📤 drafted |
 
 _Add engagement notes here as they come in (likes / comments / who engaged) — useful signal on which angles land._
 
@@ -23,7 +24,7 @@ _Add engagement notes here as they come in (likes / comments / who engaged) — 
 - ✅ Answer Library (build-in-public)
 - ✅ Trust / proof — "AI can be confidently wrong" (contrarian)
 - ⬜ Answers go stale as your product ships ("compliance is a living document")
-- ⬜ You get your *own* spreadsheet back, filled in
+- ✅ You get your *own* spreadsheet back, filled in (build-in-public, day 3)
 - ⬜ The compounding moat — it gets faster every questionnaire
 - ⬜ 2 days → minutes: the real cost is deal velocity
 - ⬜ Why self-serve (no demo, no annual contract) for small teams
