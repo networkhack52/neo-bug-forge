@@ -180,6 +180,11 @@ live setup.
 - [ ] **Upgrade Render to Starter ($7/mo) before prospect outreach** — kills the free-tier 50s cold-start (§6)
 - [ ] Deploy the marketing site + fill in legal templates (lawyer review)
 - [ ] Turn on Stripe (webhook fix already makes this safe) when ready to charge
+- [ ] **Add transactional email (Resend) → email verification + password reset.** Deferred on purpose: signup
+  currently creates accounts instantly (no verify) and there's no password-reset path — both need the same
+  email provider, so build them together. Do this when moving from hand-picked design partners to open signup.
+  Stopgaps until then: one-account-per-email dedup + signup rate-limiting. (Password reset is the more urgent
+  half — a forgotten password currently locks a user out.)
 - [ ] Security hygiene: least-privilege DB role (#7), scheduled `pg_dump` backups (#10)
 - [ ] Optional: Cloudflare in front (stronger rate limiting) once a custom domain is set
 - [ ] Two-sided "trust exchange" vision — see `ROADMAP.md`
