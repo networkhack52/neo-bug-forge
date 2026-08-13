@@ -85,17 +85,32 @@ def normalize_choice(value: str) -> str:
 
 def infer_choice(answer_text: str) -> str:
     """Best-effort status from an answer's opening (used for reuse/fallback)."""
-    head = (answer_text or "").strip().lower()[:40]
-    if head.startswith(("n/a", "not applicable")):
+    head = (answer_text or "").strip().lower()
+    if not head:
+        return ""
+    window = head[:80]
+    if window.startswith(("n/a", "not applicable")):
         return "Not Applicable"
     # first word only, so "None"/"Nothing" don't read as "No"
-    first = re.split(r"[^a-z]+", head, maxsplit=1)[0] if head else ""
+    first = re.split(r"[^a-z]+", window, maxsplit=1)[0]
     if first == "yes":
         return "Yes"
     if first == "no":
         return "No"
-    if first.startswith("partial") or "partially" in head:
+    if first.startswith("partial") or "partially" in window:
         return "Partially"
+    # Affirmative assertions that don't lead with "Yes" — e.g. reused library
+    # answers like "We maintain a SOC 2 Type II attestation…". Only ever upgrade
+    # to "Yes" when the opening clearly asserts a capability AND carries no early
+    # negation, so "We do not…" / "We have no…" never read as Yes (they stay blank).
+    negated = re.search(r"\b(not|no|never|cannot)\b|n't", window)
+    affirmative = re.match(
+        r"(we|our)\b[^.]*\b(maintain|hold|have|are|use|enforce|encrypt|offer|"
+        r"provide|conduct|engage|comply|support|retain|operate|follow|require|host)\b",
+        window,
+    )
+    if affirmative and not negated:
+        return "Yes"
     return ""
 
 VERIFY_SYSTEM_PROMPT = (

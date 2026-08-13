@@ -84,7 +84,7 @@ FUZZY_CONTEXT_THRESHOLD = float(os.environ.get("ATTESTLY_CONTEXT_THRESHOLD", "45
 CONTEXT_TOP_K = int(os.environ.get("ATTESTLY_CONTEXT_TOP_K", "5"))
 # Questions answered concurrently per questionnaire (each drafted one makes
 # several sequential API calls, so parallelism is the main latency win).
-ANSWER_CONCURRENCY = int(os.environ.get("ATTESTLY_ANSWER_CONCURRENCY", "6"))
+ANSWER_CONCURRENCY = int(os.environ.get("ATTESTLY_ANSWER_CONCURRENCY", "10"))
 
 # --- Plans / metering -----------------------------------------------------
 # question_limit = billable "answers generated" per 30-day period.
