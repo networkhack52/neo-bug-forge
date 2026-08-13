@@ -573,6 +573,14 @@ def list_documents(org_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def count_documents(org_id: int) -> int:
+    with cursor() as cur:
+        row = cur.execute(
+            "SELECT COUNT(*) AS n FROM documents WHERE org_id = ?", (org_id,)
+        ).fetchone()
+    return int(dict(row)["n"]) if row else 0
+
+
 def list_chunks(org_id: int) -> list[dict]:
     """All chunks for an org, with their document name — for grounding search."""
     with cursor() as cur:

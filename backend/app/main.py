@@ -109,6 +109,7 @@ def usage_view(org: dict) -> dict:
         "questions_remaining": max(tier["question_limit"] - org["questions_used"], 0),
         "bank_limit": tier["bank_limit"],
         "bank_size": db.count_answers(org["id"]),
+        "doc_count": db.count_documents(org["id"]),
     }
 
 

@@ -92,6 +92,39 @@ button, .primary, .secondary {
 .dropzone { text-align: center; padding: 48px 24px; }
 .dropzone .primary { margin: 8px 0; }
 
+.nudge { border: 1px solid var(--accent); background: #f5f8ff; margin-bottom: 16px; }
+.nudge h2 { color: var(--accent); }
+.nudgesteps { list-style: none; counter-reset: step; padding: 0; margin: 16px 0 8px; }
+.nudgesteps li {
+  counter-increment: step;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.nudgesteps li > div { display: flex; flex-direction: column; gap: 2px; }
+.nudgesteps li::before {
+  content: counter(step);
+  flex: 0 0 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+}
+.nudgesteps li button { white-space: nowrap; flex-shrink: 0; }
+@media (max-width: 560px) {
+  .nudgesteps li { flex-wrap: wrap; }
+}
+
 .statsrow { display: flex; gap: 16px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
 .stat { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 18px; text-align: center; }
 .stat.green .statnum { color: var(--green); }

@@ -84,7 +84,7 @@ export default function App() {
       </nav>
 
       <main className="content">
-        {tab === "upload" && <Upload me={me} onChange={refresh} />}
+        {tab === "upload" && <Upload me={me} onChange={refresh} onNavigate={setTab} />}
         {tab === "bank" && <Bank me={me} onChange={refresh} />}
         {tab === "documents" && <Documents />}
         {tab === "history" && <History />}
@@ -171,12 +171,27 @@ function Onboarding({ onDone }) {
   );
 }
 
-function Upload({ me, onChange }) {
+function Upload({ me, onChange, onNavigate }) {
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [library, setLibrary] = useState([]);
   const [sources, setSources] = useState(null); // { item, cites }
+  const [seeding, setSeeding] = useState(false);
+
+  const empty = me.bank_size === 0 && me.doc_count === 0;
+
+  async function loadStarter() {
+    setSeeding(true);
+    setErr("");
+    try {
+      await api.seedStarter();
+      onChange();
+    } catch (e) {
+      setErr(e.message);
+    }
+    setSeeding(false);
+  }
 
   // Load the Answer Library once so citations can resolve to full source text.
   useEffect(() => {
@@ -208,6 +223,45 @@ function Upload({ me, onChange }) {
 
   return (
     <div>
+      {!result && empty && (
+        <div className="card nudge">
+          <h2>New here? Do this first ↓</h2>
+          <p className="muted">
+            Attestly answers from <em>your</em> approved answers and trust documents — and cites
+            the exact source. With an empty library it can only say “not enough information,” so
+            give it something to ground on before your first questionnaire:
+          </p>
+          <ol className="nudgesteps">
+            <li>
+              <div>
+                <strong>Load 37 starter answers</strong>
+                <span className="muted small">
+                  Common SIG/CAIQ answers as a baseline. Edit any of them later.
+                </span>
+              </div>
+              <button className="primary" onClick={loadStarter} disabled={seeding}>
+                {seeding ? "Loading…" : "Load starter answers"}
+              </button>
+            </li>
+            <li>
+              <div>
+                <strong>Upload your SOC 2 or policies</strong>
+                <span className="muted small">
+                  So drafted answers cite the exact line — the “it’s not making things up” proof.
+                </span>
+              </div>
+              <button className="secondary" onClick={() => onNavigate("documents")}>
+                Upload your SOC 2 →
+              </button>
+            </li>
+          </ol>
+          {err && <div className="error">{err}</div>}
+          <p className="muted small">
+            Or skip ahead and upload a questionnaire now — you can always add sources later.
+          </p>
+        </div>
+      )}
+
       {!result && (
         <div className="card dropzone">
           <h2>Upload a questionnaire</h2>
