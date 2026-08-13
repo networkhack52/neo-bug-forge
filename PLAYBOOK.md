@@ -104,6 +104,11 @@ upload size cap. Full review lives in the security scorecard section of the git 
 | Database | Supabase Postgres (Transaction pooler, port 6543) |
 | Landing page | `marketing/` (see §8) |
 
+⚠ **Render free tier spins the backend down after ~15 min idle → the next request cold-starts for ~50s.**
+Fine while building solo. **Before driving any prospect to the app link, upgrade to Render Starter ($7/mo, no
+spin-down)** so their first load isn't a 50-second spinner — the frontend (Vercel) is fast/static, but nothing
+renders until the backend wakes. Downgrade back to free anytime.
+
 **Env vars** (set in Render, never in the repo): `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY` (optional),
 `DATABASE_URL`, `STRIPE_*` (when billing goes live), `ATTESTLY_APP_URL`. Full setup: **`DEPLOY.md`**.
 
@@ -172,6 +177,7 @@ live setup.
 ## 11. Backlog / next
 
 - [ ] Land first 3–5 design partners (the actual priority)
+- [ ] **Upgrade Render to Starter ($7/mo) before prospect outreach** — kills the free-tier 50s cold-start (§6)
 - [ ] Deploy the marketing site + fill in legal templates (lawyer review)
 - [ ] Turn on Stripe (webhook fix already makes this safe) when ready to charge
 - [ ] Security hygiene: least-privilege DB role (#7), scheduled `pg_dump` backups (#10)
