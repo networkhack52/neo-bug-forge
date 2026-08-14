@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Attestly — the self-serve tool that answers security questionnaires (SIG, CAIQ) for B2B SaaS. Every answer is grounded in your SOC 2 and policies, and cites its exact source. No demo, no annual contract. Start free.">
-<meta property="og:title" content="Attestly — Answer security questionnaires with receipts">
-<meta property="og:description" content="Self-serve. Grounded in your own SOC 2 and policies. Every answer cites its source. Start free — 25 answers, no card.">
+<meta name="description" content="Attestly is the self-serve tool that answers security questionnaires (SIG, CAIQ) for B2B SaaS. Every answer is grounded in your SOC 2 and policies, and cites its exact source. No demo, no annual contract. Start free.">
+<meta property="og:title" content="Attestly · Answer security questionnaires with receipts">
+<meta property="og:description" content="Self-serve. Grounded in your own SOC 2 and policies. Every answer cites its source. Start free · 25 answers, no card.">
 <meta name="theme-color" content="#0a7d6b">
-<title>Attestly — Answer security questionnaires with receipts</title>
+<title>Attestly · Answer security questionnaires with receipts</title>
 <style>
   :root{
     --bg:#ffffff; --bg-alt:#f7f9f9; --surface:#ffffff; --ink:#0f1417; --muted:#57636d;
@@ -177,6 +177,13 @@
     .drawer{width:64%;}
     .floatlabel{display:none;}
   }
+  /* phones: collapse the nav to logo + Start free so nothing wraps or clips */
+  @media (max-width:640px){
+    .wrap{padding:0 18px;}
+    .nav .links{gap:0;}
+    .nav a.ghost{display:none;}
+    .nav-in{height:58px;}
+  }
   @media (prefers-reduced-motion:reduce){
     .rise{opacity:1;transform:none;transition:none;}
     .drawer{animation:none;}
@@ -203,7 +210,7 @@
     <div class="wrap hero-grid">
       <div>
         <p class="eyebrow rise in">Security questionnaires · with receipts</p>
-        <h1 class="rise in d1" style="margin-top:20px;">Answer security questionnaires in minutes — and prove every answer.</h1>
+        <h1 class="rise in d1" style="margin-top:20px;">Answer security questionnaires in minutes. And prove every answer.</h1>
         <p class="lede rise in d2" style="margin-top:22px;max-width:36ch;">
           Attestly drafts each answer from your own SOC&nbsp;2 and security policies, cites the exact
           source, and reuses your approved answers so every questionnaire gets faster.
@@ -349,8 +356,8 @@
     <div class="wrap">
       <div class="band rise">
         <h2>Stop dreading the security review.</h2>
-        <p>Answer your next questionnaire in minutes — with a receipt for every line.</p>
-        <a class="btn big" href="https://attestly-gamma.vercel.app">Start free — 25 answers, no card</a>
+        <p>Answer your next questionnaire in minutes, with a receipt for every line.</p>
+        <a class="btn big" href="https://attestly-gamma.vercel.app">Start free · 25 answers, no card</a>
       </div>
     </div>
   </section>
