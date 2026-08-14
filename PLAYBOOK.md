@@ -61,7 +61,7 @@ Questions are answered **concurrently** for speed.
 
 - Upload questionnaire (SIG/CAIQ/VSAQ/custom xlsx/csv), auto-detect question column
 - Reuse-first answering + Claude drafting (grounded, first-person, concise)
-- **Answer Library** (compounding) + one-click "Load starter answers" (37 baseline)
+- **Answer Library** (compounding) + one-click "Load starter answers" (45 baseline, incl. Gulf/UAE frameworks: PDPL, ISO 27001, DIFC/ADGM, VARA, IA/NESA)
 - **Trust Documents** — upload SOC 2 / policies (PDF/text), chunked + embedded
 - **Citations "show proof"** drawer — exact source span per answer (the killer demo)
 - **Verification pass** — flags unsupported claims; **abstains** instead of hallucinating
@@ -135,7 +135,8 @@ your local can drift behind and that's fine, but pull to stay in sync).
 
 - `index.html` — the landing page ("Answer security questionnaires with receipts")
 - `terms.html` — Terms of Service **(template — lawyer review + fill [brackets])**
-- `privacy.html` — Privacy Policy **(template — discloses AI subprocessors; keep it accurate)**
+- `privacy.html` — Privacy Policy **(template — discloses AI subprocessors + data-location §3a; keep it accurate)**
+- `dpa.html` — Data Processing Agreement **(template — GDPR + UAE PDPL/DIFC/ADGM aware; lawyer review + fill [brackets])**
 
 **To deploy** (any static host): point a new Vercel project at the `marketing/` directory, or
 drag-drop the folder into Netlify. Then set the app link / custom domain. The CTA buttons point to

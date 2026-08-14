@@ -234,9 +234,9 @@ function Upload({ me, onChange, onNavigate }) {
           <ol className="nudgesteps">
             <li>
               <div>
-                <strong>Load 37 starter answers</strong>
+                <strong>Load starter answers</strong>
                 <span className="muted small">
-                  Common SIG/CAIQ answers as a baseline. Edit any of them later.
+                  Common SIG/CAIQ answers (incl. PDPL, ISO 27001, DIFC/ADGM, VARA) as a baseline. Edit any later.
                 </span>
               </div>
               <button className="primary" onClick={loadStarter} disabled={seeding}>
