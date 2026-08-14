@@ -14,7 +14,8 @@ Ping me "post please" each morning and I'll draft the next angle and log it here
 | 1 | ② Build-in-public | **Answer Library** — save approved answers once, reuse them | "One thing that keeps coming up with security questionnaires: teams already have good answers…" | ✅ posted |
 | 2 | ③ Contrarian POV | **Trust / proof** — an AI that's confidently wrong is a liability; every answer cites its source | "Here's the part that actually scares me about using AI for security questionnaires…" | ✅ posted |
 | 3 | ② Build-in-public (lesson) | **Return their own spreadsheet** — v1 reformatted, nobody wanted it; now writes back into the original file | "A small thing I learned building Attestly that mattered more than I expected…" | ✅ posted |
-| 4 | ① Pain (business) | **Deal velocity** — a questionnaire is a sales problem in a security costume; speed of return beats best answers | "A security questionnaire is not a security problem. It's a sales problem wearing a security costume." | 📤 drafted |
+| 4 | ① Pain (business) | **Deal velocity** — a questionnaire is a sales problem in a security costume; speed of return beats best answers | "A security questionnaire is not a security problem. It's a sales problem wearing a security costume." | ✅ posted |
+| 5 | ⑤ Question | **Repeat work / reuse** — how much of a questionnaire is genuinely new? (seeds the compounding-library value, no pitch) | "Genuine question for security and GRC teams: when a new vendor questionnaire lands… how much of it is actually new?" | 📤 drafted |
 
 _Add engagement notes here as they come in (likes / comments / who engaged) — useful signal on which angles land._
 
@@ -26,7 +27,7 @@ _Add engagement notes here as they come in (likes / comments / who engaged) — 
 - ✅ Trust / proof — "AI can be confidently wrong" (contrarian)
 - ⬜ Answers go stale as your product ships ("compliance is a living document")
 - ✅ You get your *own* spreadsheet back, filled in (build-in-public, day 3)
-- ⬜ The compounding moat — it gets faster every questionnaire
+- 🔸 The compounding moat — it gets faster every questionnaire (teased via day-5 question post; still open for a dedicated build-in-public post)
 - ✅ 2 days → minutes: deal velocity (pain, day 4)
 - ⬜ Why self-serve (no demo, no annual contract) for small teams
 - ⬜ "1 in 50 right" — why incumbents' bolted-on AI is bad
