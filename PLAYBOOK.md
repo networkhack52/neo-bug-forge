@@ -53,7 +53,7 @@ Two differentiators the enterprise players can't claim:
 2. Confident match → **reuse verbatim** (free, instant, consistent).
 3. Else → **draft with Claude**, grounded in approved answers + trust-document passages, with citations + a verification pass.
 4. Approved answers flow back into the Library → accuracy + reuse-rate compound per customer (the moat).
-Questions are answered **concurrently** for speed.
+Questions are answered **concurrently** (10-wide, `ATTESTLY_ANSWER_CONCURRENCY`, default 10) for speed.
 
 ---
 
@@ -65,6 +65,7 @@ Questions are answered **concurrently** for speed.
 - **Trust Documents** — upload SOC 2 / policies (PDF/text), chunked + embedded
 - **Citations "show proof"** drawer — exact source span per answer (the killer demo)
 - **Verification pass** — flags unsupported claims; **abstains** instead of hallucinating
+- **First-run nudge** — empty Upload screen guides new users to load starter answers + upload a SOC 2 first, so the first questionnaire returns cited answers, not abstentions
 - **Choice field** (Yes/No/Partially/Not Applicable)
 - Export: **clean .xlsx** and **filled original** (write back into the customer's own template)
 - Real accounts: email + password login, one account per email
@@ -90,6 +91,10 @@ Questions are answered **concurrently** for speed.
 
 Passwords + tokens hashed, parameterized SQL, per-tenant scoping, prompt-injection defense,
 upload size cap. Full review lives in the security scorecard section of the git history.
+
+**GitHub:** `main` is branch-protected (force-push + deletion blocked). Deploy workflow is a direct
+push to `main`, so PR-required protection is intentionally *off*. Only remaining gap on the scorecard
+is #7 (least-privilege DB role — accepted hygiene item).
 
 ---
 
@@ -140,7 +145,7 @@ your local can drift behind and that's fine, but pull to stay in sync).
 
 **To deploy** (any static host): point a new Vercel project at the `marketing/` directory, or
 drag-drop the folder into Netlify. Then set the app link / custom domain. The CTA buttons point to
-the live app; footer links point to `/terms.html` and `/privacy.html`.
+the live app; footer links point to `/terms.html`, `/privacy.html`, and `/dpa.html`.
 
 ⚠ **Before publishing legal pages:** replace every `[bracketed]` field (legal entity, jurisdiction,
 contact email, dates) and have a lawyer review. Confirm the Privacy subprocessor table matches your
@@ -160,6 +165,9 @@ live setup.
   be active on Reddit, keep question-shaped content (the landing FAQ) — AI answer engines quote it.
 - **The one demo that closes:** upload the prospect's questionnaire → click "show proof" → show the
   exact SOC 2 line. That's the "it's not making things up" moment.
+- **Gulf / UAE wedge (in progress):** SOC 2-fresh SaaS selling into Dubai + maturing PDPL = a real niche.
+  Groundwork shipped (regional starter answers, data-location disclosure, PDPL-aware DPA). Full plan,
+  priorities, and risks in **`GULF_EXPANSION.md`**. Next: Arabic landing page, then the Frankfurt move.
 
 ---
 
@@ -172,6 +180,15 @@ live setup.
 - **Postgres via Supabase (not the $7 Render disk)** — free, durable, better long-term.
 - **Fast token hash (SHA-256), slow password hash (PBKDF2)** — tokens are high-entropy, passwords aren't.
 - **Login rotates the token** — only the hash is stored, so we can't hand back the old token.
+- **Answer concurrency = 10** — drafts finish in fewer waves; `ATTESTLY_ANSWER_CONCURRENCY` overrides.
+- **First-run nudge over a blank screen** — a new user with an empty library gets abstentions; the nudge
+  makes the first questionnaire come back cited (the trust moment) instead.
+- **Gulf: don't translate the *answers* to Arabic** — Gulf questionnaires (SIG/CAIQ/ISO) are in English;
+  Arabic answers would break the deliverable. Arabic belongs on marketing + app chrome only.
+- **Gulf: "EU-hosted (Frankfurt)", never claim in-UAE residency we don't have** — honesty under PDPL / to a
+  CISO matters more than the marketing line; the US AI processing is disclosed plainly.
+- **`main` branch protection = force-push/deletion blocked, but PR not required** — the deploy is a direct
+  push to `main`, so requiring PRs would lock us out of our own release path.
 
 ---
 
@@ -179,14 +196,17 @@ live setup.
 
 - [ ] Land first 3–5 design partners (the actual priority)
 - [ ] **Upgrade Render to Starter ($7/mo) before prospect outreach** — kills the free-tier 50s cold-start (§6)
-- [ ] Deploy the marketing site + fill in legal templates (lawyer review)
+- [ ] Deploy the marketing site + fill in legal templates — now terms, privacy, **and dpa** (lawyer review)
+- [ ] **Gulf/UAE (see `GULF_EXPANSION.md`):** Arabic landing page → then move Render + Supabase to Frankfurt
+  (co-located) for latency + an EU-residency story. Regional answers + data-location + DPA already shipped.
 - [ ] Turn on Stripe (webhook fix already makes this safe) when ready to charge
 - [ ] **Add transactional email (Resend) → email verification + password reset.** Deferred on purpose: signup
   currently creates accounts instantly (no verify) and there's no password-reset path — both need the same
   email provider, so build them together. Do this when moving from hand-picked design partners to open signup.
   Stopgaps until then: one-account-per-email dedup + signup rate-limiting. (Password reset is the more urgent
   half — a forgotten password currently locks a user out.)
-- [ ] Security hygiene: least-privilege DB role (#7), scheduled `pg_dump` backups (#10)
+- [ ] Security hygiene: least-privilege DB role (#7) — the one remaining scorecard gap (backups #10 done)
+- [ ] Housekeeping: delete stale one-off branches on the repo (e.g. `deps-audit-fix`) — no open PRs
 - [ ] Optional: Cloudflare in front (stronger rate limiting) once a custom domain is set
 - [ ] Two-sided "trust exchange" vision — see `ROADMAP.md`
 
