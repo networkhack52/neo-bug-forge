@@ -130,6 +130,9 @@ python -m uvicorn app.main:app --port 8000
 
 # frontend
 cd frontend && npm install && npm run dev
+
+# enable the copy-lint pre-commit hook (once per clone)
+git config core.hooksPath .githooks
 ```
 Pull latest before working: `git pull origin main` (the deployed app builds from the remote —
 your local can drift behind and that's fine, but pull to stay in sync).
@@ -185,13 +188,16 @@ smells AI-generated. Write like a competent peer, not a marketer.
 - Curly quotes (" " ' ') are fine in prose; the linter only warns on them (they can break in meta tags).
 
 **Enforcement — `copy-lint.mjs` (repo root)**
-- Run before shipping any copy: `node copy-lint.mjs "marketing/*.html" "frontend/src/**/*.{jsx,js}"`
-  (no args → that default scope). Needs Node 22+ (built-in `globSync`).
+- Runs automatically as a **pre-commit hook** (`.githooks/pre-commit`). Enable once per clone:
+  `git config core.hooksPath .githooks`. Bypass a single commit with `git commit --no-verify`.
+- Run by hand anytime: `node copy-lint.mjs` (defaults to the brand-voice scope below). Needs Node 22+.
+- **Scope = brand-voice surfaces only:** `marketing/index.html` + `frontend/src`. The legal templates
+  (`terms/privacy/dpa.html`) are **excluded on purpose** — formal, lawyer-owned register. Lint them
+  explicitly if ever needed: `node copy-lint.mjs "marketing/*.html"`.
 - **Errors fail** (exit 1): em/en dash, hype words, unbacked claims, throat-clearing openers.
   **Warnings are advisory:** curly quotes, filler words ("just"/"really"), spelled-out numbers.
 - **Delete the `unbacked-claim` rule the day we have data to back it** — pre-launch it stops us
   putting "95% accurate" / "trusted by thousands" on the site, which a CISO would ask us to prove.
-- Wire into CI or a husky pre-commit hook when ready; until then, run it by hand (or with `|| true`).
 
 **Words & tone**
 - Say **"prove every answer"**, not "AI questionnaire tool". Lead with proof + self-serve + price.

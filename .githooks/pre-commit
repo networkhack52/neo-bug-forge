@@ -1,0 +1,20 @@
+#!/bin/sh
+# Attestly copy-lint pre-commit hook.
+# Blocks a commit that introduces em dashes, hype words, or unbacked pre-launch
+# claims into customer-facing copy (marketing/ + frontend/src). See PLAYBOOK §10.
+#
+# Enable once per clone (not committed, so each machine sets it):
+#   git config core.hooksPath .githooks
+# Bypass in a pinch:
+#   git commit --no-verify
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "copy-lint: node not found — skipping (install Node 22+ to enable the check)."
+  exit 0
+fi
+
+node copy-lint.mjs || {
+  echo ""
+  echo "✗ copy-lint failed. Fix the errors above, or bypass with: git commit --no-verify"
+  exit 1
+}

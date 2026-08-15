@@ -1,9 +1,14 @@
 #!/usr/bin/env node
-// Attestly copy lint. Run: node copy-lint.mjs "marketing/*.html" "frontend/src/**/*.{jsx,js}"
+// Attestly copy lint. Run: node copy-lint.mjs   (defaults to marketing pitch + product UI)
 // Enforces the Voice & copy rules (PLAYBOOK §10) on customer-facing copy.
 // Exits 1 on any error-level hit, so it works as a CI gate or pre-commit hook.
 import { readFileSync } from "node:fs";
 import { globSync } from "node:fs";
+
+if (typeof globSync !== "function") {
+  console.error("copy-lint: needs Node 22+ (built-in fs.globSync). Skipping. Upgrade Node, or swap in fast-glob.");
+  process.exit(0);
+}
 
 const RULES = [
   // char rules
@@ -40,8 +45,12 @@ const strip = (s) =>
    .replace(/className="[^"]*"/g, (m) => " ".repeat(m.length))
    .replace(/https?:\/\/\S+/g, (m) => " ".repeat(m.length));
 
+// Default scope = the brand-voice surfaces: the marketing pitch + product UI.
+// The legal templates (terms/privacy/dpa.html) are intentionally excluded —
+// formal, lawyer-owned register where our voice rules don't apply. Pass an
+// explicit glob to lint anything else.
 const patterns = process.argv.slice(2);
-if (patterns.length === 0) patterns.push("marketing/*.html", "frontend/src/**/*.{jsx,js}");
+if (patterns.length === 0) patterns.push("marketing/index.html", "frontend/src/**/*.{jsx,js}");
 const files = patterns.flatMap((p) =>
   globSync(p, { exclude: (n) => /node_modules|\.next|dist|build/.test(n) })
 );
