@@ -34,6 +34,12 @@ def _questionnaire_bytes():
     return buf.getvalue()
 
 
+def _upload_doc(token, text="Security policy: access is least privilege; data encrypted at rest with AES-256."):
+    files = {"file": ("policy.txt", text.encode(), "text/plain")}
+    r = client.post("/v1/documents", headers=_auth(token), files=files)
+    assert r.status_code == 200, r.text
+
+
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200
@@ -161,9 +167,10 @@ def _big_questionnaire(n):
 
 
 def test_onboarding_allowance_answers_beyond_the_free_period_limit():
-    # A brand-new free account can run a big questionnaire (>25) in one go,
-    # because the 150 onboarding pool covers it — no card, nothing declined.
+    # A brand-new free account (with a trust doc) can run a big questionnaire
+    # (>25) in one go, because the 150 onboarding pool covers it — nothing declined.
     token = _token()
+    _upload_doc(token)  # unlocks drafting
     files = {"file": ("big.xlsx", _big_questionnaire(30),
                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
     r = client.post("/v1/questionnaires", headers=_auth(token), files=files)
@@ -179,6 +186,7 @@ def test_over_quota_partial_answers_and_locks_the_rest(monkeypatch):
     from app import config
     monkeypatch.setattr(config, "ONBOARDING_ALLOWANCE", 0)  # only the 25 period remains
     token = _token()
+    _upload_doc(token)
     files = {"file": ("big.xlsx", _big_questionnaire(30),
                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
     r = client.post("/v1/questionnaires", headers=_auth(token), files=files)
@@ -196,12 +204,27 @@ def test_onboarding_allowance_is_shared_per_domain(monkeypatch):
     domain = f"{uuid.uuid4().hex[:12]}.acme.test"
     a = _token(domain=domain)
     b = _token(domain=domain)  # same company, second signup
+    _upload_doc(a)
     files = {"file": ("big.xlsx", _big_questionnaire(30),
                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
     client.post("/v1/questionnaires", headers=_auth(a), files=files)
     # Account A spent 30 of the shared 40; account B sees only 10 left in the pool.
     me_b = client.get("/v1/me", headers=_auth(b)).json()
     assert me_b["onboarding_remaining"] == 10
+
+
+def test_free_tier_gates_drafting_until_a_document_is_uploaded():
+    # No document -> questions that need drafting are blocked and cost nothing.
+    token = _token()
+    files = {"file": ("q.xlsx", _big_questionnaire(3),
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    body = client.post("/v1/questionnaires", headers=_auth(token), files=files).json()
+    assert body["answered"] == 0 and body["blocked"] == 3
+    assert client.get("/v1/me", headers=_auth(token)).json()["onboarding_remaining"] == 150
+    # After a document, the same questions draft normally.
+    _upload_doc(token)
+    body2 = client.post("/v1/questionnaires", headers=_auth(token), files=files).json()
+    assert body2["answered"] == 3 and body2["blocked"] == 0
 
 
 def test_simulated_upgrade_changes_tier():

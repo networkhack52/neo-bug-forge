@@ -280,6 +280,15 @@ function Upload({ me, onChange, onNavigate }) {
 
       {result && (
         <div>
+          {result.blocked > 0 && (
+            <div className="lockbanner">
+              {result.blocked} rows need a source document to answer. Upload your SOC 2 or a policy, then
+              re-run this questionnaire.{" "}
+              <button className="link" onClick={() => onNavigate && onNavigate("documents")}>
+                Upload your SOC 2 →
+              </button>
+            </div>
+          )}
           {result.locked > 0 && (
             <div className="lockbanner">
               {result.locked} of {result.total_questions} rows are locked because you reached your plan

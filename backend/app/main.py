@@ -358,25 +358,34 @@ async def upload_questionnaire(
     ordered = db.list_items(qid)
     db.lock_items([it["id"] for it in ordered[answerable:]])
 
-    engine.answer_questionnaire(org["id"], qid)
-
-    # Charge exactly what we answered: onboarding pool first, then the period.
-    from_onboarding = min(answerable, onboarding_remaining)
-    db.consume_domain_onboarding(domain, from_onboarding)
-    if answerable - from_onboarding > 0:
-        db.increment_usage(org["id"], answerable - from_onboarding)
+    # Free tier gates DRAFTING (model calls) behind a trust document. Reused
+    # answers still work; questions that would be drafted are blocked with a
+    # "add a document" prompt and cost nothing.
+    allow_draft = not (is_free and db.count_documents(org["id"]) == 0)
+    engine.answer_questionnaire(org["id"], qid, allow_draft=allow_draft)
 
     items = db.list_items(qid)
     reused = sum(1 for it in items if it["match_type"] == "reuse" and not it["locked"])
+    drafted = sum(1 for it in items if it["match_type"] in ("drafted", "fallback") and not it["locked"])
+    blocked = sum(1 for it in items if it["match_type"] == "blocked")
     locked = sum(1 for it in items if it["locked"])
-    answered = n_questions - locked
+    answered = reused + drafted
+
+    # Charge only answers we actually produced (reuse + draft), never blocked or
+    # locked rows. Draw from the onboarding pool first, then the period.
+    from_onboarding = min(answered, onboarding_remaining)
+    db.consume_domain_onboarding(domain, from_onboarding)
+    if answered - from_onboarding > 0:
+        db.increment_usage(org["id"], answered - from_onboarding)
+
     return {
         "questionnaire_id": qid,
         "total_questions": n_questions,
         "answered": answered,
         "locked": locked,
+        "blocked": blocked,
         "reused_from_bank": reused,
-        "drafted": answered - reused,
+        "drafted": drafted,
         "can_export_original": parsed.answer_col is not None,
         "source_kind": parsed.kind,
         "items": items,
