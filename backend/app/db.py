@@ -88,6 +88,21 @@ CREATE TABLE IF NOT EXISTS domain_allowances (
     onboarding_used INTEGER NOT NULL DEFAULT 0,-- answers drawn from the 150 pool
     created_at      REAL NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS usage_events (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id              INTEGER NOT NULL,
+    questionnaire_id    INTEGER,
+    item_id             INTEGER,
+    model               TEXT,
+    input_tokens        INTEGER NOT NULL DEFAULT 0,
+    cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens       INTEGER NOT NULL DEFAULT 0,
+    cost_usd            REAL NOT NULL DEFAULT 0,
+    created_at          REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_usage_org ON usage_events(org_id);
+CREATE INDEX IF NOT EXISTS idx_usage_qid ON usage_events(questionnaire_id);
 CREATE INDEX IF NOT EXISTS idx_items_q ON questionnaire_items(questionnaire_id);
 
 CREATE TABLE IF NOT EXISTS documents (
@@ -392,6 +407,56 @@ def lock_items(item_ids: list[int]) -> None:
     with cursor() as cur:
         for iid in item_ids:
             cur.execute("UPDATE questionnaire_items SET locked = 1 WHERE id = ?", (iid,))
+
+
+def record_usage(org_id: int, questionnaire_id: Optional[int], item_id: Optional[int],
+                 usage: dict, cost: float) -> None:
+    """Log token usage + computed cost for one drafted answer."""
+    with cursor() as cur:
+        cur.execute(
+            "INSERT INTO usage_events (org_id, questionnaire_id, item_id, model, input_tokens, "
+            "cached_input_tokens, output_tokens, cost_usd, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (org_id, questionnaire_id, item_id, usage.get("model", ""),
+             int(usage.get("input_tokens", 0)), int(usage.get("cached_input_tokens", 0)),
+             int(usage.get("output_tokens", 0)), float(cost), time.time()),
+        )
+
+
+_COST_COLS = (
+    "COUNT(*) AS answers, COALESCE(SUM(input_tokens),0) AS input_tokens, "
+    "COALESCE(SUM(cached_input_tokens),0) AS cached_input_tokens, "
+    "COALESCE(SUM(output_tokens),0) AS output_tokens, "
+    "COALESCE(SUM(cost_usd),0) AS cost_usd"
+)
+
+
+def cost_summary(org_id: int) -> dict:
+    with cursor() as cur:
+        row = cur.execute(
+            f"SELECT {_COST_COLS} FROM usage_events WHERE org_id = ?", (org_id,)
+        ).fetchone()
+    return dict(row)
+
+
+def cost_for_questionnaire(questionnaire_id: int) -> dict:
+    with cursor() as cur:
+        row = cur.execute(
+            f"SELECT {_COST_COLS} FROM usage_events WHERE questionnaire_id = ?", (questionnaire_id,)
+        ).fetchone()
+    return dict(row)
+
+
+def free_tier_spend_since(since_epoch: float) -> float:
+    """Total model spend by free-tier orgs since a timestamp (for the spend cap)."""
+    with cursor() as cur:
+        row = cur.execute(
+            "SELECT COALESCE(SUM(u.cost_usd),0) AS c FROM usage_events u "
+            "JOIN orgs o ON o.id = u.org_id "
+            "WHERE o.tier = 'free' AND u.created_at >= ?",
+            (since_epoch,),
+        ).fetchone()
+    return float(dict(row)["c"])
 
 
 # --------------------------------------------------------------------------

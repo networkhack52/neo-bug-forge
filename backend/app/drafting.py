@@ -137,9 +137,33 @@ class Draft:
     # {"title": str, "text": <exact cited span>, "kind": "library"|"document"}.
     citations: list[dict] = field(default_factory=list)
     verification: str = "skipped"                         # supported | unsupported | skipped
+    # Token usage accumulated across the draft + verify calls, for cost logging.
+    usage: dict = field(default_factory=lambda: {
+        "input_tokens": 0, "cached_input_tokens": 0, "output_tokens": 0, "model": "",
+    })
 
 
 FALLBACK_MIN_SIMILARITY = 70.0  # below this an offline fallback must not paste a prior answer
+
+
+def _add_usage(draft: Draft, body: dict, model: str) -> None:
+    """Accumulate token counts from an Anthropic response into the draft."""
+    u = body.get("usage") or {}
+    draft.usage["input_tokens"] += int(u.get("input_tokens", 0) or 0)
+    draft.usage["cached_input_tokens"] += int(u.get("cache_read_input_tokens", 0) or 0)
+    draft.usage["output_tokens"] += int(u.get("output_tokens", 0) or 0)
+    draft.usage["model"] = model  # last model touched; draft + verify share it under haiku-only
+
+
+def usage_cost(usage: dict) -> float:
+    """USD cost for a usage dict, using the draft model's price."""
+    p = config.price_for(usage.get("model") or config.ANTHROPIC_MODEL)
+    return round(
+        usage.get("input_tokens", 0) / 1e6 * p["input"]
+        + usage.get("cached_input_tokens", 0) / 1e6 * p["cached_input"]
+        + usage.get("output_tokens", 0) / 1e6 * p["output"],
+        6,
+    )
 
 
 def _build_user_prompt(question: str, context: list[Match], documents: list | None = None) -> str:
@@ -242,13 +266,14 @@ def draft_answer(question: str, context: list[Match], documents: list | None = N
             choice=choice,
             citations=citations,
         )
+        _add_usage(draft, body, config.ANTHROPIC_MODEL)
         # A drafted answer with sources available but zero citations is ungrounded.
         if config.CITATIONS_ENABLED and (context or documents) and not citations:
             draft.needs_review = True
             draft.confidence = min(draft.confidence, 50.0)
 
         if config.VERIFY_ENABLED:
-            _verify(draft, context, documents)
+            _verify(draft)
 
         # Ungrounded or unsupported answers can't carry proof — abstain in one
         # line rather than a paragraph of throat-clearing. Answers that DID cite
@@ -290,20 +315,23 @@ def _parse_citations(raw, documents: list, cap: int = 6) -> list[dict]:
     return out
 
 
-def _verify(draft: Draft, context: list[Match], documents: list | None = None) -> None:
-    """Chain-of-verification: second pass that checks the draft against context."""
-    documents = documents or []
-    supporting = [m.answer for m in context] + [d.text for d in documents]
-    if not supporting or not draft.answer:
+def _verify(draft: Draft) -> None:
+    """Chain-of-verification: check the answer against ONLY the passages it cited.
+
+    Scoping to the cited spans (not the whole corpus) keeps this a small ~500-token
+    call, so upgrading VERIFY_MODEL to a stronger model stays affordable.
+    """
+    cited = [c["text"] for c in draft.citations if c.get("text")]
+    if not cited or not draft.answer:
         return
-    ctx_text = "\n".join(f"- {s}" for s in supporting)
+    ctx_text = "\n".join(f"- {s}" for s in cited)
     payload = {
-        "model": config.ANTHROPIC_MODEL,
+        "model": config.VERIFY_MODEL,
         "max_tokens": 300,
         "system": VERIFY_SYSTEM_PROMPT,
         "messages": [{
             "role": "user",
-            "content": f"ANSWER:\n{draft.answer}\n\nCONTEXT:\n{ctx_text}",
+            "content": f"ANSWER:\n{draft.answer}\n\nCITED EVIDENCE:\n{ctx_text}",
         }],
     }
     try:
@@ -311,6 +339,7 @@ def _verify(draft: Draft, context: list[Match], documents: list | None = None) -
             resp = client.post(_messages_endpoint(), headers=_headers(), json=payload)
             resp.raise_for_status()
             body = resp.json()
+        _add_usage(draft, body, config.ANTHROPIC_MODEL)
         text = "".join(b.get("text", "") for b in body.get("content", []) if b.get("type") == "text")
         verdict = _extract_json(text)
         supported = bool(verdict.get("supported", True))
@@ -321,8 +350,8 @@ def _verify(draft: Draft, context: list[Match], documents: list | None = None) -
             claims = verdict.get("unsupported_claims") or []
             if claims:
                 draft.answer += (
-                    "\n\n[Attestly review: these claims were not fully supported by your "
-                    "Answer Library — verify before sending: " + "; ".join(map(str, claims[:3])) + "]"
+                    "\n\n[Attestly review: these claims were not fully supported by the cited "
+                    "evidence. Verify before sending: " + "; ".join(map(str, claims[:3])) + "]"
                 )
     except Exception:
         draft.verification = "skipped"  # never let verification break the draft

@@ -213,6 +213,12 @@ def test_onboarding_allowance_is_shared_per_domain(monkeypatch):
     assert me_b["onboarding_remaining"] == 10
 
 
+def test_usage_cost_endpoint_starts_at_zero():
+    token = _token()
+    c = client.get("/v1/usage/cost", headers=_auth(token)).json()
+    assert c["answers"] == 0 and c["cost_usd"] == 0
+
+
 def test_free_tier_gates_drafting_until_a_document_is_uploaded():
     # No document -> questions that need drafting are blocked and cost nothing.
     token = _token()

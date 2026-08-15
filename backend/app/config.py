@@ -48,6 +48,10 @@ RL_ASSESSMENT = (20, 3600)  # 20 / hour — public endpoint, bounds compute cost
 # --- Anthropic (Claude) ---------------------------------------------------
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
+# The verify/abstain pass runs on its own model so it can be upgraded to a
+# stronger model in ONE config change if the false-confidence rate exceeds our
+# threshold. Defaults to the same haiku model (haiku-only stands until measured).
+VERIFY_MODEL = os.environ.get("ATTESTLY_VERIFY_MODEL", ANTHROPIC_MODEL)
 ANTHROPIC_BASE_URL = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
 ANTHROPIC_VERSION = os.environ.get("ANTHROPIC_VERSION", "2023-06-01")
 LLM_ENABLED = bool(ANTHROPIC_API_KEY)
@@ -55,6 +59,18 @@ LLM_ENABLED = bool(ANTHROPIC_API_KEY)
 # request per drafted answer; disable to trade trust for lower COGS.
 CITATIONS_ENABLED = os.environ.get("ATTESTLY_CITATIONS", "1") not in ("0", "false", "False")
 VERIFY_ENABLED = os.environ.get("ATTESTLY_VERIFY", "1") not in ("0", "false", "False")
+
+# Per-million-token prices (USD) for cost instrumentation, keyed by model id.
+# Cached input is billed at ~10% of the input rate. Override via env as needed.
+MODEL_PRICES = {
+    "claude-haiku-4-5-20251001": {"input": 1.0, "cached_input": 0.10, "output": 5.0},
+    "claude-sonnet-4-5": {"input": 3.0, "cached_input": 0.30, "output": 15.0},
+}
+DEFAULT_PRICE = {"input": 1.0, "cached_input": 0.10, "output": 5.0}
+
+
+def price_for(model: str) -> dict:
+    return MODEL_PRICES.get(model, DEFAULT_PRICE)
 
 # --- Embeddings (semantic retrieval) --------------------------------------
 # Optional: when a Voyage AI key is present, answers/documents are embedded and

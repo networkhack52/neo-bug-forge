@@ -386,10 +386,17 @@ async def upload_questionnaire(
         "blocked": blocked,
         "reused_from_bank": reused,
         "drafted": drafted,
+        "cost_usd": db.cost_for_questionnaire(qid)["cost_usd"],
         "can_export_original": parsed.answer_col is not None,
         "source_kind": parsed.kind,
         "items": items,
     }
+
+
+@app.get("/v1/usage/cost")
+def usage_cost_view(org: dict = Depends(require_org)) -> dict:
+    """This account's model spend: answers, tokens (with cached split), and USD."""
+    return db.cost_summary(org["id"])
 
 
 @app.get("/v1/questionnaires")

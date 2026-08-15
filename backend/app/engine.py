@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
 from . import config, db, documents, embeddings, retrieval
-from .drafting import draft_answer, infer_choice
+from .drafting import draft_answer, infer_choice, usage_cost
 
 
 @dataclass
@@ -28,6 +28,7 @@ class AnsweredItem:
     choice: str = ""
     citations: list[dict] = field(default_factory=list)
     verification: str = "skipped"
+    usage: dict | None = None  # token usage for a drafted answer (None = no model cost)
 
 
 # Shown when drafting is gated behind a trust-document upload (free tier, no docs).
@@ -88,6 +89,7 @@ def answer_question(
             choice=d.choice,
             citations=d.citations,
             verification=d.verification,
+            usage=d.usage,
         )
 
     db.update_item(
@@ -127,6 +129,12 @@ def answer_questionnaire(
             }
             for fut in as_completed(futures):
                 out[futures[fut]] = fut.result()
+
+    # Record token/cost usage per drafted answer (post-join, so no concurrent
+    # writes). Reused and blocked items have no model cost.
+    for it in out:
+        if it and it.usage and it.usage.get("input_tokens", 0) > 0:
+            db.record_usage(org_id, questionnaire_id, it.item_id, it.usage, usage_cost(it.usage))
 
     db.set_answered_count(questionnaire_id, len(out))
     db.set_questionnaire_status(questionnaire_id, "ready")

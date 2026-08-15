@@ -29,6 +29,22 @@ def test_choice_helpers_map_to_enum():
     assert drafting.infer_choice("It depends.") == ""
 
 
+def test_usage_cost_uses_model_price():
+    # 1M input @ $1 + 1M output @ $5 = $6.00 for haiku.
+    usage = {"input_tokens": 1_000_000, "cached_input_tokens": 0,
+             "output_tokens": 1_000_000, "model": "claude-haiku-4-5-20251001"}
+    assert drafting.usage_cost(usage) == 6.0
+    # Cached input is billed at the discounted rate.
+    cached = {"input_tokens": 0, "cached_input_tokens": 1_000_000,
+              "output_tokens": 0, "model": "claude-haiku-4-5-20251001"}
+    assert drafting.usage_cost(cached) == 0.10
+
+
+def test_verify_model_is_configurable():
+    from app import config
+    assert config.VERIFY_MODEL  # own config value, defaults to the draft model
+
+
 def test_offline_draft_no_context_refuses():
     d = drafting.draft_answer("What is your annual revenue?", [])
     assert d.needs_review is True
