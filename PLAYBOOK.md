@@ -242,6 +242,12 @@ smells AI-generated. Write like a competent peer, not a marketer.
 - **Abstentions are one line** ("No supporting evidence found in the uploaded documents. Needs owner
   review."), applied deterministically when an answer has no citations. Detail lives in the Status column,
   not in prose the customer forwards.
+- **Haiku-only until measured; verify is one config change away from a stronger model.** `VERIFY_MODEL`
+  (`ATTESTLY_VERIFY_MODEL`) is its own config value, and the verify pass is scoped to the *cited passages
+  only* (~500 tokens) so a stronger verify model stays cheap. Gate: run `python -m app.eval` (50 labelled
+  questions vs `backend/eval/`); if **false confidence > 3%** (asserting a control the docs don't support),
+  upgrade `VERIFY_MODEL`. Cost is logged per answer (`usage_events`, `GET /v1/usage/cost`) and read
+  alongside the eval.
 
 ---
 
