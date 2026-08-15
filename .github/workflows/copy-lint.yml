@@ -1,0 +1,21 @@
+name: Copy lint
+
+# Enforces the Voice & copy rules (PLAYBOOK §10) on customer-facing copy.
+# Backstop to the local pre-commit hook: catches commits made with
+# --no-verify, or from a clone that never ran `git config core.hooksPath`.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  copy-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run copy lint
+        run: node copy-lint.mjs
