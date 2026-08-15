@@ -178,10 +178,20 @@ Audience is security / GRC / CISO: skeptical, technical, allergic to hype and to
 smells AI-generated. Write like a competent peer, not a marketer.
 
 **Punctuation**
-- **No em dashes (—) in headlines, taglines, buttons, or brand surfaces** (`<title>`, OG tags, hero,
-  CTAs). To this audience the em dash reads as AI-written. Use a period, a comma, or the brand's
-  **`·`** separator instead. Ordinary em dashes inside body prose are tolerated but don't lean on them.
+- **No em/en dashes (— –) anywhere in customer-facing copy** — the marketing site *and* product UI
+  strings. To this audience the em dash reads as AI-written. Use a period, a comma, a colon, or the
+  brand's **`·`** separator instead. (Internal docs like this playbook are exempt.)
 - Use **`·`** as the brand separator (e.g. "Start free · 25 answers, no card").
+- Curly quotes (" " ' ') are fine in prose; the linter only warns on them (they can break in meta tags).
+
+**Enforcement — `copy-lint.mjs` (repo root)**
+- Run before shipping any copy: `node copy-lint.mjs "marketing/*.html" "frontend/src/**/*.{jsx,js}"`
+  (no args → that default scope). Needs Node 22+ (built-in `globSync`).
+- **Errors fail** (exit 1): em/en dash, hype words, unbacked claims, throat-clearing openers.
+  **Warnings are advisory:** curly quotes, filler words ("just"/"really"), spelled-out numbers.
+- **Delete the `unbacked-claim` rule the day we have data to back it** — pre-launch it stops us
+  putting "95% accurate" / "trusted by thousands" on the site, which a CISO would ask us to prove.
+- Wire into CI or a husky pre-commit hook when ready; until then, run it by hand (or with `|| true`).
 
 **Words & tone**
 - Say **"prove every answer"**, not "AI questionnaire tool". Lead with proof + self-serve + price.

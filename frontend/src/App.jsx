@@ -12,7 +12,7 @@ function parseCitations(c) {
   }
 }
 
-// "Open 3d", "Open 5h" — how long a questionnaire has been sitting.
+// "Open 3d", "Open 5h": how long a questionnaire has been sitting.
 function openFor(createdAtEpoch) {
   const hrs = (Date.now() / 1000 - createdAtEpoch) / 3600;
   if (hrs < 1) return { label: "Open <1h", hours: hrs };
@@ -150,7 +150,7 @@ function Onboarding({ onDone }) {
           />
           {err && <div className="error">{err}</div>}
           <button className="primary" disabled={busy}>
-            {busy ? "Please wait…" : login ? "Log in" : "Start free — 25 answers, no card"}
+            {busy ? "Please wait…" : login ? "Log in" : "Start free · 25 answers, no card"}
           </button>
         </form>
         <p className="muted small" style={{ marginTop: 12 }}>
@@ -227,7 +227,7 @@ function Upload({ me, onChange, onNavigate }) {
         <div className="card nudge">
           <h2>New here? Do this first ↓</h2>
           <p className="muted">
-            Attestly answers from <em>your</em> approved answers and trust documents — and cites
+            Attestly answers from <em>your</em> approved answers and trust documents, and cites
             the exact source. With an empty library it can only say “not enough information,” so
             give it something to ground on before your first questionnaire:
           </p>
@@ -247,7 +247,7 @@ function Upload({ me, onChange, onNavigate }) {
               <div>
                 <strong>Upload your SOC 2 or policies</strong>
                 <span className="muted small">
-                  So drafted answers cite the exact line — the “it’s not making things up” proof.
+                  So drafted answers cite the exact line: the “it’s not making things up” proof.
                 </span>
               </div>
               <button className="secondary" onClick={() => onNavigate("documents")}>
@@ -257,7 +257,7 @@ function Upload({ me, onChange, onNavigate }) {
           </ol>
           {err && <div className="error">{err}</div>}
           <p className="muted small">
-            Or skip ahead and upload a questionnaire now — you can always add sources later.
+            Or skip ahead and upload a questionnaire now. You can always add sources later.
           </p>
         </div>
       )}
@@ -265,7 +265,7 @@ function Upload({ me, onChange, onNavigate }) {
       {!result && (
         <div className="card dropzone">
           <h2>Upload a questionnaire</h2>
-          <p className="muted">.xlsx or .csv — we auto-detect the question column.</p>
+          <p className="muted">.xlsx or .csv. We auto-detect the question column.</p>
           <label className="primary filebtn">
             {busy ? "Answering…" : "Choose file"}
             <input type="file" accept=".xlsx,.xlsm,.csv" onChange={onFile} hidden />
@@ -359,10 +359,10 @@ function ReviewItem({ item, onApprove, onShowSources }) {
       <div className="itemfoot">
         {cites.length > 0 ? (
           <button className="citebtn" onClick={() => onShowSources({ item, cites })}>
-            🔍 {cites.length} source{cites.length > 1 ? "s" : ""} — show proof
+            🔍 {cites.length} source{cites.length > 1 ? "s" : ""} · show proof
           </button>
         ) : (
-          <span className="muted xsmall">No grounded source — review before sending.</span>
+          <span className="muted xsmall">No grounded source. Review before sending.</span>
         )}
         {!approved && (
           <button className="secondary" onClick={() => onApprove(item, answer)}>
@@ -375,7 +375,7 @@ function ReviewItem({ item, onApprove, onShowSources }) {
 }
 
 // Audit-ready trust: click a citation to see the exact approved source the
-// answer was grounded in — proof the AI didn't fabricate it.
+// answer was grounded in. Proof the AI didn't fabricate it.
 function SourcePanel({ data, library, onClose }) {
   const { item, cites } = data;
   const norm = (s) => (s || "").trim().toLowerCase();
@@ -443,7 +443,7 @@ function SourcePanel({ data, library, onClose }) {
         </div>
         <p className="muted xsmall drawer-foot">
           Every answer is grounded only in your approved answers and trust documents. The
-          highlighted spans are the exact text the model cited — nothing here is invented.
+          highlighted spans are the exact text the model cited. Nothing here is invented.
         </p>
       </aside>
     </>
@@ -490,7 +490,7 @@ function Documents() {
         <h3>Add a trust document</h3>
         <p className="muted small">
           Upload your SOC 2 report, security policies, or DPA (PDF or text). Drafted answers will
-          cite the exact passage they came from — proof for a reviewing CTO that nothing is
+          cite the exact passage they came from: proof for a reviewing CTO that nothing is
           invented.
         </p>
         <label className="primary filebtn">
@@ -500,8 +500,8 @@ function Documents() {
         {err && <div className="error">{err}</div>}
         <p className="muted xsmall" style={{ marginTop: 12 }}>
           {enabled
-            ? "Semantic search is ON — passages are matched by meaning."
-            : "Semantic search is OFF (no embeddings key) — passages are matched lexically. Set VOYAGE_API_KEY to enable meaning-based grounding."}
+            ? "Semantic search is ON. Passages are matched by meaning."
+            : "Semantic search is OFF (no embeddings key). Passages are matched lexically. Set VOYAGE_API_KEY to enable meaning-based grounding."}
         </p>
       </div>
       <div>
@@ -627,7 +627,7 @@ function History() {
   }, []);
 
   // Speed SLA: surface questionnaires still open (not exported) and how long
-  // they've been sitting — the "close the deal faster" nudge.
+  // they've been sitting. The "close the deal faster" nudge.
   const open = rows.filter((r) => r.status !== "exported");
   const stale = open
     .map((r) => ({ r, age: openFor(r.created_at) }))
@@ -639,7 +639,7 @@ function History() {
       <h3>Questionnaires</h3>
       {stale.length > 0 && (
         <div className="sla-banner">
-          ⏱ {stale.length} questionnaire{stale.length > 1 ? "s have" : " has"} been open over 48h —
+          ⏱ {stale.length} questionnaire{stale.length > 1 ? "s have" : " has"} been open over 48h,
           the oldest for {stale[0].age.label.replace("Open ", "")}. Approve the remaining drafts to
           close the deal.
         </div>
@@ -791,8 +791,8 @@ function Billing({ me, onChange }) {
       <div className="card" style={{ marginTop: 24 }}>
         <h3>Security</h3>
         <p className="muted small">
-          Your API key authenticates this browser. If you think it may have been exposed, rotate it
-          — this immediately invalidates the old key and signs out any other sessions.
+          Your API key authenticates this browser. If you think it may have been exposed, rotate it.
+          This immediately invalidates the old key and signs out any other sessions.
         </p>
         <button
           className="secondary"
@@ -801,7 +801,7 @@ function Billing({ me, onChange }) {
             try {
               const { api_token } = await api.rotateToken();
               setToken(api_token);
-              setMsg("API key rotated — other sessions are now signed out.");
+              setMsg("API key rotated. Other sessions are now signed out.");
             } catch (e) {
               setMsg("Could not rotate key: " + e.message);
             }
