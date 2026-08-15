@@ -171,7 +171,32 @@ live setup.
 
 ---
 
-## 10. Decision log (why things are the way they are)
+## 10. Voice & copy rules
+
+How Attestly sounds — in the product, the landing page, legal pages, and LinkedIn posts.
+Audience is security / GRC / CISO: skeptical, technical, allergic to hype and to anything that
+smells AI-generated. Write like a competent peer, not a marketer.
+
+**Punctuation**
+- **No em dashes (—) in headlines, taglines, buttons, or brand surfaces** (`<title>`, OG tags, hero,
+  CTAs). To this audience the em dash reads as AI-written. Use a period, a comma, or the brand's
+  **`·`** separator instead. Ordinary em dashes inside body prose are tolerated but don't lean on them.
+- Use **`·`** as the brand separator (e.g. "Start free · 25 answers, no card").
+
+**Words & tone**
+- Say **"prove every answer"**, not "AI questionnaire tool". Lead with proof + self-serve + price.
+- **Never over-claim.** No certifications, controls, or commitments we can't back. Honesty beats polish —
+  especially under PDPL / to a CISO. If unsure, abstain or hedge, don't assert.
+- **Concise and direct.** Product answers: first-person plural ("We …"), 1–3 sentences, answer the
+  specific question, no tangential restating (mirrors the drafting system prompt).
+- Plain, concrete, lowercase-y confidence. Avoid buzzwords ("revolutionary", "cutting-edge", "seamless"),
+  exclamation marks, and emoji in product/marketing copy.
+- **LinkedIn:** hook in line 1, one idea per post, end with a question ~half the time, product ~1 in 3
+  posts. Details in `CONTENT_LOG.md`.
+
+---
+
+## 11. Decision log (why things are the way they are)
 
 - **Model = `claude-haiku-4-5`** — deliberate cost choice; keeps margins. Don't swap without reason.
 - **No vector DB** — embeddings as SQLite/Postgres BLOBs; keeps infra at zero services.
@@ -192,7 +217,7 @@ live setup.
 
 ---
 
-## 11. Backlog / next
+## 12. Backlog / next
 
 - [ ] Land first 3–5 design partners (the actual priority)
 - [ ] **Upgrade Render to Starter ($7/mo) before prospect outreach** — kills the free-tier 50s cold-start (§6)
