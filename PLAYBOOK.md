@@ -230,6 +230,18 @@ smells AI-generated. Write like a competent peer, not a marketer.
   CISO matters more than the marketing line; the US AI processing is disclosed plainly.
 - **`main` branch protection = force-push/deletion blocked, but PR not required** — the deploy is a direct
   push to `main`, so requiring PRs would lock us out of our own release path.
+- **Free tier = one-time 150 onboarding pool (per email DOMAIN) + recurring 25/30-day.** Real
+  questionnaires run 124-855 questions; a 25-answer free tier that *declined* over-quota uploads meant
+  every new user's first action was a rejection. The 150 pool lets a new team run a real questionnaire;
+  it's domain-scoped so one company can't farm it across many signups.
+- **Over-quota = partial, never decline.** Answer up to the remaining quota, mark the rest `Locked`,
+  always produce the export. A rejected upload is a dead first impression.
+- **Export carries proof: `Section | Question | Vendor Response | Source | Status`.** The product is
+  "prove every answer"; the file the customer sends must show the source line and a per-row status
+  (Answered / Needs review / No evidence / Locked).
+- **Abstentions are one line** ("No supporting evidence found in the uploaded documents. Needs owner
+  review."), applied deterministically when an answer has no citations. Detail lives in the Status column,
+  not in prose the customer forwards.
 
 ---
 

@@ -32,7 +32,7 @@ def test_choice_helpers_map_to_enum():
 def test_offline_draft_no_context_refuses():
     d = drafting.draft_answer("What is your annual revenue?", [])
     assert d.needs_review is True
-    assert "No approved answer" in d.answer
+    assert d.answer == drafting.NO_EVIDENCE
 
 
 def test_hardened_prompt_has_grounding_and_injection_rules():

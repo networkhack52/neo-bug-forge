@@ -9,9 +9,11 @@ from app.main import app
 client = TestClient(app)
 
 
-def _token():
-    # Unique email per call — signup now enforces one account per email.
-    email = f"t-{uuid.uuid4().hex[:8]}@example.com"
+def _token(domain=None):
+    # Unique email per call. Default to a unique DOMAIN too, so each org gets a
+    # fresh onboarding allowance (the 150 pool is shared per email domain).
+    domain = domain or f"{uuid.uuid4().hex[:12]}.example.com"
+    email = f"t-{uuid.uuid4().hex[:8]}@{domain}"
     r = client.post("/v1/signup", json={"name": "Test Co", "email": email, "password": "supersecret"})
     assert r.status_code == 200, r.text
     return r.json()["api_token"]
@@ -129,10 +131,14 @@ def test_full_flow_signup_bank_upload_export():
     assert body["reused_from_bank"] >= 1   # at least the verbatim MFA question
 
     qid = body["questionnaire_id"]
+    assert body["answered"] == 2
+    assert body["locked"] == 0
 
-    # Usage was metered.
+    # Metering drew from the one-time onboarding pool first (period untouched).
     me = client.get("/v1/me", headers=_auth(token)).json()
-    assert me["questions_used"] == 2
+    assert me["questions_used"] == 0
+    assert me["onboarding_remaining"] == 148          # 150 - 2
+    assert me["answers_remaining"] == 173             # 148 + 25
 
     # Export returns a real xlsx.
     r = client.get(f"/v1/questionnaires/{qid}/export", headers=_auth(token))
@@ -143,20 +149,59 @@ def test_full_flow_signup_bank_upload_export():
     assert len(r.content) > 0
 
 
-def test_free_tier_question_limit_enforced():
-    token = _token()
-    # Build a questionnaire with 30 questions (> free limit of 25).
+def _big_questionnaire(n):
     wb = Workbook()
     ws = wb.active
     ws.append(["Question", "Answer"])
-    for i in range(30):
+    for i in range(n):
         ws.append([f"Do you support control number {i}?", ""])
     buf = io.BytesIO()
     wb.save(buf)
-    files = {"file": ("big.xlsx", buf.getvalue(),
+    return buf.getvalue()
+
+
+def test_onboarding_allowance_answers_beyond_the_free_period_limit():
+    # A brand-new free account can run a big questionnaire (>25) in one go,
+    # because the 150 onboarding pool covers it — no card, nothing declined.
+    token = _token()
+    files = {"file": ("big.xlsx", _big_questionnaire(30),
                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
     r = client.post("/v1/questionnaires", headers=_auth(token), files=files)
-    assert r.status_code == 402  # over plan allowance
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["answered"] == 30 and body["locked"] == 0
+    me = client.get("/v1/me", headers=_auth(token)).json()
+    assert me["questions_used"] == 0            # drawn from onboarding, not the period
+    assert me["onboarding_remaining"] == 120    # 150 - 30
+
+
+def test_over_quota_partial_answers_and_locks_the_rest(monkeypatch):
+    from app import config
+    monkeypatch.setattr(config, "ONBOARDING_ALLOWANCE", 0)  # only the 25 period remains
+    token = _token()
+    files = {"file": ("big.xlsx", _big_questionnaire(30),
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    r = client.post("/v1/questionnaires", headers=_auth(token), files=files)
+    assert r.status_code == 200, r.text          # partial, never declined
+    body = r.json()
+    assert body["answered"] == 25 and body["locked"] == 5
+    # The export is still produced, with the locked rows in it.
+    ex = client.get(f"/v1/questionnaires/{body['questionnaire_id']}/export", headers=_auth(token))
+    assert ex.status_code == 200 and len(ex.content) > 0
+
+
+def test_onboarding_allowance_is_shared_per_domain(monkeypatch):
+    from app import config
+    monkeypatch.setattr(config, "ONBOARDING_ALLOWANCE", 40)
+    domain = f"{uuid.uuid4().hex[:12]}.acme.test"
+    a = _token(domain=domain)
+    b = _token(domain=domain)  # same company, second signup
+    files = {"file": ("big.xlsx", _big_questionnaire(30),
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    client.post("/v1/questionnaires", headers=_auth(a), files=files)
+    # Account A spent 30 of the shared 40; account B sees only 10 left in the pool.
+    me_b = client.get("/v1/me", headers=_auth(b)).json()
+    assert me_b["onboarding_remaining"] == 10
 
 
 def test_simulated_upgrade_changes_tier():

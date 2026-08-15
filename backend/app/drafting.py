@@ -30,6 +30,10 @@ import httpx
 from . import config
 from .retrieval import Match
 
+# Customer-facing abstention. One line — the detail (what's missing, next step)
+# belongs in the export's Status column, not in text the customer forwards.
+NO_EVIDENCE = "No supporting evidence found in the uploaded documents. Needs owner review."
+
 SYSTEM_PROMPT = (
     "You are a security & compliance analyst answering a customer's security questionnaire "
     "for a B2B SaaS vendor, using ONLY the vendor's approved context supplied to you "
@@ -172,8 +176,7 @@ def _fallback(question: str, context: list[Match]) -> Draft:
                      needs_review=True, match_type="fallback",
                      choice=infer_choice(top.answer))
     return Draft(
-        answer="[No approved answer found. Please answer manually and approve so Attestly "
-               "can reuse it next time.]",
+        answer=NO_EVIDENCE,
         confidence=0.0,
         needs_review=True,
         match_type="fallback",
@@ -246,6 +249,13 @@ def draft_answer(question: str, context: list[Match], documents: list | None = N
 
         if config.VERIFY_ENABLED:
             _verify(draft, context, documents)
+
+        # Ungrounded or unsupported answers can't carry proof — abstain in one
+        # line rather than a paragraph of throat-clearing. Answers that DID cite
+        # a source keep their prose (partial support is still useful).
+        if draft.needs_review and not draft.citations:
+            draft.answer = NO_EVIDENCE
+            draft.choice = ""
         return draft
     except Exception as exc:  # network/parse errors must not break the batch
         fb = _fallback(question, context)

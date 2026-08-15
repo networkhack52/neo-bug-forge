@@ -272,17 +272,25 @@ function Upload({ me, onChange, onNavigate }) {
           </label>
           {err && <div className="error">{err}</div>}
           <p className="muted small">
-            {me.questions_remaining} answers left on your {me.tier_name} plan this month.
+            {me.answers_remaining} answers left on your {me.tier_name} plan. A larger file is answered up
+            to your limit; the remaining rows are locked until you upgrade.
           </p>
         </div>
       )}
 
       {result && (
         <div>
+          {result.locked > 0 && (
+            <div className="lockbanner">
+              {result.locked} of {result.total_questions} rows are locked because you reached your plan
+              limit. The rest are answered and in your export. Upgrade to answer the locked rows.
+            </div>
+          )}
           <div className="statsrow">
-            <Stat label="Questions" value={result.total_questions} />
+            <Stat label="Answered" value={result.answered} />
             <Stat label="Reused from library" value={result.reused_from_bank} accent="green" />
             <Stat label="Drafted" value={result.drafted} accent="blue" />
+            {result.locked > 0 && <Stat label="Locked" value={result.locked} accent="amber" />}
             {result.can_export_original && (
               <button
                 className="primary"

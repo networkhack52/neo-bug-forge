@@ -97,3 +97,9 @@ TIERS: dict[str, dict] = {
     "scale": {"name": "Scale", "price": 499, "yearly_price": 4990, "question_limit": 100000, "bank_limit": 100000, "seats": 25},
 }
 DEFAULT_TIER = "free"
+
+# One-time onboarding allowance: a pool of free answers granted per email DOMAIN
+# (shared across everyone at the same company), so a new team can run a real
+# 124-855 question questionnaire before falling back to the recurring free limit.
+# Scoped to the domain so one company can't farm it across many signups.
+ONBOARDING_ALLOWANCE = int(os.environ.get("ATTESTLY_ONBOARDING_ALLOWANCE", "150"))

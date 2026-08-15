@@ -129,6 +129,16 @@ button, .primary, .secondary {
 .stat { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 18px; text-align: center; }
 .stat.green .statnum { color: var(--green); }
 .stat.blue .statnum { color: var(--blue); }
+.stat.amber .statnum { color: var(--amber); }
+.lockbanner {
+  background: var(--amber-bg);
+  border: 1px solid var(--amber);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
 .statnum { font-size: 24px; font-weight: 700; }
 
 .item .itemhead { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }

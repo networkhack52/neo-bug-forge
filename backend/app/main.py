@@ -99,6 +99,12 @@ def public_questionnaire(q: dict) -> dict:
 
 def usage_view(org: dict) -> dict:
     tier = config.TIERS[org["tier"]]
+    is_free = org["tier"] == "free"
+    period_remaining = max(tier["question_limit"] - org["questions_used"], 0)
+    onboarding_remaining = (
+        max(0, config.ONBOARDING_ALLOWANCE - db.domain_onboarding_used(db.email_domain(org.get("email"))))
+        if is_free else 0
+    )
     return {
         "org_id": org["id"],
         "name": org["name"],
@@ -106,7 +112,10 @@ def usage_view(org: dict) -> dict:
         "tier_name": tier["name"],
         "questions_used": org["questions_used"],
         "question_limit": tier["question_limit"],
-        "questions_remaining": max(tier["question_limit"] - org["questions_used"], 0),
+        "questions_remaining": period_remaining,
+        # Total answers this account can run right now (onboarding pool + period).
+        "onboarding_remaining": onboarding_remaining,
+        "answers_remaining": onboarding_remaining + period_remaining,
         "bank_limit": tier["bank_limit"],
         "bank_size": db.count_answers(org["id"]),
         "doc_count": db.count_documents(org["id"]),
@@ -322,18 +331,19 @@ async def upload_questionnaire(
     if not parsed.questions:
         raise HTTPException(status_code=422, detail="No questions detected in the file")
 
-    # Metering: enforce the plan's question allowance.
+    # Metering: partial-answer up to the plan's remaining quota, lock the rest.
+    # Never decline the whole file — a rejected upload is a dead first impression.
     tier = config.TIERS[org["tier"]]
-    remaining = tier["question_limit"] - org["questions_used"]
-    if remaining <= 0:
-        raise HTTPException(status_code=402, detail="Monthly question limit reached — upgrade your plan")
+    is_free = org["tier"] == "free"
+    domain = db.email_domain(org.get("email"))
+    onboarding_remaining = (
+        max(0, config.ONBOARDING_ALLOWANCE - db.domain_onboarding_used(domain)) if is_free else 0
+    )
+    period_remaining = max(0, tier["question_limit"] - org["questions_used"])
+    total_remaining = onboarding_remaining + period_remaining
+
     n_questions = len(parsed.questions)
-    if n_questions > remaining:
-        raise HTTPException(
-            status_code=402,
-            detail=f"This questionnaire has {n_questions} questions but only {remaining} "
-            f"remain on your plan this period.",
-        )
+    answerable = min(n_questions, total_remaining)
 
     qid = db.create_questionnaire(
         org["id"], file.filename or "Questionnaire", file.filename or "", n_questions,
@@ -344,16 +354,29 @@ async def upload_questionnaire(
     for eq in parsed.questions:
         db.add_item(qid, eq.row_index, eq.question, excel_row=eq.excel_row)
 
+    # Rows beyond the quota are locked (in row order) and never answered.
+    ordered = db.list_items(qid)
+    db.lock_items([it["id"] for it in ordered[answerable:]])
+
     engine.answer_questionnaire(org["id"], qid)
-    db.increment_usage(org["id"], n_questions)
+
+    # Charge exactly what we answered: onboarding pool first, then the period.
+    from_onboarding = min(answerable, onboarding_remaining)
+    db.consume_domain_onboarding(domain, from_onboarding)
+    if answerable - from_onboarding > 0:
+        db.increment_usage(org["id"], answerable - from_onboarding)
 
     items = db.list_items(qid)
-    reused = sum(1 for it in items if it["match_type"] == "reuse")
+    reused = sum(1 for it in items if it["match_type"] == "reuse" and not it["locked"])
+    locked = sum(1 for it in items if it["locked"])
+    answered = n_questions - locked
     return {
         "questionnaire_id": qid,
         "total_questions": n_questions,
+        "answered": answered,
+        "locked": locked,
         "reused_from_bank": reused,
-        "drafted": n_questions - reused,
+        "drafted": answered - reused,
         "can_export_original": parsed.answer_col is not None,
         "source_kind": parsed.kind,
         "items": items,

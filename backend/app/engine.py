@@ -85,7 +85,9 @@ def answer_question(org_id: int, item_id: int, question: str, bank: list[dict]) 
 
 def answer_questionnaire(org_id: int, questionnaire_id: int) -> list[AnsweredItem]:
     bank = db.list_answers(org_id, status="approved")
-    items = db.list_items(questionnaire_id)
+    # Locked items are over the plan's quota — leave them unanswered for the
+    # upgrade prompt; only spend model calls (and quota) on the rest.
+    items = [it for it in db.list_items(questionnaire_id) if not it.get("locked")]
     out: list[AnsweredItem | None] = [None] * len(items)
 
     # Answer questions concurrently — each drafted one makes several sequential

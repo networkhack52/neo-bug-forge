@@ -79,6 +79,13 @@ CREATE TABLE IF NOT EXISTS questionnaire_items (
     choice          TEXT DEFAULT '',       -- Yes | No | Partially | Not Applicable | ''
     citations       TEXT DEFAULT '[]',     -- JSON list of source questions the model cited
     verification    TEXT DEFAULT 'skipped',-- supported | unsupported | skipped
+    locked          INTEGER NOT NULL DEFAULT 0, -- 1 = over quota, not answered
+    created_at      REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS domain_allowances (
+    domain          TEXT PRIMARY KEY,          -- normalised email domain
+    onboarding_used INTEGER NOT NULL DEFAULT 0,-- answers drawn from the 150 pool
     created_at      REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_items_q ON questionnaire_items(questionnaire_id);
@@ -114,6 +121,7 @@ _MIGRATIONS = {
         "citations": "TEXT DEFAULT '[]'",
         "verification": "TEXT DEFAULT 'skipped'",
         "excel_row": "INTEGER NOT NULL DEFAULT 0",
+        "locked": "INTEGER NOT NULL DEFAULT 0",
     },
     "questionnaires": {
         "source_bytes": "BLOB",
@@ -335,6 +343,55 @@ def increment_usage(org_id: int, n: int) -> None:
             "UPDATE orgs SET questions_used = questions_used + ? WHERE id = ?",
             (n, org_id),
         )
+
+
+def email_domain(email: Optional[str]) -> str:
+    """Normalised domain part of an email, or '' if not parseable."""
+    if not email or "@" not in email:
+        return ""
+    return email.rsplit("@", 1)[1].strip().lower()
+
+
+def domain_onboarding_used(domain: str) -> int:
+    """Answers already drawn from a domain's one-time onboarding pool."""
+    if not domain:
+        return 0
+    with cursor() as cur:
+        row = cur.execute(
+            "SELECT onboarding_used FROM domain_allowances WHERE domain = ?", (domain,)
+        ).fetchone()
+    return int(dict(row)["onboarding_used"]) if row else 0
+
+
+def consume_domain_onboarding(domain: str, n: int) -> None:
+    """Draw n answers from a domain's onboarding pool (upsert, additive)."""
+    if not domain or n <= 0:
+        return
+    now = time.time()
+    with cursor() as cur:
+        if PG:
+            cur.execute(
+                "INSERT INTO domain_allowances (domain, onboarding_used, created_at) "
+                "VALUES (?, ?, ?) ON CONFLICT (domain) DO UPDATE SET "
+                "onboarding_used = domain_allowances.onboarding_used + ?",
+                (domain, n, now, n),
+            )
+        else:
+            cur.execute(
+                "INSERT INTO domain_allowances (domain, onboarding_used, created_at) "
+                "VALUES (?, ?, ?) ON CONFLICT (domain) DO UPDATE SET "
+                "onboarding_used = onboarding_used + ?",
+                (domain, n, now, n),
+            )
+
+
+def lock_items(item_ids: list[int]) -> None:
+    """Mark items as locked (over quota, not answered)."""
+    if not item_ids:
+        return
+    with cursor() as cur:
+        for iid in item_ids:
+            cur.execute("UPDATE questionnaire_items SET locked = 1 WHERE id = ?", (iid,))
 
 
 # --------------------------------------------------------------------------
