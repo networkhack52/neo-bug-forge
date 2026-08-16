@@ -194,6 +194,11 @@ smells AI-generated. Write like a competent peer, not a marketer.
 - **Scope = brand-voice surfaces only:** `marketing/index.html` + `frontend/src`. The legal templates
   (`terms/privacy/dpa.html`) are **excluded on purpose** — formal, lawyer-owned register. Lint them
   explicitly if ever needed: `node copy-lint.mjs "marketing/*.html"`.
+- **Backend + generated text:** Python prose doesn't lint cleanly with the JS tool, so the backend's
+  user-facing strings (abstain text, block prompts, export labels) are guarded by
+  `tests/test_copy_voice.py` instead. Generated answers are governed by the drafting prompt (grounded,
+  no promotional language) and legitimately contain figures like "99.9%" or "AES-256", so percentages
+  are NOT banned at runtime — only the marketing tells ("trusted by", accuracy-% claims) are.
 - **Errors fail** (exit 1): em/en dash, hype words, unbacked claims, throat-clearing openers.
   **Warnings are advisory:** curly quotes, filler words ("just"/"really"), spelled-out numbers.
 - **Delete the `unbacked-claim` rule the day we have data to back it** — pre-launch it stops us
