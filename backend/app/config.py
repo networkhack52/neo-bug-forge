@@ -38,6 +38,7 @@ RATE_LIMIT_ENABLED = os.environ.get("ATTESTLY_RATE_LIMIT", "1") not in ("0", "fa
 ALLOWED_ORIGINS = [
     o.strip() for o in os.environ.get(
         "ATTESTLY_ALLOWED_ORIGINS",
+        "https://tryattestly.com,https://www.tryattestly.com,"
         "https://attestly-gamma.vercel.app,http://localhost:5173,http://localhost:3000",
     ).split(",") if o.strip()
 ]

@@ -102,7 +102,7 @@ is #7 (least-privilege DB role — accepted hygiene item).
 
 | Thing | URL / location |
 |---|---|
-| App (frontend) | https://attestly-gamma.vercel.app |
+| App (frontend) | https://tryattestly.com (custom domain) · https://attestly-gamma.vercel.app (Vercel) |
 | Backend API | https://attestly-f8p0.onrender.com |
 | Health check | `…/health` → `{status, storage:"postgres", llm_enabled, embeddings_enabled}` |
 | Repo (pull from here) | github.com/networkhack52/Attestly (branch `main`) |
