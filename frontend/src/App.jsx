@@ -160,9 +160,9 @@ function Landing({ onStart }) {
       <section className="lp-eval">
         <div className="lp-eval-num">0<span> in 60</span></div>
         <div>
-          <strong>Zero false confidence.</strong> In a 60-question labelled eval that included near-miss
-          and contradicted evidence, Attestly asserted a control the documents did not support 0 times.
-          When your documents do not cover something, it says so instead of guessing.
+          <strong>It abstains instead of guessing.</strong> In a labelled 60-question eval that included
+          near-miss and contradicted evidence, Attestly never asserted a control the documents didn't
+          support. When your documents don't cover something, it says so.
         </div>
       </section>
 
