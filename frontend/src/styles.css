@@ -298,3 +298,6 @@ button, .primary, .secondary {
   .lp-eval{flex-direction:column;align-items:flex-start;gap:14px;}
   .lp-drawer{width:64%;}
 }
+.lp-built{color:var(--d-ink);font-size:14px;margin-top:14px;}
+.lp-built a{color:var(--d-acc);text-decoration:none;}
+.lp-built a:hover{text-decoration:underline;}

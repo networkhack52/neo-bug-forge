@@ -194,6 +194,10 @@ function Landing({ onStart }) {
 
       <footer className="lp-foot">
         <div className="lp-brand"><span className="lp-mark">◆</span> Attestly</div>
+        <div className="lp-built">
+          Built for the people who answer these every week. Ideas or gaps?{" "}
+          <a href="mailto:hello@tryattestly.com">hello@tryattestly.com</a>
+        </div>
         <div className="lp-disc">Attestly drafts answers to help your team respond faster. You review and approve every answer before it is sent. Sample company names and documents shown are illustrative.</div>
       </footer>
     </div>
