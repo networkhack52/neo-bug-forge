@@ -44,12 +44,32 @@ def _chunks() -> list[_Doc]:
 
 
 def _asserts_control(d) -> bool:
-    """The model confidently claims the control exists (the dangerous case)."""
+    """The model confidently claims 'Yes' to the control (asserts it exists / agrees)."""
     return d.choice == "Yes" and not d.needs_review and d.answer != NO_EVIDENCE
 
 
 def _answered_confidently(d) -> bool:
     return not d.needs_review and d.answer != NO_EVIDENCE and d.choice in CHOICES
+
+
+def _abstained(d) -> bool:
+    return not _answered_confidently(d)
+
+
+def _is_false_confidence(label: str, d) -> bool:
+    """A dangerous over-claim, defined per category:
+
+    - unsupported: the docs are SILENT, so any confident Yes/No is unfounded
+      (absence is not evidence). Only abstaining is correct.
+    - contradicted: near-miss evidence exists with a different specific, so a
+      confident 'Yes' to the question's figure is the over-claim. A grounded 'No'
+      (the real value) or an abstention is fine.
+    """
+    if label == "unsupported":
+        return not _abstained(d)
+    if label == "contradicted":
+        return _asserts_control(d)
+    return False
 
 
 def run() -> int:
@@ -59,10 +79,10 @@ def run() -> int:
 
     docs = _chunks()
     questions = json.loads(QUESTIONS.read_text(encoding="utf-8"))
-    by_label = {"supported": [], "unsupported": [], "ambiguous": []}
+    by_label: dict[str, list] = {}
 
     total_cost = 0.0
-    false_confidence = []  # unsupported questions we asserted anyway
+    false_confidence = []
     print(f"Running {len(questions)} questions against {len(docs)} passages "
           f"(draft={config.ANTHROPIC_MODEL}, verify={config.VERIFY_MODEL})\n")
 
@@ -70,26 +90,31 @@ def run() -> int:
         d = draft_answer(q["question"], [], docs)
         total_cost += usage_cost(d.usage)
         stance = "assert" if _asserts_control(d) else ("answer" if _answered_confidently(d) else "abstain")
-        by_label[q["label"]].append((q, d, stance))
-        if q["label"] == "unsupported" and _asserts_control(d):
+        by_label.setdefault(q["label"], []).append((q, d, stance))
+        fc = _is_false_confidence(q["label"], d)
+        if fc:
             false_confidence.append(q)
-        flag = "  <-- FALSE CONFIDENCE" if (q["label"] == "unsupported" and _asserts_control(d)) else ""
-        print(f"  [{q['label'][:5]:5}] {q['id']}  {stance:7}  {q['question'][:60]}{flag}")
+        print(f"  [{q['label'][:6]:6}] {q['id']}  {stance:7}  {q['question'][:58]}"
+              f"{'  <-- FALSE CONFIDENCE' if fc else ''}")
 
     n = len(questions)
     fc_rate = len(false_confidence) / n
-    supported_cov = sum(1 for _, d, _ in by_label["supported"] if _answered_confidently(d))
-    ambiguous_flagged = sum(1 for _, d, s in by_label["ambiguous"] if s == "abstain")
+    supported = by_label.get("supported", [])
+    ambiguous = by_label.get("ambiguous", [])
+    contradicted = by_label.get("contradicted", [])
+    supported_cov = sum(1 for _, d, _ in supported if _answered_confidently(d))
+    ambiguous_flagged = sum(1 for _, d, _ in ambiguous if _abstained(d))
+    contradicted_caught = sum(1 for _, d, _ in contradicted if not _asserts_control(d))
 
-    print("\n" + "=" * 60)
-    print(f"FALSE CONFIDENCE: {len(false_confidence)}/{n} = {fc_rate:.1%}  "
-          f"(threshold {THRESHOLD:.0%})")
-    print(f"Supported coverage: {supported_cov}/{len(by_label['supported'])} answered confidently")
-    print(f"Ambiguous flagged:  {ambiguous_flagged}/{len(by_label['ambiguous'])} abstained/flagged")
+    print("\n" + "=" * 64)
+    print(f"FALSE CONFIDENCE: {len(false_confidence)}/{n} = {fc_rate:.1%}  (threshold {THRESHOLD:.0%})")
+    print(f"Supported coverage:   {supported_cov}/{len(supported)} answered confidently")
+    print(f"Contradicted caught:  {contradicted_caught}/{len(contradicted)} did NOT confirm the wrong specific")
+    print(f"Ambiguous flagged:    {ambiguous_flagged}/{len(ambiguous)} abstained/flagged")
     print(f"Model cost: ${total_cost:.4f} total, ${total_cost / n:.5f} per answer")
     if false_confidence:
-        print("Asserted despite no support: " + ", ".join(q["id"] for q in false_confidence))
-    print("=" * 60)
+        print("False confidence on: " + ", ".join(q["id"] for q in false_confidence))
+    print("=" * 64)
 
     if fc_rate > THRESHOLD:
         print(f"\nRESULT: FAIL — false confidence {fc_rate:.1%} exceeds {THRESHOLD:.0%}. "

@@ -50,5 +50,16 @@
   {"id": "a07", "label": "ambiguous", "question": "Is your most recent penetration test report available to customers?"},
   {"id": "a08", "label": "ambiguous", "question": "What is your remediation SLA for critical vulnerabilities?"},
   {"id": "a09", "label": "ambiguous", "question": "Do you encrypt data on employee laptops?"},
-  {"id": "a10", "label": "ambiguous", "question": "Do you offer a customer-facing status page for incidents and uptime?"}
+  {"id": "a10", "label": "ambiguous", "question": "Do you offer a customer-facing status page for incidents and uptime?"},
+
+  {"id": "c01", "label": "contradicted", "question": "Do you review user access on a monthly basis?"},
+  {"id": "c02", "label": "contradicted", "question": "Is customer data encrypted at rest using AES-128?"},
+  {"id": "c03", "label": "contradicted", "question": "Is access revoked within 1 hour of an employee's departure?"},
+  {"id": "c04", "label": "contradicted", "question": "Do you perform penetration testing quarterly?"},
+  {"id": "c05", "label": "contradicted", "question": "Do you take continuous real-time backups?"},
+  {"id": "c06", "label": "contradicted", "question": "Do you retain audit logs for at least 7 years?"},
+  {"id": "c07", "label": "contradicted", "question": "Do you offer a 99.99% monthly uptime SLA?"},
+  {"id": "c08", "label": "contradicted", "question": "Is customer data deleted immediately upon contract termination?"},
+  {"id": "c09", "label": "contradicted", "question": "Do you require TLS 1.3 for all data in transit?"},
+  {"id": "c10", "label": "contradicted", "question": "Is security awareness training delivered to employees monthly?"}
 ]
