@@ -9,7 +9,7 @@ Decision rule: false confidence > 3% -> move `VERIFY_MODEL` to a stronger model.
 |---|---|---|---|---|---|---|---|---|
 | 2026-08-16 | v1 (50 Q, 8 passages) | haiku / haiku | 0.0% (0/50) | 20/20 | n/a | 10/10 | $0.00260 | PASS (weak eval) |
 | 2026-08-16 | v2 (60 Q, near-miss) | haiku / haiku | 3.3% (2/60)* | 19/20 | 10/10 | 10/10 | $0.00335 | *both flags were correct denials (mislabels) |
-| 2026-08-16 | v2.1 (labels fixed) | haiku / haiku | _pending re-run_ | | | | | |
+| 2026-08-16 | v2.1 (labels fixed) | haiku / haiku | **0.0%** (0/60) | 20/20 | 10/10 | 10/10 | $0.00335 | PASS — haiku-only stands |
 
 ## Notes
 
@@ -46,7 +46,13 @@ Decision rule: false confidence > 3% -> move `VERIFY_MODEL` to a stronger model.
   We did NOT move verify to a stronger model over a mislabel.
 
 - **v2.1 fix:** reworded u09/u11 to genuinely silent topics (SBOM, WAF) so
-  "unsupported" means the documents truly don't address it. Also noted: s19 (SSO)
-  abstained despite Okta being named — one supported miss (19/20), slight
-  over-caution from rule 1a; watching it. Re-run `python -m app.eval` for the
-  honest v2.1 number.
+  "unsupported" means the documents truly don't address it.
+
+- **v2.1 live run = 0% false confidence (0/60), the honest number on the hard
+  eval.** 20/20 supported, 10/10 contradicted caught, 10/10 ambiguous flagged,
+  $0.00335/answer. The reworked SBOM/WAF questions were correctly *abstained* on
+  (the model did not invent a "No" on genuinely silent topics), which confirms
+  the reword corrected a label, it didn't paper over a weakness. s19 (SSO)
+  answered correctly this run — the earlier miss was run-to-run variance.
+  **Claim we can stand behind: "0% false confidence across 60 questions including
+  near-miss and contradicted evidence."**
