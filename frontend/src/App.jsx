@@ -24,6 +24,7 @@ export default function App() {
   const [me, setMe] = useState(null);
   const [tab, setTab] = useState("upload");
   const [loading, setLoading] = useState(true);
+  const [showAuth, setShowAuth] = useState(false); // logged-out: land on the pitch first
 
   async function refresh() {
     if (!getToken()) {
@@ -44,7 +45,12 @@ export default function App() {
   }, []);
 
   if (loading) return <div className="center muted">Loading…</div>;
-  if (!me) return <Onboarding onDone={refresh} />;
+  if (!me)
+    return showAuth ? (
+      <Onboarding onDone={refresh} onBack={() => setShowAuth(false)} />
+    ) : (
+      <Landing onStart={() => setShowAuth(true)} />
+    );
 
   return (
     <div className="app">
@@ -94,7 +100,107 @@ export default function App() {
   );
 }
 
-function Onboarding({ onDone }) {
+function Landing({ onStart }) {
+  return (
+    <div className="lp">
+      <header className="lp-nav">
+        <div className="lp-brand"><span className="lp-mark">◆</span> Attestly</div>
+        <div className="lp-navcta">
+          <button className="lp-ghost" onClick={onStart}>Log in</button>
+          <button className="lp-btn" onClick={onStart}>Start free</button>
+        </div>
+      </header>
+
+      <section className="lp-hero">
+        <div>
+          <div className="lp-eyebrow">Security questionnaires · with receipts</div>
+          <h1 className="lp-h1">Answer security questionnaires in minutes. And prove every answer.</h1>
+          <p className="lp-lede">
+            Attestly drafts each answer from your own SOC&nbsp;2 and security policies, cites the exact
+            source, and reuses your approved answers so every questionnaire gets faster.
+          </p>
+          <div className="lp-cta-row">
+            <button className="lp-btn lp-big" onClick={onStart}>Start free · 150 answers, no card</button>
+            <a className="lp-ghost lp-big" href="#how">See how it works</a>
+          </div>
+          <div className="lp-assure">150 free answers · no credit card · no sales demo</div>
+          <div className="lp-formats">
+            <span className="lp-lbl">Works with</span>
+            <span>SIG</span><span>CAIQ</span><span>VSAQ</span><span>Custom .xlsx / .csv</span>
+          </div>
+        </div>
+
+        <div className="lp-device" aria-hidden="true">
+          <div className="lp-chrome"><i></i><i></i><i></i><span className="lp-url">🔒 attestly.app/review</span></div>
+          <div className="lp-app">
+            <div className="lp-card lp-dim">
+              <div className="lp-chips"><span className="lp-chip yes">Yes</span><span className="lp-chip ver">✓ Verified</span></div>
+              <div className="lp-q">Is customer data encrypted at rest?</div>
+              <div className="lp-a">Yes. All customer data is encrypted at rest using AES-256, including databases, backups, and object storage.</div>
+            </div>
+            <div className="lp-card">
+              <div className="lp-chips"><span className="lp-chip yes">Yes</span><span className="lp-chip blue">AI draft</span><span className="lp-chip ver">✓ Verified</span></div>
+              <div className="lp-q">Is access granted on least privilege?</div>
+              <div className="lp-a">We grant access on a least-privilege basis using role-based access control, reviewed quarterly.</div>
+              <span className="lp-proof">🔍 2 sources · show proof</span>
+            </div>
+            <div className="lp-drawer">
+              <div className="lp-kick">Grounded in your sources</div>
+              <div className="lp-dt">Proof of answer</div>
+              <div className="lp-sub">Source · document</div>
+              <div className="lp-src">
+                <span className="lp-frm">📄 Acme_Information_Security_Policy.pdf</span>
+                <span className="lp-qt">“Access is granted on the principle of least privilege using role-based access control (RBAC)…”</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-eval">
+        <div className="lp-eval-num">0<span> in 60</span></div>
+        <div>
+          <strong>Zero false confidence.</strong> In a 60-question labelled eval that included near-miss
+          and contradicted evidence, Attestly asserted a control the documents did not support 0 times.
+          When your documents do not cover something, it says so instead of guessing.
+        </div>
+      </section>
+
+      <section id="how" className="lp-section">
+        <h2 className="lp-h2">Upload, review, done.</h2>
+        <p className="lp-sec-sub">No integration. No onboarding call. Three steps from a blank questionnaire to a filled one you can send.</p>
+        <div className="lp-steps">
+          <div className="lp-step"><div className="lp-n">01</div><h3>Upload the questionnaire</h3><p>SIG, CAIQ, VSAQ, or a custom .xlsx/.csv. We auto-detect the questions.</p></div>
+          <div className="lp-step"><div className="lp-n">02</div><h3>Attestly answers each one</h3><p>Reused from your library or drafted from your SOC&nbsp;2 and policies, each with the exact source cited.</p></div>
+          <div className="lp-step"><div className="lp-n">03</div><h3>Review &amp; download</h3><p>Get your own template back, filled in, with a Source and Status on every row.</p></div>
+        </div>
+      </section>
+
+      <section className="lp-section lp-alt">
+        <h2 className="lp-h2">Start free. Upgrade when it pays for itself.</h2>
+        <div className="lp-price">
+          <div className="lp-plan"><div className="lp-pt">Free</div><div className="lp-pp">$0</div><div className="lp-pd">150 answers to start, no card. Every answer cited.</div></div>
+          <div className="lp-plan lp-feat"><div className="lp-pt">Starter</div><div className="lp-pp">$99<span>/mo</span></div><div className="lp-pd">750 answers/mo. For a team fielding questionnaires regularly.</div></div>
+          <div className="lp-plan"><div className="lp-pt">Growth</div><div className="lp-pp">$249<span>/mo</span></div><div className="lp-pd">3,000 answers/mo, 5 seats, unlimited library.</div></div>
+        </div>
+        <p className="lp-sec-sub">No demo, no annual lock-in. Self-serve. Cancel anytime.</p>
+      </section>
+
+      <section className="lp-final">
+        <h2 className="lp-h2">Stop dreading the security review.</h2>
+        <p className="lp-sec-sub">Answer your next questionnaire in minutes, with a receipt for every line.</p>
+        <button className="lp-btn lp-big" onClick={onStart}>Start free · 150 answers, no card</button>
+      </section>
+
+      <footer className="lp-foot">
+        <div className="lp-brand"><span className="lp-mark">◆</span> Attestly</div>
+        <div className="lp-disc">Attestly drafts answers to help your team respond faster. You review and approve every answer before it is sent. Sample company names and documents shown are illustrative.</div>
+      </footer>
+    </div>
+  );
+}
+
+function Onboarding({ onDone, onBack }) {
   const [mode, setMode] = useState("signup"); // signup | login
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -150,9 +256,16 @@ function Onboarding({ onDone }) {
           />
           {err && <div className="error">{err}</div>}
           <button className="primary" disabled={busy}>
-            {busy ? "Please wait…" : login ? "Log in" : "Start free · 25 answers, no card"}
+            {busy ? "Please wait…" : login ? "Log in" : "Start free · 150 answers, no card"}
           </button>
         </form>
+        {onBack && (
+          <p className="muted small" style={{ marginTop: 10 }}>
+            <button className="link" style={{ display: "inline", padding: 0 }} onClick={onBack}>
+              ← Back to home
+            </button>
+          </p>
+        )}
         <p className="muted small" style={{ marginTop: 12 }}>
           {login ? "New to Attestly? " : "Already have an account? "}
           <button
