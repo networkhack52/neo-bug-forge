@@ -84,6 +84,10 @@ LLM_ENABLED = bool(ANTHROPIC_API_KEY)
 # request per drafted answer; disable to trade trust for lower COGS.
 CITATIONS_ENABLED = os.environ.get("ATTESTLY_CITATIONS", "1") not in ("0", "false", "False")
 VERIFY_ENABLED = os.environ.get("ATTESTLY_VERIFY", "1") not in ("0", "false", "False")
+# Prompt caching (Anthropic ephemeral cache on the stable system prefix). OFF by
+# default: it's a live-API change, so enable it and re-run `python -m app.eval`
+# to confirm answers are unchanged and to see cached-token savings, THEN leave on.
+PROMPT_CACHE_ENABLED = os.environ.get("ATTESTLY_PROMPT_CACHE", "0") not in ("0", "false", "False")
 
 # Per-million-token prices (USD) for cost instrumentation, keyed by model id.
 # Cached input is billed at ~10% of the input rate. Override via env as needed.

@@ -45,6 +45,15 @@ def test_verify_model_is_configurable():
     assert config.VERIFY_MODEL  # own config value, defaults to the draft model
 
 
+def test_prompt_cache_shapes_system_field(monkeypatch):
+    from app import config
+    monkeypatch.setattr(config, "PROMPT_CACHE_ENABLED", False)
+    assert drafting._system("hi") == "hi"  # plain string when off (default)
+    monkeypatch.setattr(config, "PROMPT_CACHE_ENABLED", True)
+    blocks = drafting._system("hi")
+    assert blocks == [{"type": "text", "text": "hi", "cache_control": {"type": "ephemeral"}}]
+
+
 def test_offline_draft_no_context_refuses():
     d = drafting.draft_answer("What is your annual revenue?", [])
     assert d.needs_review is True

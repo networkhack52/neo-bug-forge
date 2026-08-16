@@ -226,6 +226,20 @@ def _headers() -> dict:
     }
 
 
+def _system(text: str):
+    """System field: a cacheable content-block prefix when caching is enabled,
+    else a plain string. The system instructions are identical across every
+    question in a run, so caching the prefix cuts repeated input tokens.
+
+    Gated by config.PROMPT_CACHE_ENABLED because it changes the live request
+    shape — validate with the eval before leaving it on. Cache savings show up
+    as `cache_read_input_tokens` in the usage log.
+    """
+    if not config.PROMPT_CACHE_ENABLED:
+        return text
+    return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
+
+
 def _messages_endpoint() -> str:
     return f"{config.ANTHROPIC_BASE_URL}/v1/messages"
 
@@ -251,7 +265,7 @@ def draft_answer(question: str, context: list[Match], documents: list | None = N
     payload = {
         "model": config.ANTHROPIC_MODEL,
         "max_tokens": 800,
-        "system": SYSTEM_PROMPT,
+        "system": _system(SYSTEM_PROMPT),
         "messages": [{"role": "user", "content": _build_user_prompt(question, context, documents)}],
     }
 
@@ -338,7 +352,7 @@ def _verify(draft: Draft) -> None:
     payload = {
         "model": config.VERIFY_MODEL,
         "max_tokens": 300,
-        "system": VERIFY_SYSTEM_PROMPT,
+        "system": _system(VERIFY_SYSTEM_PROMPT),
         "messages": [{
             "role": "user",
             "content": f"ANSWER:\n{draft.answer}\n\nCITED EVIDENCE:\n{ctx_text}",
