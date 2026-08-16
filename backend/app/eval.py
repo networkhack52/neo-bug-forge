@@ -83,12 +83,15 @@ def run() -> int:
 
     total_cost = 0.0
     false_confidence = []
+    failures = []  # questions where the model call errored and fell back
     print(f"Running {len(questions)} questions against {len(docs)} passages "
           f"(draft={config.ANTHROPIC_MODEL}, verify={config.VERIFY_MODEL})\n")
 
     for q in questions:
         d = draft_answer(q["question"], [], docs)
         total_cost += usage_cost(d.usage)
+        if "model call failed" in d.answer:
+            failures.append((q, d.answer.split("model call failed:", 1)[-1].strip(" ]")))
         stance = "assert" if _asserts_control(d) else ("answer" if _answered_confidently(d) else "abstain")
         by_label.setdefault(q["label"], []).append((q, d, stance))
         fc = _is_false_confidence(q["label"], d)
@@ -115,6 +118,23 @@ def run() -> int:
     if false_confidence:
         print("False confidence on: " + ", ".join(q["id"] for q in false_confidence))
     print("=" * 64)
+
+    # Validity guard: a run where the model didn't actually answer must NEVER
+    # report PASS. Mass abstention can hide an outage (all fallbacks look "safe").
+    errors = {e for _, e in failures}
+    if failures:
+        print(f"\nRESULT: INVALID — {len(failures)}/{n} model calls FAILED "
+              f"(errors: {', '.join(sorted(errors))}). Fix the API access and re-run. "
+              f"This is NOT a pass.")
+        return 2
+    if config.LLM_ENABLED and total_cost == 0:
+        print("\nRESULT: INVALID — model is enabled but cost is $0, so no calls succeeded. "
+              "Check the API key/credits and re-run. This is NOT a pass.")
+        return 2
+    if supported and supported_cov == 0:
+        print("\nRESULT: INVALID — 0/20 supported questions were answered, which means the "
+              "model isn't grounding on the documents. This is NOT a pass.")
+        return 2
 
     if fc_rate > THRESHOLD:
         print(f"\nRESULT: FAIL — false confidence {fc_rate:.1%} exceeds {THRESHOLD:.0%}. "
