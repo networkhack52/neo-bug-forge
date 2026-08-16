@@ -8,7 +8,8 @@ Decision rule: false confidence > 3% -> move `VERIFY_MODEL` to a stronger model.
 | Date | Eval | draft / verify model | False confidence | Supported cov. | Contradicted caught | Ambiguous flagged | Cost / answer | Result |
 |---|---|---|---|---|---|---|---|---|
 | 2026-08-16 | v1 (50 Q, 8 passages) | haiku / haiku | 0.0% (0/50) | 20/20 | n/a | 10/10 | $0.00260 | PASS (weak eval) |
-| 2026-08-16 | v2 (60 Q, near-miss) | haiku / haiku | _pending re-run_ | | | | | |
+| 2026-08-16 | v2 (60 Q, near-miss) | haiku / haiku | 3.3% (2/60)* | 19/20 | 10/10 | 10/10 | $0.00335 | *both flags were correct denials (mislabels) |
+| 2026-08-16 | v2.1 (labels fixed) | haiku / haiku | _pending re-run_ | | | | | |
 
 ## Notes
 
@@ -30,5 +31,22 @@ Decision rule: false confidence > 3% -> move `VERIFY_MODEL` to a stronger model.
 
 - **Product fix shipped with v2:** the drafting prompt now forbids answering "No"
   or assigning a status from silence (rule 1a), and forbids confirming a specific
-  the documents state differently (rule 1b). Re-run `python -m app.eval` to get
-  the v2 number under the new prompt.
+  the documents state differently (rule 1b).
+
+- **v2 live run = 3.3% "false confidence" (2/60), but on inspection both were the
+  model being RIGHT, not wrong.** The corpus I added ("Acme operates no data
+  centers of its own; production runs entirely in the public cloud") gives real
+  evidence to *deny* the two flagged questions:
+  - u11 "do your data centers use biometric controls?" -> correct **No** (we have
+    no data centers). Grounded denial, not a hallucination.
+  - u09 "do you offer on-prem deployment?" -> correct **No** (cloud-only).
+  Both showed stance `answer` (a confident No), never `assert` (a false Yes). The
+  labels were wrong: the corpus refutes the premise, so these were not "silent".
+  **This is why you inspect flagged rows instead of trusting the aggregate.**
+  We did NOT move verify to a stronger model over a mislabel.
+
+- **v2.1 fix:** reworded u09/u11 to genuinely silent topics (SBOM, WAF) so
+  "unsupported" means the documents truly don't address it. Also noted: s19 (SSO)
+  abstained despite Okta being named — one supported miss (19/20), slight
+  over-caution from rule 1a; watching it. Re-run `python -m app.eval` for the
+  honest v2.1 number.
