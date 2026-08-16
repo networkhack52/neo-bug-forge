@@ -6,7 +6,9 @@ limits; billing is self-serve via Stripe Checkout.
 """
 from __future__ import annotations
 
+import datetime as _dt
 import io
+import logging
 
 from contextlib import asynccontextmanager
 
@@ -19,6 +21,8 @@ from . import (
     parsing, passwords, ratelimit,
 )
 from .report import render as render_report
+
+_spend_log = logging.getLogger("attestly.spend")
 
 
 @asynccontextmanager
@@ -72,9 +76,45 @@ def rate_limit(request: Request, bucket: str, rule: tuple) -> None:
     if not ratelimit.allow(bucket, ratelimit.client_ip(request), limit, window):
         raise HTTPException(
             status_code=429,
-            detail="Too many requests — please slow down and try again shortly.",
+            detail="Too many requests. Please slow down and try again shortly.",
             headers={"Retry-After": str(window)},
         )
+
+
+def rate_limit_request_and_account(request: Request, bucket: str, org_id: int, rule: tuple) -> None:
+    """Rate limit an authenticated action by BOTH client IP and account."""
+    rate_limit(request, bucket, rule)
+    if not config.RATE_LIMIT_ENABLED:
+        return
+    limit, window = rule
+    if not ratelimit.allow(f"{bucket}:acct", f"org:{org_id}", limit, window):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please slow down and try again shortly.",
+            headers={"Retry-After": str(window)},
+        )
+
+
+def _month_start_epoch() -> float:
+    now = _dt.datetime.now(_dt.timezone.utc)
+    return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp()
+
+
+def _free_tier_drafting_paused() -> bool:
+    """True when free-tier model spend this month has hit the cap. Logs thresholds."""
+    cap = config.FREE_TIER_MONTHLY_SPEND_CAP_USD
+    if cap <= 0:
+        return False
+    spent = db.free_tier_spend_since(_month_start_epoch())
+    pct = spent / cap
+    if pct >= 1.0:
+        _spend_log.error("Free-tier spend cap REACHED: $%.2f / $%.2f. Free drafting paused.", spent, cap)
+        return True
+    if pct >= 0.8:
+        _spend_log.warning("Free-tier spend at %.0f%%: $%.2f / $%.2f", pct * 100, spent, cap)
+    elif pct >= 0.5:
+        _spend_log.warning("Free-tier spend at %.0f%%: $%.2f / $%.2f", pct * 100, spent, cap)
+    return False
 
 
 def _reject_if_oversized(data: bytes) -> None:
@@ -195,6 +235,11 @@ def signup(body: dict, request: Request) -> dict:
         raise HTTPException(status_code=400, detail="Company name is required")
     if "@" not in email or "." not in email:
         raise HTTPException(status_code=400, detail="A valid work email is required")
+    if db.email_domain(email) in config.BLOCKED_EMAIL_DOMAINS:
+        raise HTTPException(
+            status_code=400,
+            detail="Please sign up with your work email. Free personal email providers are not supported.",
+        )
     if len(password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     if db.get_org_by_email(email):
@@ -299,7 +344,10 @@ def get_documents(org: dict = Depends(require_org)) -> dict:
 
 
 @app.post("/v1/documents")
-async def upload_document(file: UploadFile = File(...), org: dict = Depends(require_org)) -> dict:
+async def upload_document(
+    request: Request, file: UploadFile = File(...), org: dict = Depends(require_org)
+) -> dict:
+    rate_limit_request_and_account(request, "upload", org["id"], config.RL_UPLOAD)
     data = await file.read()
     if not data:
         raise HTTPException(status_code=422, detail="Empty file")
@@ -323,8 +371,9 @@ def delete_document(doc_id: int, org: dict = Depends(require_org)) -> dict:
 # --------------------------------------------------------------------------
 @app.post("/v1/questionnaires")
 async def upload_questionnaire(
-    file: UploadFile = File(...), org: dict = Depends(require_org)
+    request: Request, file: UploadFile = File(...), org: dict = Depends(require_org)
 ) -> dict:
+    rate_limit_request_and_account(request, "upload", org["id"], config.RL_UPLOAD)
     data = await file.read()
     _reject_if_oversized(data)
     parsed = parsing.parse(file.filename or "upload.xlsx", data)
@@ -358,11 +407,17 @@ async def upload_questionnaire(
     ordered = db.list_items(qid)
     db.lock_items([it["id"] for it in ordered[answerable:]])
 
-    # Free tier gates DRAFTING (model calls) behind a trust document. Reused
-    # answers still work; questions that would be drafted are blocked with a
-    # "add a document" prompt and cost nothing.
-    allow_draft = not (is_free and db.count_documents(org["id"]) == 0)
-    engine.answer_questionnaire(org["id"], qid, allow_draft=allow_draft)
+    # Free tier gates DRAFTING (model calls) two ways: (1) behind a trust
+    # document, and (2) behind the monthly free-tier spend cap. Reused answers
+    # still work; questions that would be drafted are blocked (and cost nothing).
+    no_docs = is_free and db.count_documents(org["id"]) == 0
+    spend_paused = is_free and _free_tier_drafting_paused()
+    allow_draft = not (no_docs or spend_paused)
+    block_message = engine.BLOCKED_ANSWER
+    if spend_paused:
+        block_message = ("Free capacity for this month has been reached. Upgrade to keep drafting, "
+                         "or try again next month.")
+    engine.answer_questionnaire(org["id"], qid, allow_draft=allow_draft, block_message=block_message)
 
     items = db.list_items(qid)
     reused = sum(1 for it in items if it["match_type"] == "reuse" and not it["locked"])
@@ -386,6 +441,7 @@ async def upload_questionnaire(
         "blocked": blocked,
         "reused_from_bank": reused,
         "drafted": drafted,
+        "spend_paused": spend_paused,
         "cost_usd": db.cost_for_questionnaire(qid)["cost_usd"],
         "can_export_original": parsed.answer_col is not None,
         "source_kind": parsed.kind,

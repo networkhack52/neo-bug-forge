@@ -219,6 +219,50 @@ def test_usage_cost_endpoint_starts_at_zero():
     assert c["answers"] == 0 and c["cost_usd"] == 0
 
 
+def _org_id(token):
+    return client.get("/v1/me", headers=_auth(token)).json()["org_id"]
+
+
+def test_signup_rejects_free_email_domains():
+    for bad in ("a@gmail.com", "b@outlook.com", "c@mailinator.com"):
+        r = client.post("/v1/signup", json={"name": "X", "email": bad, "password": "supersecret"})
+        assert r.status_code == 400, bad
+
+
+def test_free_tier_spend_cap_pauses_drafting(monkeypatch):
+    from app import config, db
+    monkeypatch.setattr(config, "FREE_TIER_MONTHLY_SPEND_CAP_USD", 0.01)
+    token = _token()
+    _upload_doc(token)  # would normally unlock drafting
+    # Simulate free-tier spend already over the cap.
+    db.record_usage(_org_id(token), None, None,
+                    {"model": "claude-haiku-4-5-20251001", "input_tokens": 0,
+                     "cached_input_tokens": 0, "output_tokens": 0}, cost=1.0)
+    files = {"file": ("q.xlsx", _big_questionnaire(3),
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    body = client.post("/v1/questionnaires", headers=_auth(token), files=files).json()
+    assert body["spend_paused"] is True
+    assert body["answered"] == 0 and body["blocked"] == 3
+
+
+def test_upload_is_rate_limited(monkeypatch):
+    from app import config, ratelimit
+    monkeypatch.setattr(config, "RATE_LIMIT_ENABLED", True)
+    monkeypatch.setattr(config, "RL_UPLOAD", (3, 3600))
+    ratelimit.reset()
+    token = _token()
+
+    def one():
+        files = {"file": ("q.xlsx", _big_questionnaire(1),
+                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+        return client.post("/v1/questionnaires", headers=_auth(token), files=files).status_code
+
+    codes = [one() for _ in range(4)]
+    assert codes[:3] == [200, 200, 200]
+    assert codes[3] == 429
+    ratelimit.reset()
+
+
 def test_free_tier_gates_drafting_until_a_document_is_uploaded():
     # No document -> questions that need drafting are blocked and cost nothing.
     token = _token()

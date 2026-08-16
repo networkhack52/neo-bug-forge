@@ -242,6 +242,11 @@ smells AI-generated. Write like a competent peer, not a marketer.
 - **Abstentions are one line** ("No supporting evidence found in the uploaded documents. Needs owner
   review."), applied deterministically when an answer has no citations. Detail lives in the Status column,
   not in prose the customer forwards.
+- **Free-allowance abuse controls (all in config, env-overridable):** drafting is gated behind a
+  trust document; work-email-only at signup (`BLOCKED_EMAIL_DOMAINS` blocks consumer + disposable
+  domains); upload/generate rate-limited per IP AND per account (`RL_UPLOAD`); a monthly free-tier
+  model-spend cap (`FREE_TIER_MONTHLY_SPEND_CAP_USD`, default $50 ≈ 100 full trials at $0.0034/answer)
+  that logs at 50/80% and pauses free-tier *drafting* at 100% (reuse + paid unaffected).
 - **Haiku-only until measured; verify is one config change away from a stronger model.** `VERIFY_MODEL`
   (`ATTESTLY_VERIFY_MODEL`) is its own config value, and the verify pass is scoped to the *cited passages
   only* (~500 tokens) so a stronger verify model stays cheap. Gate: run `python -m app.eval` (50 labelled

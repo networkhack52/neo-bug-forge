@@ -36,7 +36,8 @@ BLOCKED_ANSWER = "Add a SOC 2 or policy in Trust Documents so Attestly can draft
 
 
 def answer_question(
-    org_id: int, item_id: int, question: str, bank: list[dict], allow_draft: bool = True
+    org_id: int, item_id: int, question: str, bank: list[dict], allow_draft: bool = True,
+    block_message: str = BLOCKED_ANSWER,
 ) -> AnsweredItem:
     # Embed the query once and reuse it for both bank ranking and doc search
     # (avoids a second identical embedding call per drafted question).
@@ -45,12 +46,12 @@ def answer_question(
     reusable = retrieval.best_reusable(matches)
 
     if reusable is None and not allow_draft:
-        # Drafting is gated (no trust document yet). Don't spend a model call —
-        # surface a clear next step. Blocked items are not charged against quota.
+        # Drafting is gated (no trust document, or free-tier spend cap). Don't
+        # spend a model call — surface why. Blocked items are not charged.
         result = AnsweredItem(
             item_id=item_id,
             question=question,
-            answer=BLOCKED_ANSWER,
+            answer=block_message,
             confidence=0.0,
             match_type="blocked",
             matched_answer_id=None,
@@ -107,7 +108,8 @@ def answer_question(
 
 
 def answer_questionnaire(
-    org_id: int, questionnaire_id: int, allow_draft: bool = True
+    org_id: int, questionnaire_id: int, allow_draft: bool = True,
+    block_message: str = BLOCKED_ANSWER,
 ) -> list[AnsweredItem]:
     bank = db.list_answers(org_id, status="approved")
     # Locked items are over the plan's quota — leave them unanswered for the
@@ -120,11 +122,12 @@ def answer_questionnaire(
     workers = max(1, min(config.ANSWER_CONCURRENCY, len(items)))
     if workers == 1 or len(items) <= 1:
         for i, it in enumerate(items):
-            out[i] = answer_question(org_id, it["id"], it["question"], bank, allow_draft)
+            out[i] = answer_question(org_id, it["id"], it["question"], bank, allow_draft, block_message)
     else:
         with ThreadPoolExecutor(max_workers=workers) as ex:
             futures = {
-                ex.submit(answer_question, org_id, it["id"], it["question"], bank, allow_draft): i
+                ex.submit(answer_question, org_id, it["id"], it["question"], bank,
+                          allow_draft, block_message): i
                 for i, it in enumerate(items)
             }
             for fut in as_completed(futures):

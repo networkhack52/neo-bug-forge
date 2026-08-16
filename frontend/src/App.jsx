@@ -280,7 +280,13 @@ function Upload({ me, onChange, onNavigate }) {
 
       {result && (
         <div>
-          {result.blocked > 0 && (
+          {result.blocked > 0 && result.spend_paused && (
+            <div className="lockbanner">
+              {result.blocked} rows were not drafted: free capacity for this month has been reached.
+              Upgrade to keep drafting, or try again next month. Reused answers are unaffected.
+            </div>
+          )}
+          {result.blocked > 0 && !result.spend_paused && (
             <div className="lockbanner">
               {result.blocked} rows need a source document to answer. Upload your SOC 2 or a policy, then
               re-run this questionnaire.{" "}

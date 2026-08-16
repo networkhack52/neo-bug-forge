@@ -44,6 +44,31 @@ ALLOWED_ORIGINS = [
 RL_LOGIN = (10, 300)        # 10 attempts / 5 min — brute-force guard
 RL_SIGNUP = (8, 3600)       # 8 new accounts / hour — mass-signup / cost guard
 RL_ASSESSMENT = (20, 3600)  # 20 / hour — public endpoint, bounds compute cost
+RL_UPLOAD = (30, 3600)      # 30 uploads / hour, enforced per IP AND per account
+
+# Work-email-only: free consumer + disposable domains are blocked at signup. Kept
+# in config (env-overridable via ATTESTLY_BLOCKED_EMAIL_DOMAINS) so the list is
+# maintained without a code change.
+_DEFAULT_BLOCKED_DOMAINS = (
+    "gmail.com,googlemail.com,outlook.com,hotmail.com,live.com,msn.com,yahoo.com,"
+    "ymail.com,rocketmail.com,aol.com,icloud.com,me.com,mac.com,proton.me,"
+    "protonmail.com,pm.me,gmx.com,gmx.net,mail.com,zoho.com,yandex.com,yandex.ru,"
+    "tutanota.com,hey.com,fastmail.com,qq.com,163.com,126.com,"
+    # disposable / throwaway
+    "mailinator.com,guerrillamail.com,10minutemail.com,tempmail.com,temp-mail.org,"
+    "trashmail.com,dispostable.com,sharklasers.com,getnada.com,yopmail.com,"
+    "throwawaymail.com,maildrop.cc,mintemail.com,fakeinbox.com"
+)
+BLOCKED_EMAIL_DOMAINS = {
+    d.strip().lower()
+    for d in os.environ.get("ATTESTLY_BLOCKED_EMAIL_DOMAINS", _DEFAULT_BLOCKED_DOMAINS).split(",")
+    if d.strip()
+}
+
+# Free-tier model-spend cap (USD) per calendar month. Paid accounts are never
+# affected. Log warnings at 50% and 80%; pause free-tier DRAFTING at 100% (reuse
+# still works). ~$0.0034/answer, so $50 covers ~100 companies' full 150 trials.
+FREE_TIER_MONTHLY_SPEND_CAP_USD = float(os.environ.get("ATTESTLY_FREE_SPEND_CAP_USD", "50"))
 
 # --- Anthropic (Claude) ---------------------------------------------------
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
