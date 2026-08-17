@@ -198,6 +198,11 @@ function Landing({ onStart }) {
           Built for the people who answer these every week. Ideas or gaps?{" "}
           <a href="mailto:hello@tryattestly.com">hello@tryattestly.com</a>
         </div>
+        <div className="lp-legal">
+          <a href="/terms.html">Terms</a>
+          <a href="/privacy.html">Privacy</a>
+          <a href="/dpa.html">DPA</a>
+        </div>
         <div className="lp-disc">Attestly drafts answers to help your team respond faster. You review and approve every answer before it is sent. Sample company names and documents shown are illustrative.</div>
       </footer>
     </div>
@@ -263,6 +268,12 @@ function Onboarding({ onDone, onBack }) {
             {busy ? "Please wait…" : login ? "Log in" : "Start free · 150 answers, no card"}
           </button>
         </form>
+        {!login && (
+          <p className="muted xsmall" style={{ marginTop: 12 }}>
+            By continuing you agree to our <a href="/terms.html" target="_blank" rel="noreferrer">Terms</a> and{" "}
+            <a href="/privacy.html" target="_blank" rel="noreferrer">Privacy Policy</a>.
+          </p>
+        )}
         {onBack && (
           <p className="muted small" style={{ marginTop: 10 }}>
             <button className="link" style={{ display: "inline", padding: 0 }} onClick={onBack}>
