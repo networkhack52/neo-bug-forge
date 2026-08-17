@@ -1,13 +1,15 @@
 :root {
-  --bg: #f7f8fa;
+  --bg: #f1f5f4;            /* warm off-white with a faint teal cast, not stark white */
   --card: #ffffff;
-  --ink: #0f172a;
-  --muted: #64748b;
-  --line: #e2e8f0;
-  --accent: #2563eb;
+  --ink: #0f1a18;
+  --muted: #5c6b67;
+  --line: #e0e8e6;
+  --accent: #0a7d6b;        /* brand teal (matches the landing + favicon) */
+  --accent-2: #0b8f7a;
   --accent-ink: #ffffff;
+  --accent-soft: #e4f2ee;   /* teal tint for pills / soft fills */
   --green: #059669;
-  --blue: #2563eb;
+  --blue: #2563eb;          /* kept as a secondary semantic (AI-draft tag) */
   --amber: #b45309;
   --amber-bg: #fef3c7;
   --radius: 12px;
@@ -79,11 +81,17 @@ button, .primary, .secondary {
   display: flex; justify-content: space-between; align-items: center;
   padding: 18px 0; border-bottom: 1px solid var(--line);
 }
-.brand { font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+.brand { font-weight: 700; font-size: 18px; letter-spacing: -0.02em; display: inline-flex; align-items: center; gap: 8px; }
 .brand.big { font-size: 22px; margin-bottom: 8px; }
-.logo { color: var(--accent); }
+.logo {
+  display: inline-grid; place-items: center;
+  width: 22px; height: 22px; border-radius: 7px;
+  background: var(--accent); color: #fff; font-size: 12px; font-weight: 800;
+  box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.brand.big .logo { width: 26px; height: 26px; font-size: 14px; }
 .usage { display: flex; align-items: center; gap: 12px; font-size: 13px; }
-.pill { background: #eef2ff; color: var(--accent); padding: 3px 10px; border-radius: 999px; font-weight: 600; }
+.pill { background: var(--accent-soft); color: var(--accent); padding: 3px 10px; border-radius: 999px; font-weight: 600; }
 
 .tabs { display: flex; gap: 4px; margin: 18px 0 24px; flex-wrap: wrap; }
 .tab { background: none; border: 1px solid transparent; color: var(--muted); }
@@ -92,7 +100,7 @@ button, .primary, .secondary {
 .dropzone { text-align: center; padding: 48px 24px; }
 .dropzone .primary { margin: 8px 0; }
 
-.nudge { border: 1px solid var(--accent); background: #f5f8ff; margin-bottom: 16px; }
+.nudge { border: 1px solid var(--accent); background: var(--accent-soft); margin-bottom: 16px; }
 .nudge h2 { color: var(--accent); }
 .nudgesteps { list-style: none; counter-reset: step; padding: 0; margin: 16px 0 8px; }
 .nudgesteps li {
@@ -177,10 +185,11 @@ button, .primary, .secondary {
 .notice.small { font-size: 13px; padding: 8px 12px; }
 .itemfoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
 .citebtn {
-  background: #eff6ff; color: var(--blue); border: 1px solid #dbeafe;
+  background: var(--accent-soft); color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
   border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 600;
 }
-.citebtn:hover { background: #dbeafe; }
+.citebtn:hover { background: color-mix(in srgb, var(--accent) 14%, #fff); }
 
 /* Audit-ready source drawer */
 .drawer-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.35); z-index: 40; }
