@@ -223,10 +223,21 @@ def _org_id(token):
     return client.get("/v1/me", headers=_auth(token)).json()["org_id"]
 
 
-def test_signup_rejects_free_email_domains():
-    for bad in ("a@gmail.com", "b@outlook.com", "c@mailinator.com"):
-        r = client.post("/v1/signup", json={"name": "X", "email": bad, "password": "supersecret"})
-        assert r.status_code == 400, bad
+def test_signup_always_rejects_disposable_domains():
+    r = client.post("/v1/signup", json={"name": "X", "email": "a@mailinator.com", "password": "supersecret"})
+    assert r.status_code == 400
+
+
+def test_signup_allows_gmail_by_default_but_blocks_it_when_work_email_required(monkeypatch):
+    from app import config
+    # Default: Gmail is allowed so founders/evaluators can sign up.
+    monkeypatch.setattr(config, "REQUIRE_WORK_EMAIL", False)
+    ok = client.post("/v1/signup", json={"name": "X", "email": f"a-{uuid.uuid4().hex[:6]}@gmail.com", "password": "supersecret"})
+    assert ok.status_code == 200
+    # Strict mode on: Gmail is rejected.
+    monkeypatch.setattr(config, "REQUIRE_WORK_EMAIL", True)
+    blocked = client.post("/v1/signup", json={"name": "X", "email": "b@gmail.com", "password": "supersecret"})
+    assert blocked.status_code == 400
 
 
 def test_free_tier_spend_cap_pauses_drafting(monkeypatch):

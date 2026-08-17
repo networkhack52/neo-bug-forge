@@ -47,24 +47,29 @@ RL_SIGNUP = (8, 3600)       # 8 new accounts / hour — mass-signup / cost guard
 RL_ASSESSMENT = (20, 3600)  # 20 / hour — public endpoint, bounds compute cost
 RL_UPLOAD = (30, 3600)      # 30 uploads / hour, enforced per IP AND per account
 
-# Work-email-only: free consumer + disposable domains are blocked at signup. Kept
-# in config (env-overridable via ATTESTLY_BLOCKED_EMAIL_DOMAINS) so the list is
-# maintained without a code change.
-_DEFAULT_BLOCKED_DOMAINS = (
-    "gmail.com,googlemail.com,outlook.com,hotmail.com,live.com,msn.com,yahoo.com,"
-    "ymail.com,rocketmail.com,aol.com,icloud.com,me.com,mac.com,proton.me,"
-    "protonmail.com,pm.me,gmx.com,gmx.net,mail.com,zoho.com,yandex.com,yandex.ru,"
-    "tutanota.com,hey.com,fastmail.com,qq.com,163.com,126.com,"
-    # disposable / throwaway
+# Disposable / throwaway domains are ALWAYS blocked at signup (pure abuse vector).
+_DISPOSABLE = (
     "mailinator.com,guerrillamail.com,10minutemail.com,tempmail.com,temp-mail.org,"
     "trashmail.com,dispostable.com,sharklasers.com,getnada.com,yopmail.com,"
     "throwawaymail.com,maildrop.cc,mintemail.com,fakeinbox.com"
 )
-BLOCKED_EMAIL_DOMAINS = {
-    d.strip().lower()
-    for d in os.environ.get("ATTESTLY_BLOCKED_EMAIL_DOMAINS", _DEFAULT_BLOCKED_DOMAINS).split(",")
-    if d.strip()
+DISPOSABLE_EMAIL_DOMAINS = {
+    d.strip().lower() for d in os.environ.get("ATTESTLY_DISPOSABLE_DOMAINS", _DISPOSABLE).split(",") if d.strip()
 }
+# Free consumer domains are blocked only when REQUIRE_WORK_EMAIL is on. Default
+# OFF: pre-launch we want founders and early evaluators (who often use Gmail) to
+# sign up; the domain allowance + doc-gate + spend cap already bound abuse. Flip
+# ATTESTLY_REQUIRE_WORK_EMAIL=1 to enforce work-email-only later.
+_FREE_CONSUMER = (
+    "gmail.com,googlemail.com,outlook.com,hotmail.com,live.com,msn.com,yahoo.com,"
+    "ymail.com,rocketmail.com,aol.com,icloud.com,me.com,mac.com,proton.me,"
+    "protonmail.com,pm.me,gmx.com,gmx.net,mail.com,zoho.com,yandex.com,yandex.ru,"
+    "tutanota.com,hey.com,fastmail.com,qq.com,163.com,126.com"
+)
+FREE_CONSUMER_EMAIL_DOMAINS = {
+    d.strip().lower() for d in os.environ.get("ATTESTLY_FREE_CONSUMER_DOMAINS", _FREE_CONSUMER).split(",") if d.strip()
+}
+REQUIRE_WORK_EMAIL = os.environ.get("ATTESTLY_REQUIRE_WORK_EMAIL", "0") not in ("0", "false", "False")
 
 # Free-tier model-spend cap (USD) per calendar month. Paid accounts are never
 # affected. Log warnings at 50% and 80%; pause free-tier DRAFTING at 100% (reuse

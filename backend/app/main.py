@@ -235,10 +235,16 @@ def signup(body: dict, request: Request) -> dict:
         raise HTTPException(status_code=400, detail="Company name is required")
     if "@" not in email or "." not in email:
         raise HTTPException(status_code=400, detail="A valid work email is required")
-    if db.email_domain(email) in config.BLOCKED_EMAIL_DOMAINS:
+    _domain = db.email_domain(email)
+    if _domain in config.DISPOSABLE_EMAIL_DOMAINS:
         raise HTTPException(
             status_code=400,
-            detail="Please sign up with your work email. Free personal email providers are not supported.",
+            detail="Disposable email addresses aren't supported. Please use a real inbox.",
+        )
+    if config.REQUIRE_WORK_EMAIL and _domain in config.FREE_CONSUMER_EMAIL_DOMAINS:
+        raise HTTPException(
+            status_code=400,
+            detail="Please sign up with your work email.",
         )
     if len(password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
