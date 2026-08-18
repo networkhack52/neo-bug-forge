@@ -39,6 +39,9 @@ export const api = {
   signup: (name, email, password) =>
     req("/v1/signup", { method: "POST", body: { name, email, password } }),
   login: (email, password) => req("/v1/login", { method: "POST", body: { email, password } }),
+  forgotPassword: (email) => req("/v1/password/forgot", { method: "POST", body: { email } }),
+  resetPassword: (token, password) =>
+    req("/v1/password/reset", { method: "POST", body: { token, password } }),
   me: () => req("/v1/me"),
   rotateToken: () => req("/v1/token/rotate", { method: "POST" }),
   answers: () => req("/v1/answers"),

@@ -9,6 +9,8 @@ from __future__ import annotations
 import datetime as _dt
 import io
 import logging
+import secrets
+import time
 
 from contextlib import asynccontextmanager
 
@@ -17,8 +19,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from . import (
-    __version__, assessment as assess, billing, config, db, documents, engine, export,
-    parsing, passwords, ratelimit,
+    __version__, assessment as assess, billing, config, db, documents, email as email_svc,
+    engine, export, parsing, passwords, ratelimit, tokens,
 )
 from .report import render as render_report
 
@@ -266,6 +268,53 @@ def login(body: dict, request: Request) -> dict:
     # Only the token hash is stored, so we can't return the old token — mint a
     # fresh one for this login (invalidates any previously issued token).
     raw_token = db.rotate_token(org["id"])
+    return {"org_id": org["id"], "api_token": raw_token, "tier": org["tier"]}
+
+
+@app.post("/v1/password/forgot")
+def password_forgot(body: dict, request: Request) -> dict:
+    """Start a password reset. Always returns 200 with the same message whether
+    or not the email exists, so it can't be used to enumerate accounts."""
+    rate_limit(request, "password_forgot", config.RL_PASSWORD_FORGOT)
+    email = (body.get("email") or "").strip().lower()
+    generic = {"message": "If an account exists for that email, a reset link is on its way."}
+    if "@" not in email:
+        return generic
+    org = db.get_org_by_email(email)
+    if not org:
+        return generic
+    raw = tokens.PREFIX + secrets.token_urlsafe(32)
+    db.create_password_reset(
+        org["id"], tokens.hash_token(raw), time.time() + config.PASSWORD_RESET_TTL_SECONDS
+    )
+    reset_url = f"{config.APP_BASE_URL.rstrip('/')}/?reset={raw}"
+    sent = email_svc.send_password_reset(email, reset_url)
+    if not sent:
+        # No email provider configured (or send failed): log the link so the
+        # flow is still completable in dev. The link is a secret — this only
+        # reaches whoever can read the server log, not the user's inbox.
+        _spend_log.warning("Password reset for %s (email not sent): %s", email, reset_url)
+    return generic
+
+
+@app.post("/v1/password/reset")
+def password_reset(body: dict, request: Request) -> dict:
+    """Complete a password reset with the token from the emailed link."""
+    rate_limit(request, "password_reset", config.RL_LOGIN)
+    token = (body.get("token") or "").strip()
+    new_password = body.get("password") or ""
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    row = db.get_valid_password_reset(tokens.hash_token(token)) if token else None
+    if not row:
+        raise HTTPException(status_code=400, detail="This reset link is invalid or has expired. Request a new one.")
+    db.consume_password_reset(row["id"])
+    db.set_org_password(row["org_id"], passwords.hash_password(new_password))
+    # A reset is also our lever against a compromised account: rotate the API
+    # token so any previously issued token stops working, and return a fresh one
+    # so the user is signed straight in.
+    raw_token = db.rotate_token(row["org_id"])
+    org = db.get_org(row["org_id"])
     return {"org_id": org["id"], "api_token": raw_token, "tier": org["tier"]}
 
 

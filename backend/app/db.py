@@ -105,6 +105,16 @@ CREATE INDEX IF NOT EXISTS idx_usage_org ON usage_events(org_id);
 CREATE INDEX IF NOT EXISTS idx_usage_qid ON usage_events(questionnaire_id);
 CREATE INDEX IF NOT EXISTS idx_items_q ON questionnaire_items(questionnaire_id);
 
+CREATE TABLE IF NOT EXISTS password_resets (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id      INTEGER NOT NULL REFERENCES orgs(id),
+    token_hash  TEXT NOT NULL,             -- SHA-256 of the raw reset token
+    expires_at  REAL NOT NULL,
+    used        INTEGER NOT NULL DEFAULT 0,
+    created_at  REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_resets_hash ON password_resets(token_hash);
+
 CREATE TABLE IF NOT EXISTS documents (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id       INTEGER NOT NULL REFERENCES orgs(id),
@@ -338,6 +348,43 @@ def set_org_tier(org_id: int, tier: str, stripe_customer_id: Optional[str] = Non
             )
         else:
             cur.execute("UPDATE orgs SET tier = ? WHERE id = ?", (tier, org_id))
+
+
+def set_org_password(org_id: int, password_hash: str) -> None:
+    with cursor() as cur:
+        cur.execute("UPDATE orgs SET password_hash = ? WHERE id = ?", (password_hash, org_id))
+
+
+# --------------------------------------------------------------------------
+# Password resets
+# --------------------------------------------------------------------------
+def create_password_reset(org_id: int, token_hash: str, expires_at: float) -> int:
+    """Store a single-use reset token (hash only) and invalidate any prior ones
+    for this org, so at most one live reset link exists per account."""
+    now = time.time()
+    with cursor() as cur:
+        cur.execute("UPDATE password_resets SET used = 1 WHERE org_id = ? AND used = 0", (org_id,))
+        return cur.insert(
+            "INSERT INTO password_resets (org_id, token_hash, expires_at, used, created_at) "
+            "VALUES (?, ?, ?, 0, ?)",
+            (org_id, token_hash, expires_at, now),
+        )
+
+
+def get_valid_password_reset(token_hash: str) -> Optional[dict]:
+    """Return the reset row if it exists, is unused, and hasn't expired."""
+    with cursor() as cur:
+        row = cur.execute(
+            "SELECT * FROM password_resets WHERE token_hash = ? AND used = 0 AND expires_at > ? "
+            "ORDER BY id DESC LIMIT 1",
+            (token_hash, time.time()),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def consume_password_reset(reset_id: int) -> None:
+    with cursor() as cur:
+        cur.execute("UPDATE password_resets SET used = 1 WHERE id = ?", (reset_id,))
 
 
 def roll_period_if_needed(org: dict) -> dict:

@@ -314,3 +314,74 @@ def test_invalid_interval_rejected():
     r = client.post("/v1/billing/checkout", headers=_auth(token),
                     json={"tier": "starter", "interval": "weekly"})
     assert r.status_code == 400
+
+
+# --- Password reset -------------------------------------------------------
+def _capture_reset_link(monkeypatch):
+    """Intercept the outbound email so tests can read the reset link."""
+    captured = {}
+
+    def fake_send(to, reset_url):
+        captured["to"] = to
+        captured["url"] = reset_url
+        return True
+
+    monkeypatch.setattr("app.main.email_svc.send_password_reset", fake_send)
+    return captured
+
+
+def test_password_reset_full_flow(monkeypatch):
+    email = f"reset-{uuid.uuid4().hex[:8]}@example.com"
+    r = client.post("/v1/signup", json={"name": "Reset Co", "email": email, "password": "originalpw"})
+    assert r.status_code == 200
+    old_token = r.json()["api_token"]
+
+    captured = _capture_reset_link(monkeypatch)
+    r = client.post("/v1/password/forgot", json={"email": email})
+    assert r.status_code == 200
+    assert captured["to"] == email
+    reset_token = captured["url"].split("reset=")[1]
+
+    # Reset to a new password; returns a fresh usable token.
+    r = client.post("/v1/password/reset", json={"token": reset_token, "password": "brandnewpw"})
+    assert r.status_code == 200, r.text
+    new_token = r.json()["api_token"]
+    assert client.get("/v1/me", headers=_auth(new_token)).status_code == 200
+    # Old API token was rotated out.
+    assert client.get("/v1/me", headers=_auth(old_token)).status_code == 401
+    # Old password no longer logs in; new one does.
+    assert client.post("/v1/login", json={"email": email, "password": "originalpw"}).status_code == 401
+    assert client.post("/v1/login", json={"email": email, "password": "brandnewpw"}).status_code == 200
+
+
+def test_password_reset_token_is_single_use(monkeypatch):
+    email = f"once-{uuid.uuid4().hex[:8]}@example.com"
+    client.post("/v1/signup", json={"name": "Once Co", "email": email, "password": "originalpw"})
+    captured = _capture_reset_link(monkeypatch)
+    client.post("/v1/password/forgot", json={"email": email})
+    token = captured["url"].split("reset=")[1]
+    assert client.post("/v1/password/reset", json={"token": token, "password": "firstresetpw"}).status_code == 200
+    # A second use of the same link is rejected.
+    assert client.post("/v1/password/reset", json={"token": token, "password": "secondtry"}).status_code == 400
+
+
+def test_password_forgot_does_not_enumerate_accounts(monkeypatch):
+    _capture_reset_link(monkeypatch)
+    # Unknown email returns the same 200 + generic message as a known one.
+    r = client.post("/v1/password/forgot", json={"email": f"nobody-{uuid.uuid4().hex}@example.com"})
+    assert r.status_code == 200
+    assert "reset link" in r.json()["message"].lower()
+
+
+def test_password_reset_rejects_bad_token():
+    r = client.post("/v1/password/reset", json={"token": "atl_not_a_real_token", "password": "longenough"})
+    assert r.status_code == 400
+
+
+def test_password_reset_requires_min_length(monkeypatch):
+    email = f"short-{uuid.uuid4().hex[:8]}@example.com"
+    client.post("/v1/signup", json={"name": "Short Co", "email": email, "password": "originalpw"})
+    captured = _capture_reset_link(monkeypatch)
+    client.post("/v1/password/forgot", json={"email": email})
+    token = captured["url"].split("reset=")[1]
+    assert client.post("/v1/password/reset", json={"token": token, "password": "short"}).status_code == 400

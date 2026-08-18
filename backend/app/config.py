@@ -107,6 +107,21 @@ DEFAULT_PRICE = {"input": 1.0, "cached_input": 0.10, "output": 5.0}
 def price_for(model: str) -> dict:
     return MODEL_PRICES.get(model, DEFAULT_PRICE)
 
+# --- Transactional email (Resend) -----------------------------------------
+# Outbound email for password resets. Cloudflare Email Routing is INBOUND only,
+# so a real sending provider is required. Gated on the key: with no key set, the
+# reset flow still works end-to-end but the link is written to the server log
+# instead of emailed (fine for local dev; in prod, set RESEND_API_KEY so the
+# link reaches the user). Verify the sending domain in Resend (SPF/DKIM DNS on
+# tryattestly.com) before turning this on in production.
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
+RESEND_FROM = os.environ.get("ATTESTLY_EMAIL_FROM", f"{BRAND_NAME} <hello@tryattestly.com>")
+RESEND_BASE_URL = os.environ.get("RESEND_BASE_URL", "https://api.resend.com")
+EMAIL_ENABLED = bool(RESEND_API_KEY)
+# Password-reset tokens are single-use and short-lived.
+PASSWORD_RESET_TTL_SECONDS = int(os.environ.get("ATTESTLY_RESET_TTL", "3600"))  # 1 hour
+RL_PASSWORD_FORGOT = (5, 900)  # 5 reset requests / 15 min per IP — anti-spam guard
+
 # --- Embeddings (semantic retrieval) --------------------------------------
 # Optional: when a Voyage AI key is present, answers/documents are embedded and
 # retrieval blends semantic similarity with the lexical score. Without a key the

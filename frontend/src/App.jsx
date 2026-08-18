@@ -45,6 +45,10 @@ export default function App() {
   }, []);
 
   if (loading) return <div className="center muted">Loading…</div>;
+  // A password-reset link (?reset=<token>) takes precedence over everything.
+  // The user may be logged out, or logged in on a different device.
+  const resetToken = new URLSearchParams(window.location.search).get("reset");
+  if (resetToken) return <ResetPassword token={resetToken} onDone={refresh} />;
   if (!me)
     return showAuth ? (
       <Onboarding onDone={refresh} onBack={() => setShowAuth(false)} />
@@ -210,19 +214,27 @@ function Landing({ onStart }) {
 }
 
 function Onboarding({ onDone, onBack }) {
-  const [mode, setMode] = useState("signup"); // signup | login
+  const [mode, setMode] = useState("signup"); // signup | login | forgot
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
+  const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const login = mode === "login";
+  const forgot = mode === "forgot";
 
   async function submit(e) {
     e.preventDefault();
     setBusy(true);
     setErr("");
     try {
+      if (forgot) {
+        const { message } = await api.forgotPassword(email);
+        setSent(message || "If an account exists for that email, a reset link is on its way.");
+        setBusy(false);
+        return;
+      }
       const { api_token } = login
         ? await api.login(email, password)
         : await api.signup(name, email, password);
@@ -233,6 +245,58 @@ function Onboarding({ onDone, onBack }) {
       setBusy(false);
     }
   }
+
+  if (forgot)
+    return (
+      <div className="center">
+        <div className="card hero">
+          <div className="brand big">
+            <span className="logo">◆</span> Attestly
+          </div>
+          <h1>Reset your password</h1>
+          {sent ? (
+            <>
+              <p className="muted">{sent}</p>
+              <p className="muted small">
+                Check your inbox (and spam) for a link from hello@tryattestly.com. It expires in 1 hour.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="muted">
+                Enter your account email and we'll send you a link to set a new password.
+              </p>
+              <form onSubmit={submit} className="stack">
+                <input
+                  placeholder="Work email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                {err && <div className="error">{err}</div>}
+                <button className="primary" disabled={busy}>
+                  {busy ? "Please wait…" : "Send reset link"}
+                </button>
+              </form>
+            </>
+          )}
+          <p className="muted small" style={{ marginTop: 12 }}>
+            <button
+              className="link"
+              style={{ display: "inline", padding: 0 }}
+              onClick={() => {
+                setErr("");
+                setSent(false);
+                setMode("login");
+              }}
+            >
+              ← Back to log in
+            </button>
+          </p>
+        </div>
+      </div>
+    );
 
   return (
     <div className="center">
@@ -268,6 +332,20 @@ function Onboarding({ onDone, onBack }) {
             {busy ? "Please wait…" : login ? "Log in" : "Start free · 150 answers, no card"}
           </button>
         </form>
+        {login && (
+          <p className="muted small" style={{ marginTop: 10 }}>
+            <button
+              className="link"
+              style={{ display: "inline", padding: 0 }}
+              onClick={() => {
+                setErr("");
+                setMode("forgot");
+              }}
+            >
+              Forgot password?
+            </button>
+          </p>
+        )}
         {!login && (
           <p className="muted xsmall" style={{ marginTop: 12 }}>
             By continuing you agree to our <a href="/terms.html" target="_blank" rel="noreferrer">Terms</a> and{" "}
@@ -292,6 +370,79 @@ function Onboarding({ onDone, onBack }) {
             }}
           >
             {login ? "Create an account" : "Log in"}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ResetPassword({ token, onDone }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  function clearResetParam() {
+    // Strip ?reset=… so a refresh doesn't re-open this view or replay the token.
+    window.history.replaceState({}, "", window.location.pathname);
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    setErr("");
+    if (password.length < 8) return setErr("Password must be at least 8 characters.");
+    if (password !== confirm) return setErr("Passwords don't match.");
+    setBusy(true);
+    try {
+      const { api_token } = await api.resetPassword(token, password);
+      setToken(api_token);
+      clearResetParam();
+      onDone(); // signed straight in with the fresh token
+    } catch (e) {
+      setErr(e.message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="center">
+      <div className="card hero">
+        <div className="brand big">
+          <span className="logo">◆</span> Attestly
+        </div>
+        <h1>Choose a new password</h1>
+        <p className="muted">Set a new password for your account. You'll be signed in right after.</p>
+        <form onSubmit={submit} className="stack">
+          <input
+            placeholder="New password (8+ characters)"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <input
+            placeholder="Confirm new password"
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+          />
+          {err && <div className="error">{err}</div>}
+          <button className="primary" disabled={busy}>
+            {busy ? "Please wait…" : "Set new password"}
+          </button>
+        </form>
+        <p className="muted small" style={{ marginTop: 12 }}>
+          <button
+            className="link"
+            style={{ display: "inline", padding: 0 }}
+            onClick={() => {
+              clearResetParam();
+              onDone();
+            }}
+          >
+            ← Back to log in
           </button>
         </p>
       </div>

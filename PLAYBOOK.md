@@ -69,6 +69,7 @@ Questions are answered **concurrently** (10-wide, `ATTESTLY_ANSWER_CONCURRENCY`,
 - **Choice field** (Yes/No/Partially/Not Applicable)
 - Export: **clean .xlsx** and **filled original** (write back into the customer's own template)
 - Real accounts: email + password login, one account per email
+- **Forgot-password flow** — single-use, 1-hour reset link emailed via Resend (`app/email.py`); non-enumerating `/v1/password/forgot`, and `/v1/password/reset` also rotates the API token. Gated on `RESEND_API_KEY`: with no key the link is logged, not emailed (needs Resend + verified sending domain to reach inboxes)
 - Self-serve billing (monthly + annual "2 months free"), simulated without Stripe
 - Assessment report generator (lead magnet)
 
@@ -270,11 +271,14 @@ smells AI-generated. Write like a competent peer, not a marketer.
 - [ ] **Gulf/UAE (see `GULF_EXPANSION.md`):** Arabic landing page → then move Render + Supabase to Frankfurt
   (co-located) for latency + an EU-residency story. Regional answers + data-location + DPA already shipped.
 - [ ] Turn on Stripe (webhook fix already makes this safe) when ready to charge
-- [ ] **Add transactional email (Resend) → email verification + password reset.** Deferred on purpose: signup
-  currently creates accounts instantly (no verify) and there's no password-reset path — both need the same
-  email provider, so build them together. Do this when moving from hand-picked design partners to open signup.
-  Stopgaps until then: one-account-per-email dedup + signup rate-limiting. (Password reset is the more urgent
-  half — a forgotten password currently locks a user out.)
+- [x] **Password reset — SHIPPED.** Resend-backed reset flow (`app/email.py`, `/v1/password/forgot` +
+  `/v1/password/reset`, frontend "Forgot password?" + reset view). Non-enumerating, single-use 1-hour token,
+  rotates the API token on reset. To go live: create a Resend account, set `RESEND_API_KEY` on Render, and
+  verify tryattestly.com as a sending domain (add its SPF/DKIM DNS records in Cloudflare). Until then the reset
+  link is written to the server log instead of emailed.
+- [ ] **Email verification at signup** (the other half of the Resend work). Signup still creates accounts
+  instantly with no verify step. Build once Resend is wired for password reset — same provider. Stopgap:
+  one-account-per-email dedup + signup rate-limiting.
 - [ ] Security hygiene: least-privilege DB role (#7) — the one remaining scorecard gap (backups #10 done)
 - [ ] Housekeeping: delete stale one-off branches on the repo (e.g. `deps-audit-fix`) — no open PRs
 - [ ] Optional: Cloudflare in front (stronger rate limiting) once a custom domain is set
