@@ -13,6 +13,35 @@ Decision rule: false confidence > 3% -> move `VERIFY_MODEL` to a stronger model.
 | 2026-08-18 | v2.1 rerun (post dev-brief-2) | haiku / haiku | **0.0%** (0/60) | 19/20 | 10/10 | 10/10 | $0.00341 | PASS — brief-2 changes didn't touch grounding |
 | 2026-08-18 | v2.1 **canonical (temperature 0)** | haiku / haiku | **0.0%** (0/60) | 20/20 | 10/10 | 10/10 | $0.00331 | PASS — reproducible baseline, s09 asserts deterministically |
 
+## v3 — 150 questions against a realistic corpus with real retrieval (2026-08-18)
+
+The frozen 60 stays as the **regression suite** (`eval_questions_60.json` +
+`attestly_eval_docs_60.md`; run it with
+`ATTESTLY_EVAL_QUESTIONS=eval/eval_questions_60.json ATTESTLY_EVAL_DOCS=eval/attestly_eval_docs_60.md python -m app.eval`).
+v3 is the new, harder eval:
+
+- **Bigger corpus (59 passages):** a SOC 2 Type II report plus ~12 policies and a
+  handbook of distractor passages, so the right control has to be found among many,
+  not just be present. (Was 13 passages.)
+- **Real retrieval in the loop:** each question retrieves its top-K passages
+  (`ATTESTLY_EVAL_TOP_K`, default 3, matching production) instead of being handed
+  the whole corpus. This finally tests the failure mode "the right chunk exists but
+  wasn't retrieved." Set `ATTESTLY_EVAL_TOP_K=0` to isolate model judgment (all
+  passages), comparable to the 60.
+- **Adversarial-heavy split (150):** 50 supported / 40 unsupported / 35
+  contradicted / 25 ambiguous. Contradicted is weighted up — it's the hardest
+  class and the one the positioning rests on.
+- **How to run it well:** set `VOYAGE_API_KEY` as well as `ANTHROPIC_API_KEY` so
+  retrieval is **semantic** (what production uses). With lexical retrieval only,
+  expect some supported/contradicted rows to abstain because retrieval missed the
+  passage — that lowers coverage but never creates false confidence, and it's a
+  true signal that embeddings matter.
+- False confidence stays robust to retrieval misses: a miss -> abstain -> never a
+  false "Yes". Coverage and "contradicted caught" become end-to-end (retrieval +
+  model) numbers; read them together with the retrieval mode printed in the header.
+
+_v3 live results to be recorded here after the first run._
+
 ## Notes
 
 - **v1 was too easy** (feedback from marketing review): only 8 passages, and the

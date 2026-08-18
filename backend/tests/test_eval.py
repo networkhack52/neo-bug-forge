@@ -7,19 +7,36 @@ from app.drafting import NO_EVIDENCE, Draft
 
 def test_eval_dataset_is_well_formed():
     qs = json.loads(ev.QUESTIONS.read_text(encoding="utf-8"))
-    assert len(qs) == 60
+    assert len(qs) == 150
     counts = Counter(q["label"] for q in qs)
-    assert counts["supported"] == 20
-    assert counts["unsupported"] == 20
-    assert counts["contradicted"] == 10
-    assert counts["ambiguous"] == 10
-    assert len({q["id"] for q in qs}) == 60  # ids are unique
+    assert counts["supported"] == 50
+    assert counts["unsupported"] == 40
+    assert counts["contradicted"] == 35
+    assert counts["ambiguous"] == 25
+    assert len({q["id"] for q in qs}) == 150            # ids unique
+    assert len({q["question"].lower() for q in qs}) == 150  # no duplicate questions
+
+
+def test_frozen_60_regression_suite_is_intact():
+    frozen = ev.EVAL_DIR / "eval_questions_60.json"
+    qs = json.loads(frozen.read_text(encoding="utf-8"))
+    counts = Counter(q["label"] for q in qs)
+    assert len(qs) == 60
+    assert counts == {"supported": 20, "unsupported": 20, "contradicted": 10, "ambiguous": 10}
 
 
 def test_eval_docs_chunk_into_citable_passages():
     chunks = ev._chunks()
-    assert len(chunks) >= 5
+    assert len(chunks) >= 40  # realistic corpus: SOC 2 report + policies
     assert all(c.doc_name and c.text for c in chunks)
+
+
+def test_retrieve_returns_top_k_and_all_when_zero():
+    docs = ev._chunks()
+    top = ev._retrieve("Do you encrypt data at rest?", docs, None, 3)
+    assert 0 < len(top) <= 3
+    # k <= 0 hands the model the whole corpus (model-judgment mode).
+    assert len(ev._retrieve("anything", docs, None, 0)) == len(docs)
 
 
 def test_asserts_control_classifier():
