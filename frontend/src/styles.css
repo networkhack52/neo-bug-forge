@@ -1,5 +1,5 @@
 :root {
-  --bg: #f1f5f4;            /* warm off-white with a faint teal cast, not stark white */
+  --bg: #eef4f2;            /* off-white with a slight cool teal tint, so the green accents feel intentional */
   --card: #ffffff;
   --ink: #0f1a18;
   --muted: #5c6b67;
@@ -26,6 +26,10 @@ body {
 h1 { font-size: 26px; margin: 8px 0 12px; }
 h2 { font-size: 20px; margin: 0 0 8px; }
 h3 { font-size: 16px; margin: 4px 0 12px; }
+/* Inline links stay in the brand teal family (no default browser blue/purple). */
+a { color: var(--accent); text-underline-offset: 2px; }
+a:visited { color: var(--accent); }
+a:hover { color: var(--accent-2); }
 .muted { color: var(--muted); }
 .small { font-size: 13px; }
 .xsmall { font-size: 12px; }
