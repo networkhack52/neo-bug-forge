@@ -12,6 +12,17 @@ function parseCitations(c) {
   }
 }
 
+// Epoch seconds -> YYYY-MM-DD (a document's source date).
+function fmtEpoch(epoch) {
+  if (!epoch) return "";
+  return new Date(epoch * 1000).toISOString().slice(0, 10);
+}
+// A source is stale when it's older than 12 months.
+function docStale(epoch) {
+  if (!epoch) return false;
+  return Date.now() / 1000 - epoch > 365 * 86400;
+}
+
 // "Open 3d", "Open 5h": how long a questionnaire has been sitting.
 function openFor(createdAtEpoch) {
   const hrs = (Date.now() / 1000 - createdAtEpoch) / 3600;
@@ -638,6 +649,8 @@ function ReviewItem({ item, onApprove, onShowSources }) {
   const [answer, setAnswer] = useState(item.answer);
   const approved = item.status === "approved";
   const cites = parseCitations(item.citations);
+  const stale = cites.some((c) => c && c.stale);
+  const docDate = (cites.find((c) => c && c.kind === "document" && c.date) || {}).date;
   const verified = item.verification === "supported";
   const badge =
     { reuse: ["Reused", "green"], drafted: ["AI draft", "blue"], fallback: ["Needs review", "amber"] }[
@@ -653,6 +666,11 @@ function ReviewItem({ item, onApprove, onShowSources }) {
         )}
         <span className={`tag ${badge[1]}`}>{badge[0]}</span>
         {verified && <span className="tag green" title="Checked against your approved sources">✓ Verified</span>}
+        {stale && (
+          <span className="tag amber" title="The cited document is over 12 months old">
+            ⚠ Source {docDate}
+          </span>
+        )}
         <span className="muted small">confidence {Math.round(item.confidence)}%</span>
         {approved && <span className="tag green">✓ approved</span>}
       </div>
@@ -694,7 +712,15 @@ function SourcePanel({ data, library, onClose }) {
         category = hit.category;
       }
     }
-    return { title, text, kind: c.kind || "library", category };
+    return {
+      title,
+      text,
+      kind: c.kind || "library",
+      category,
+      date: c.date || "",
+      dateBasis: c.date_basis || "",
+      stale: !!c.stale,
+    };
   });
   return (
     <>
@@ -737,6 +763,12 @@ function SourcePanel({ data, library, onClose }) {
                   <div className="source-quote">{s.text}</div>
                 ) : (
                   <div className="muted xsmall">Cited source (exact text not loaded).</div>
+                )}
+                {isDoc && s.date && (
+                  <div className={`sourcedate ${s.stale ? "stale" : ""}`}>
+                    {s.dateBasis === "stated" ? "Reviewed" : "Dated"} {s.date}
+                    {s.stale && " · over 12 months old, a reviewer may ask you to refresh it"}
+                  </div>
                 )}
                 {s.category && <div className="muted xsmall">{s.category}</div>}
               </div>
@@ -818,6 +850,15 @@ function Documents() {
               <div className="muted xsmall">
                 {d.chunk_count} passage{d.chunk_count === 1 ? "" : "s"} ·{" "}
                 {Math.round(d.char_count / 1000)}k chars
+                {d.source_date && (
+                  <>
+                    {" · "}
+                    <span className={docStale(d.source_date) ? "stale" : ""}>
+                      {d.date_basis === "stated" ? "reviewed" : "dated"} {fmtEpoch(d.source_date)}
+                      {docStale(d.source_date) && " ⚠"}
+                    </span>
+                  </>
+                )}
               </div>
               <button className="link" onClick={() => remove(d.id)}>
                 Remove

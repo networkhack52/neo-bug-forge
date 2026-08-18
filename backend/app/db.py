@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS answers (
     status       TEXT NOT NULL DEFAULT 'approved',   -- approved | draft
     times_reused INTEGER NOT NULL DEFAULT 0,
     embedding    BLOB,                                -- float32 question vector (optional)
+    change_log   TEXT DEFAULT '[]',                   -- JSON list of {date, note, from, to} when the answer changed (T2)
     created_at   REAL NOT NULL,
     updated_at   REAL NOT NULL
 );
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS questionnaires (
     question_col INTEGER,                  -- 1-based column layout captured at parse time
     answer_col   INTEGER,
     detail_col   INTEGER,
+    framework    TEXT DEFAULT '',           -- detected format: SIG | SIG Lite | CAIQ | CAIQ Lite | VSAQ | Custom
     created_at   REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_q_org ON questionnaires(org_id);
@@ -80,6 +82,12 @@ CREATE TABLE IF NOT EXISTS questionnaire_items (
     citations       TEXT DEFAULT '[]',     -- JSON list of source questions the model cited
     verification    TEXT DEFAULT 'skipped',-- supported | unsupported | skipped
     locked          INTEGER NOT NULL DEFAULT 0, -- 1 = over quota, not answered
+    excluded        INTEGER NOT NULL DEFAULT 0, -- 1 = out of scope, exported as N/A (triage)
+    exclusion_reason TEXT DEFAULT '',       -- why it was excluded (also the N/A justification)
+    remediation_date TEXT DEFAULT '',       -- for a 'No': planned fix date (YYYY-MM-DD)
+    no_plan         INTEGER NOT NULL DEFAULT 0, -- for a 'No': user acknowledged there is no plan
+    na_reason       TEXT DEFAULT '',        -- one-line justification for a user-set Not Applicable
+    contradiction   TEXT DEFAULT '',        -- JSON: prior library answer this differs from (T2), '' when none
     created_at      REAL NOT NULL
 );
 
@@ -122,6 +130,10 @@ CREATE TABLE IF NOT EXISTS documents (
     kind         TEXT NOT NULL DEFAULT 'pdf',   -- pdf | text
     char_count   INTEGER NOT NULL DEFAULT 0,
     chunk_count  INTEGER NOT NULL DEFAULT 0,
+    stated_date  REAL,                          -- review/effective date parsed from the text (epoch)
+    file_date    REAL,                          -- upload/file date (epoch)
+    source_date  REAL,                          -- the date we actually surface (stated if parsed, else file)
+    date_basis   TEXT DEFAULT '',               -- 'stated' | 'file' — which one source_date came from
     created_at   REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_docs_org ON documents(org_id);
@@ -147,6 +159,12 @@ _MIGRATIONS = {
         "verification": "TEXT DEFAULT 'skipped'",
         "excel_row": "INTEGER NOT NULL DEFAULT 0",
         "locked": "INTEGER NOT NULL DEFAULT 0",
+        "excluded": "INTEGER NOT NULL DEFAULT 0",
+        "exclusion_reason": "TEXT DEFAULT ''",
+        "remediation_date": "TEXT DEFAULT ''",
+        "no_plan": "INTEGER NOT NULL DEFAULT 0",
+        "na_reason": "TEXT DEFAULT ''",
+        "contradiction": "TEXT DEFAULT ''",
     },
     "questionnaires": {
         "source_bytes": "BLOB",
@@ -155,9 +173,17 @@ _MIGRATIONS = {
         "question_col": "INTEGER",
         "answer_col": "INTEGER",
         "detail_col": "INTEGER",
+        "framework": "TEXT DEFAULT ''",
+    },
+    "documents": {
+        "stated_date": "REAL",
+        "file_date": "REAL",
+        "source_date": "REAL",
+        "date_basis": "TEXT DEFAULT ''",
     },
     "answers": {
         "embedding": "BLOB",
+        "change_log": "TEXT DEFAULT '[]'",
     },
     "orgs": {
         "password_hash": "TEXT",
@@ -713,14 +739,21 @@ def set_answered_count(qid: int, n: int) -> None:
 # Trust documents (SOC 2, policies) + chunks
 # --------------------------------------------------------------------------
 def create_document(org_id: int, name: str, kind: str, char_count: int,
-                    chunks: list[tuple[str, Optional[bytes]]]) -> dict:
-    """Insert a document and its (text, embedding) chunks in one transaction."""
+                    chunks: list[tuple[str, Optional[bytes]]],
+                    dates: Optional[dict] = None) -> dict:
+    """Insert a document and its (text, embedding) chunks in one transaction.
+
+    ``dates`` carries the resolved source date fields (see documents.source_dates)."""
     now = time.time()
+    d = dates or {}
     with cursor() as cur:
         doc_id = cur.insert(
-            "INSERT INTO documents (org_id, name, kind, char_count, chunk_count, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (org_id, name, kind, char_count, len(chunks), now),
+            "INSERT INTO documents (org_id, name, kind, char_count, chunk_count, "
+            "stated_date, file_date, source_date, date_basis, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (org_id, name, kind, char_count, len(chunks),
+             d.get("stated_date"), d.get("file_date"), d.get("source_date"),
+             d.get("date_basis", ""), now),
         )
         for ordinal, (text, blob) in enumerate(chunks):
             cur.execute(
@@ -735,7 +768,8 @@ def create_document(org_id: int, name: str, kind: str, char_count: int,
 def list_documents(org_id: int) -> list[dict]:
     with cursor() as cur:
         rows = cur.execute(
-            "SELECT id, name, kind, char_count, chunk_count, created_at FROM documents "
+            "SELECT id, name, kind, char_count, chunk_count, stated_date, file_date, "
+            "source_date, date_basis, created_at FROM documents "
             "WHERE org_id = ? ORDER BY created_at DESC",
             (org_id,),
         ).fetchall()
@@ -754,7 +788,8 @@ def list_chunks(org_id: int) -> list[dict]:
     """All chunks for an org, with their document name — for grounding search."""
     with cursor() as cur:
         rows = cur.execute(
-            "SELECT c.id, c.text, c.embedding, c.ordinal, d.name AS doc_name "
+            "SELECT c.id, c.text, c.embedding, c.ordinal, d.name AS doc_name, "
+            "d.source_date AS doc_source_date, d.date_basis AS doc_date_basis "
             "FROM document_chunks c JOIN documents d ON d.id = c.document_id "
             "WHERE c.org_id = ?",
             (org_id,),

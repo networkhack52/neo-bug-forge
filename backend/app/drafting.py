@@ -314,11 +314,22 @@ def draft_answer(question: str, context: list[Match], documents: list | None = N
         return fb
 
 
+def _match_document(source: str, documents: list):
+    """The DocMatch whose name best matches a cited source label, or None."""
+    for d in documents:
+        n = d.doc_name
+        if n and (source == n or n in source or source in n):
+            return d
+    return None
+
+
 def _parse_citations(raw, documents: list, cap: int = 6) -> list[dict]:
-    """Normalise the model's `citations` array into {title, text, kind} objects."""
+    """Normalise the model's `citations` array into {title, text, kind, date,
+    date_basis, stale} objects. Document citations carry the source document's
+    date so a reviewer sees how fresh the evidence is."""
     if not isinstance(raw, list):
         return []
-    doc_names = {d.doc_name for d in documents}
+    from . import dates
     out: list[dict] = []
     seen: set = set()
     for c in raw:
@@ -328,14 +339,23 @@ def _parse_citations(raw, documents: list, cap: int = 6) -> list[dict]:
         quote = _strip_cite_tags(str(c.get("quote") or "")).strip()
         if not source and not quote:
             continue
-        # A source is a document if it matches an uploaded document's name.
-        kind = "document" if any(source == n or n in source or source in n
-                                 for n in doc_names if n) else "library"
+        doc = _match_document(source, documents)
+        kind = "document" if doc is not None else "library"
         key = (source, quote)
         if key in seen:
             continue
         seen.add(key)
-        out.append({"title": source, "text": quote, "kind": kind})
+        cite = {"title": source, "text": quote, "kind": kind}
+        doc_date = getattr(doc, "source_date", None) if doc is not None else None
+        if doc_date:
+            age = dates.months_old(doc_date)
+            cite["date"] = dates.to_iso(doc_date)
+            cite["date_basis"] = getattr(doc, "date_basis", "") or ""
+            cite["stale"] = bool(
+                config.SOURCE_STALE_MONTHS > 0 and age is not None
+                and age > config.SOURCE_STALE_MONTHS
+            )
+        out.append(cite)
         if len(out) >= cap:
             break
     return out

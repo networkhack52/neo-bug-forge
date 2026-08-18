@@ -212,6 +212,8 @@ button, .primary, .secondary {
 .source-item { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
 .source-tophead { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .source-quote { border-left: 3px solid var(--green); background: #ecfdf5; padding: 8px 12px; margin-top: 6px; font-size: 13px; white-space: pre-wrap; }
+.sourcedate { margin-top: 6px; font-size: 12px; color: var(--muted); }
+.sourcedate.stale, .stale { color: var(--amber); font-weight: 600; }
 .drawer-foot { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 12px; }
 
 /* Speed / SLA timer */

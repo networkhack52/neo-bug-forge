@@ -48,19 +48,33 @@ def status_of(item: dict) -> str:
     return "Answered"
 
 
+def _date_suffix(c: dict) -> str:
+    """`` (reviewed 2025-03-14)`` for a dated document citation, adding a
+    staleness note when the source is past the freshness threshold. Empty for
+    undated or library citations."""
+    date = str(c.get("date") or "").strip()
+    if not date:
+        return ""
+    word = "reviewed" if c.get("date_basis") == "stated" else "dated"
+    note = ", review recommended" if c.get("stale") else ""
+    return f" ({word} {date}{note})"
+
+
 def source_cell(item: dict) -> str:
-    """Document name + quoted line per citation, one per line."""
+    """Document name + quoted line per citation, one per line, with the source
+    date appended so a reviewer can see how fresh the evidence is."""
     lines = []
     for c in _citations(item):
         title = str(c.get("title") or "").strip()
         text = str(c.get("text") or "").strip()
         label = title if c.get("kind") == "document" else (title or "Approved answer")
+        suffix = _date_suffix(c)
         if label and text:
-            lines.append(f'{label}: "{text}"')
+            lines.append(f'{label}: "{text}"{suffix}')
         elif label:
-            lines.append(label)
+            lines.append(f"{label}{suffix}")
         elif text:
-            lines.append(f'"{text}"')
+            lines.append(f'"{text}"{suffix}')
     return "\n".join(lines)
 
 

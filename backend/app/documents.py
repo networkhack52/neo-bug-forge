@@ -16,7 +16,10 @@ import os
 import re
 from dataclasses import dataclass
 
-from . import db, embeddings, fuzzy
+import datetime as _dt
+import time as _time
+
+from . import dates, db, embeddings, fuzzy
 
 # Passage sizing: big enough to carry a full control statement, small enough
 # that a citation points at something specific.
@@ -31,6 +34,8 @@ class DocMatch:
     doc_name: str
     text: str
     score: float
+    source_date: float | None = None   # epoch of the document's surfaced date
+    date_basis: str = ""               # 'stated' | 'file' | ''
 
 
 def extract_text(filename: str, data: bytes) -> tuple[str, str]:
@@ -52,6 +57,46 @@ def _extract_pdf(data: bytes) -> str:
         except Exception:
             parts.append("")
     return "\n".join(parts)
+
+
+def _pdf_meta_date(data: bytes) -> float | None:
+    """A PDF's own modification/creation date from its metadata, as epoch.
+
+    PDF dates look like ``D:20250314120000Z``. Used as the file date when the
+    document doesn't state a review date in its text."""
+    try:
+        from pypdf import PdfReader
+
+        meta = PdfReader(io.BytesIO(data)).metadata or {}
+        for key in ("/ModDate", "/CreationDate"):
+            raw = meta.get(key)
+            if not raw:
+                continue
+            m = re.search(r"(\d{4})(\d{2})(\d{2})", str(raw))
+            if m:
+                y, mo, d = (int(g) for g in m.groups())
+                try:
+                    return _dt.datetime(y, mo, d, tzinfo=_dt.timezone.utc).timestamp()
+                except ValueError:
+                    continue
+    except Exception:
+        pass
+    return None
+
+
+def source_dates(kind: str, data: bytes, text: str) -> dict:
+    """Resolve the date we surface for a document. Prefer a review/effective date
+    stated in the text; fall back to the file's own date (PDF metadata) or the
+    upload time. Returns stored fields for `create_document`."""
+    stated = dates.parse_stated_date(text)
+    file_date = _pdf_meta_date(data) if kind == "pdf" else None
+    if file_date is None:
+        file_date = _time.time()  # upload time is the best "file date" we have
+    if stated is not None:
+        return {"stated_date": stated, "file_date": file_date,
+                "source_date": stated, "date_basis": "stated"}
+    return {"stated_date": None, "file_date": file_date,
+            "source_date": file_date, "date_basis": "file"}
 
 
 def _normalise(text: str) -> str:
@@ -103,7 +148,10 @@ def ingest(org_id: int, filename: str, data: bytes) -> dict:
         blob = embeddings.to_blob(vectors[i]) if vectors and i < len(vectors) else None
         chunks.append((passage, blob))
 
-    return db.create_document(org_id, filename or "document", kind, len(text), chunks)
+    return db.create_document(
+        org_id, filename or "document", kind, len(text), chunks,
+        dates=source_dates(kind, data, text),
+    )
 
 
 def search(org_id: int, question: str, k: int = MAX_GROUND_CHUNKS,
@@ -130,5 +178,8 @@ def search(org_id: int, question: str, k: int = MAX_GROUND_CHUNKS,
     for score, r in scored[:k]:
         if score <= 0:
             continue
-        out.append(DocMatch(chunk_id=r["id"], doc_name=r["doc_name"], text=r["text"], score=float(score)))
+        out.append(DocMatch(
+            chunk_id=r["id"], doc_name=r["doc_name"], text=r["text"], score=float(score),
+            source_date=r.get("doc_source_date"), date_basis=r.get("doc_date_basis") or "",
+        ))
     return out

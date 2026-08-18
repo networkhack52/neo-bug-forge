@@ -164,6 +164,12 @@ TIERS: dict[str, dict] = {
 }
 DEFAULT_TIER = "free"
 
+# Source freshness: an answer's cited document is flagged "stale" when its
+# source date is older than this many months. Reviewers treat stale evidence as
+# a red flag, so we surface it — the answer is still correct, it just carries a
+# warning. Configurable; 0 disables the flag.
+SOURCE_STALE_MONTHS = int(os.environ.get("ATTESTLY_SOURCE_STALE_MONTHS", "12"))
+
 # One-time onboarding allowance: a pool of free answers granted per email DOMAIN
 # (shared across everyone at the same company), so a new team can run a real
 # 124-855 question questionnaire before falling back to the recurring free limit.
