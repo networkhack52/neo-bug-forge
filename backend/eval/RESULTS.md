@@ -11,6 +11,7 @@ Decision rule: false confidence > 3% -> move `VERIFY_MODEL` to a stronger model.
 | 2026-08-16 | v2 (60 Q, near-miss) | haiku / haiku | 3.3% (2/60)* | 19/20 | 10/10 | 10/10 | $0.00335 | *both flags were correct denials (mislabels) |
 | 2026-08-16 | v2.1 (labels fixed) | haiku / haiku | **0.0%** (0/60) | 20/20 | 10/10 | 10/10 | $0.00335 | PASS — haiku-only stands |
 | 2026-08-18 | v2.1 rerun (post dev-brief-2) | haiku / haiku | **0.0%** (0/60) | 19/20 | 10/10 | 10/10 | $0.00341 | PASS — brief-2 changes didn't touch grounding |
+| 2026-08-18 | v2.1 **canonical (temperature 0)** | haiku / haiku | **0.0%** (0/60) | 20/20 | 10/10 | 10/10 | $0.00331 | PASS — reproducible baseline, s09 asserts deterministically |
 
 ## Notes
 
@@ -79,3 +80,9 @@ Decision rule: false confidence > 3% -> move `VERIFY_MODEL` to a stronger model.
   document date/staleness never appears in either request body. **The next run at
   temperature 0 is the new canonical baseline** — re-establish 0/60 there, and any
   future row change is a real signal to investigate, not a coin flip.
+
+- **Canonical baseline set (temperature 0, 2026-08-18):** 0/60 false confidence,
+  **20/20 supported coverage**, 10/10 contradicted caught, 10/10 ambiguous
+  flagged, $0.00331/answer. s09 asserts deterministically now — the earlier flip
+  was confirmed to be sampling noise, gone at temperature 0. This is the frozen
+  reference: any row that differs from this on a re-run is a real change to chase.
