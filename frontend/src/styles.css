@@ -187,6 +187,14 @@ button, .primary, .secondary {
 .rowactions { display: inline-flex; gap: 16px; align-items: center; }
 .seedbox { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 10px; }
 .notice.small { font-size: 13px; padding: 8px 12px; }
+.gatebox { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+.gatebox.unresolved { border-color: color-mix(in srgb, var(--amber) 45%, transparent); background: var(--amber-bg); }
+.gatelabel { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.gaterow { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+.gatefield { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.gatefield input { width: auto; }
+.gatecheck { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+.gatecheck input { width: auto; }
 .itemfoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
 .citebtn {
   background: var(--accent-soft); color: var(--accent);

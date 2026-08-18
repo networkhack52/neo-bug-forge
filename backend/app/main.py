@@ -549,6 +549,29 @@ def approve_item(item_id: int, body: dict, org: dict = Depends(require_org)) -> 
     return {"approved": True, "saved_to_bank": added}
 
 
+def _require_item(item_id: int, org: dict) -> dict:
+    item = db.get_item(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if not db.get_questionnaire(item["questionnaire_id"], org["id"]):
+        raise HTTPException(status_code=403, detail="Not your item")
+    return item
+
+
+@app.post("/v1/items/{item_id}/remediation")
+def set_item_remediation(item_id: int, body: dict, org: dict = Depends(require_org)) -> dict:
+    """Attach what a negative ('No') or 'N/A' answer needs before it can export:
+    a remediation date, an explicit no-plan acknowledgement, or an N/A reason."""
+    _require_item(item_id, org)
+    db.set_item_remediation(
+        item_id,
+        remediation_date=(body.get("remediation_date") or "").strip(),
+        no_plan=bool(body.get("no_plan")),
+        na_reason=(body.get("na_reason") or "").strip(),
+    )
+    return {"ok": True}
+
+
 def retrieval_close(a: str, b: str) -> bool:
     from . import fuzzy
 
@@ -563,6 +586,20 @@ def export_questionnaire(
     if not q:
         raise HTTPException(status_code=404, detail="Not found")
     items = db.list_items(qid)
+
+    # A negative ('No') needs a remediation date or an explicit no-plan
+    # acknowledgement, and an 'N/A' needs a reason, before it can leave the tool
+    # — no export contains a bare 'No' or 'N/A'.
+    issues = export.gate_issues(items)
+    if issues:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": (f"{len(issues)} row(s) need a remediation date or a reason before "
+                           "you can export. Add them on the flagged rows, then export again."),
+                "unresolved": issues,
+            },
+        )
     base = q["name"].rsplit(".", 1)[0] or "responses"
 
     # "Filled original" returns the customer's own template with cells filled;

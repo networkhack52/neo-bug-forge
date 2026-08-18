@@ -123,14 +123,65 @@ def test_export_simple_carries_source_and_status_columns():
 
 def test_cell_text_avoids_duplicate_status_prefix():
     # Answer already leads with the status -> no "Yes — Yes." doubling.
-    assert export._cell_text("Yes", "Yes. MFA is enforced.", False) == ("Yes. MFA is enforced.", "")
+    assert export._original_cells(
+        {"choice": "Yes", "answer": "Yes. MFA is enforced."}, False
+    ) == ("Yes. MFA is enforced.", "")
     # Answer doesn't lead with the status -> prepend it.
-    assert export._cell_text("Yes", "MFA is enforced.", False) == ("Yes. MFA is enforced.", "")
-    # Internal notes are stripped here too.
-    assert export._cell_text("No", "No. [Attestly review: check]", False)[0] == "No."
+    assert export._original_cells(
+        {"choice": "Yes", "answer": "MFA is enforced."}, False
+    ) == ("Yes. MFA is enforced.", "")
+    # Internal notes are stripped, and a 'No' with a plan carries the remediation.
+    status, _ = export._original_cells(
+        {"choice": "No", "answer": "No. [Attestly review: check]", "remediation_date": "2025-12-01"},
+        False,
+    )
+    assert status == "No. Remediation planned by 2025-12-01."
 
 
 def test_can_export_original_flag():
     assert export.can_export_original({"source_bytes": b"x", "answer_col": 2}) is True
     assert export.can_export_original({"source_bytes": None, "answer_col": 2}) is False
     assert export.can_export_original({"source_bytes": b"x", "answer_col": None}) is False
+
+
+# --- T4: bare negatives / N/A --------------------------------------------
+def test_gate_flags_bare_no_and_bare_na():
+    items = [
+        {"id": 1, "question": "MFA?", "choice": "Yes", "answer": "Yes."},
+        {"id": 2, "question": "SSO?", "choice": "No", "answer": "No."},              # bare No
+        {"id": 3, "question": "PCI?", "choice": "Not Applicable", "answer": ""},     # bare N/A
+        {"id": 4, "question": "Locked?", "choice": "No", "locked": 1},               # locked -> ignored
+    ]
+    issues = export.gate_issues(items)
+    ids = {i["id"] for i in issues}
+    assert ids == {2, 3}
+    assert {i["issue"] for i in issues} == {"remediation", "na_reason"}
+
+
+def test_gate_clears_when_negatives_resolved():
+    items = [
+        {"id": 1, "choice": "No", "answer": "No.", "remediation_date": "2025-12-01"},
+        {"id": 2, "choice": "No", "answer": "No.", "no_plan": 1},
+        {"id": 3, "choice": "Not Applicable", "answer": "", "na_reason": "We don't process cards."},
+        {"id": 4, "excluded": 1, "exclusion_reason": "Cloud-only, no data centres."},
+    ]
+    assert export.gate_issues(items) == []
+
+
+def test_vendor_response_never_bare_negative_or_na():
+    no_plan = export.vendor_response({"choice": "No", "answer": "No.", "no_plan": 1})
+    assert "No remediation" in no_plan
+    no_date = export.vendor_response({"choice": "No", "answer": "No.", "remediation_date": "2026-01-31"})
+    assert "Remediation planned by 2026-01-31" in no_date
+    excluded = export.vendor_response({"excluded": 1, "exclusion_reason": "Cloud-only."})
+    assert excluded == "Not Applicable. Cloud-only."
+    na = export.vendor_response({"choice": "Not Applicable", "answer": "", "na_reason": "No card data."})
+    assert na == "Not Applicable. No card data."
+
+
+def test_no_evidence_is_distinct_from_negative():
+    # No evidence: needs_review, no citations, empty choice -> "No evidence" status,
+    # NOT a negative, and not gated.
+    ne = {"needs_review": 1, "citations": [], "choice": ""}
+    assert export.status_of(ne) == "No evidence"
+    assert export.gate_issues([{**ne, "id": 9}]) == []

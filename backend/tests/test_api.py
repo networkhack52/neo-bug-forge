@@ -316,6 +316,46 @@ def test_invalid_interval_rejected():
     assert r.status_code == 400
 
 
+def _one_q_bytes(question):
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Question", "Answer"])
+    ws.append([question, ""])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_export_blocks_bare_no_until_remediation_is_set():
+    token = _token()
+    q = "Do you sell customer data to third parties?"
+    # A reused library answer that reads as a 'No' -> the item's choice is No.
+    client.post("/v1/answers", headers=_auth(token),
+                json={"question": q, "answer": "No, we do not sell customer data."})
+    files = {"file": ("q.xlsx", _one_q_bytes(q),
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    body = client.post("/v1/questionnaires", headers=_auth(token), files=files).json()
+    qid = body["questionnaire_id"]
+    item = body["items"][0]
+    assert item["choice"] == "No"
+
+    # Export is blocked while the 'No' is bare.
+    r = client.get(f"/v1/questionnaires/{qid}/export", headers=_auth(token))
+    assert r.status_code == 409
+    assert r.json()["unresolved"][0]["issue"] == "remediation"
+
+    # Add a remediation date -> export succeeds.
+    client.post(f"/v1/items/{item['id']}/remediation", headers=_auth(token),
+                json={"remediation_date": "2026-03-01"})
+    r = client.get(f"/v1/questionnaires/{qid}/export", headers=_auth(token))
+    assert r.status_code == 200
+
+    # A no-plan acknowledgement also clears the gate.
+    client.post(f"/v1/items/{item['id']}/remediation", headers=_auth(token),
+                json={"no_plan": True})
+    assert client.get(f"/v1/questionnaires/{qid}/export", headers=_auth(token)).status_code == 200
+
+
 # --- Password reset -------------------------------------------------------
 def _capture_reset_link(monkeypatch):
     """Intercept the outbound email so tests can read the reset link."""

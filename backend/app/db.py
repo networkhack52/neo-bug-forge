@@ -725,6 +725,26 @@ def approve_item(item_id: int, answer: str) -> None:
         )
 
 
+def set_item_remediation(item_id: int, remediation_date: str = "", no_plan: bool = False,
+                         na_reason: str = "") -> None:
+    """Attach the info a negative/N-A answer needs before it can export (T4)."""
+    with cursor() as cur:
+        cur.execute(
+            "UPDATE questionnaire_items SET remediation_date = ?, no_plan = ?, na_reason = ? "
+            "WHERE id = ?",
+            (remediation_date or "", int(bool(no_plan)), na_reason or "", item_id),
+        )
+
+
+def set_item_exclusion(item_id: int, excluded: bool, reason: str = "") -> None:
+    """Mark/unmark an item as out of scope; excluded rows export as N/A (T3)."""
+    with cursor() as cur:
+        cur.execute(
+            "UPDATE questionnaire_items SET excluded = ?, exclusion_reason = ? WHERE id = ?",
+            (int(bool(excluded)), reason or "", item_id),
+        )
+
+
 def set_questionnaire_status(qid: int, status: str) -> None:
     with cursor() as cur:
         cur.execute("UPDATE questionnaires SET status = ? WHERE id = ?", (status, qid))

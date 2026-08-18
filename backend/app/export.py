@@ -40,12 +40,53 @@ def _citations(item: dict) -> list[dict]:
 
 
 def status_of(item: dict) -> str:
-    """One of Answered / Needs review / No evidence / Locked."""
+    """One of Answered / Needs review / No evidence / N/A / Locked.
+
+    'No evidence' (your documents don't say) is kept distinct from a negative
+    answer of 'No' (you don't do this) — the latter reports as Answered and
+    carries a remediation note in the response text."""
     if item.get("locked"):
         return "Locked"
+    if item.get("excluded") or (item.get("choice") or "").strip() == "Not Applicable":
+        return "N/A"
     if item.get("needs_review"):
         return "Needs review" if _citations(item) else "No evidence"
     return "Answered"
+
+
+def _negative_suffix(item: dict) -> str:
+    """The remediation note a 'No' must carry so it never exports bare."""
+    date = str(item.get("remediation_date") or "").strip()
+    if date:
+        return f" Remediation planned by {date}."
+    if item.get("no_plan"):
+        return " No remediation is currently planned."
+    return ""
+
+
+def gate_issues(items: list[dict]) -> list[dict]:
+    """Rows that can't export yet: a bare 'No' (no remediation date and no
+    explicit no-plan acknowledgement) or a bare 'N/A' (no justification).
+    Returns [{id, question, issue}] so the caller can prompt for what's missing."""
+    out = []
+    for it in items:
+        if it.get("locked"):
+            continue
+        choice = (it.get("choice") or "").strip()
+        if it.get("excluded"):
+            if not str(it.get("exclusion_reason") or "").strip():
+                out.append({"id": it.get("id"), "question": it.get("question", ""),
+                            "issue": "na_reason"})
+            continue
+        if choice == "No":
+            if not str(it.get("remediation_date") or "").strip() and not it.get("no_plan"):
+                out.append({"id": it.get("id"), "question": it.get("question", ""),
+                            "issue": "remediation"})
+        elif choice == "Not Applicable":
+            if not str(it.get("na_reason") or "").strip():
+                out.append({"id": it.get("id"), "question": it.get("question", ""),
+                            "issue": "na_reason"})
+    return out
 
 
 def _date_suffix(c: dict) -> str:
@@ -79,14 +120,28 @@ def source_cell(item: dict) -> str:
 
 
 def vendor_response(item: dict) -> str:
-    """The answer text the customer sends: status prefix + detail, cleaned."""
+    """The answer text the customer sends: status prefix + detail, cleaned.
+
+    Never emits a bare 'No' or 'N/A' — a negative carries its remediation note
+    and an N/A carries its justification (the triage exclusion reason when the
+    row was excluded, else the user's one-line reason)."""
     if item.get("locked"):
         return LOCKED_TEXT
     choice = (item.get("choice") or "").strip()
+    # Excluded (out-of-scope) rows export as N/A with the exclusion reason.
+    if item.get("excluded"):
+        reason = str(item.get("exclusion_reason") or "").strip()
+        return f"Not Applicable. {reason}" if reason else "Not Applicable."
     answer = clean_answer(item.get("answer", ""))
-    if choice and answer and not answer.lower().startswith(choice.lower()):
-        return f"{choice}. {answer}"
-    return answer or choice
+    if choice == "Not Applicable":
+        reason = str(item.get("na_reason") or "").strip()
+        body = answer if answer and answer.lower() != "not applicable" else ""
+        detail = " ".join(x for x in (body, reason) if x)
+        return f"Not Applicable. {detail}".strip() if detail else "Not Applicable."
+    base = f"{choice}. {answer}" if (choice and answer and not answer.lower().startswith(choice.lower())) else (answer or choice)
+    if choice == "No":
+        base = (base + _negative_suffix(item)).strip()
+    return base
 
 
 def export_simple(name: str, items: list[dict]) -> bytes:
@@ -130,19 +185,31 @@ def export_simple(name: str, items: list[dict]) -> bytes:
     return buf.getvalue()
 
 
-def _cell_text(choice: str, answer: str, detail_col: bool) -> tuple[str, str]:
-    """Split an item into (status_cell, detail_cell) text.
+def _original_cells(item: dict, has_detail: bool) -> tuple[str, str]:
+    """Split an item into (status_cell, detail_cell) text for the customer's own
+    template. Honours the same negative/N-A rules as `vendor_response`.
 
     When the template has a distinct comments column the status goes in the
     answer column and the free-text in the comments column. Otherwise the two
     are combined into the single answer column.
     """
-    choice = (choice or "").strip()
-    answer = clean_answer(answer)
-    if detail_col:
+    excluded = bool(item.get("excluded"))
+    choice = (item.get("choice") or "").strip()
+    if excluded or choice == "Not Applicable":
+        status = "Not Applicable"
+        reason = str(item.get("exclusion_reason") if excluded else item.get("na_reason") or "").strip()
+        body = "" if excluded else clean_answer(item.get("answer", ""))
+        detail = " ".join(x for x in (body if body.lower() != "not applicable" else "", reason) if x)
+        if has_detail:
+            return status, detail
+        return (f"{status}. {detail}".strip() if detail else status), ""
+
+    answer = clean_answer(item.get("answer", ""))
+    if choice == "No":
+        answer = (answer + _negative_suffix(item)).strip()
+    if has_detail:
         return choice, answer
     if choice and answer:
-        # Avoid "Yes. Yes. …" when the answer already opens with the status.
         if answer.lower().startswith(choice.lower()):
             return answer, ""
         return f"{choice}. {answer}", ""
@@ -180,7 +247,7 @@ def _fill_xlsx(source: bytes, sheet_name, items, answer_col, detail_col, has_det
         if item.get("locked"):
             status_text, detail_text = LOCKED_TEXT, ""
         else:
-            status_text, detail_text = _cell_text(item.get("choice", ""), item.get("answer", ""), has_detail)
+            status_text, detail_text = _original_cells(item, has_detail)
         c = ws.cell(row=row, column=answer_col, value=status_text)
         c.alignment = Alignment(wrap_text=True, vertical="top")
         if has_detail and detail_col:
@@ -209,7 +276,7 @@ def _fill_csv(source: bytes, items, answer_col, detail_col, has_detail) -> bytes
         if item.get("locked"):
             status_text, detail_text = LOCKED_TEXT, ""
         else:
-            status_text, detail_text = _cell_text(item.get("choice", ""), item.get("answer", ""), has_detail)
+            status_text, detail_text = _original_cells(item, has_detail)
         r[a_idx] = status_text
         if d_idx is not None:
             r[d_idx] = detail_text

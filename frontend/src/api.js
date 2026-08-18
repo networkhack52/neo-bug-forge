@@ -56,6 +56,7 @@ export const api = {
     return req("/v1/questionnaires", { method: "POST", body: fd, isForm: true });
   },
   approveItem: (id, answer) => req(`/v1/items/${id}/approve`, { method: "POST", body: { answer } }),
+  setRemediation: (id, body) => req(`/v1/items/${id}/remediation`, { method: "POST", body }),
   documents: () => req("/v1/documents"),
   uploadDocument: (file) => {
     const fd = new FormData();

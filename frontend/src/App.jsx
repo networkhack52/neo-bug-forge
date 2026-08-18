@@ -23,6 +23,19 @@ function docStale(epoch) {
   return Date.now() / 1000 - epoch > 365 * 86400;
 }
 
+// Rows that can't export yet (mirrors the server gate): a bare "No" needs a
+// remediation date or an explicit no-plan; an "N/A" needs a reason.
+function gateIssues(items) {
+  return (items || []).filter((it) => {
+    if (it.locked) return false;
+    const choice = (it.choice || "").trim();
+    if (it.excluded) return !(it.exclusion_reason || "").trim();
+    if (choice === "No") return !(it.remediation_date || "").trim() && !it.no_plan;
+    if (choice === "Not Applicable") return !(it.na_reason || "").trim();
+    return false;
+  });
+}
+
 // "Open 3d", "Open 5h": how long a questionnaire has been sitting.
 function openFor(createdAtEpoch) {
   const hrs = (Date.now() / 1000 - createdAtEpoch) / 3600;
@@ -511,6 +524,12 @@ function Upload({ me, onChange, onNavigate }) {
     onChange();
   }
 
+  async function saveMeta(itemId, body) {
+    await api.setRemediation(itemId, body);
+    const fresh = await api.getQuestionnaire(result.questionnaire_id);
+    setResult((r) => ({ ...r, items: fresh.items }));
+  }
+
   return (
     <div>
       {!result && empty && (
@@ -591,6 +610,13 @@ function Upload({ me, onChange, onNavigate }) {
               limit. The rest are answered and in your export. Upgrade to answer the locked rows.
             </div>
           )}
+          {gateIssues(result.items).length > 0 && (
+            <div className="lockbanner">
+              {gateIssues(result.items).length} row(s) can't export yet. Every “No” needs a fix date (or
+              a note that there's no plan), and every “N/A” needs a one-line reason. Fill the highlighted
+              rows below.
+            </div>
+          )}
           <div className="statsrow">
             <Stat label="Answered" value={result.answered} />
             <Stat label="Reused from library" value={result.reused_from_bank} accent="green" />
@@ -621,7 +647,12 @@ function Upload({ me, onChange, onNavigate }) {
               Clean .xlsx
             </button>
           </div>
-          <ReviewList items={result.items} onApprove={approve} onShowSources={setSources} />
+          <ReviewList
+            items={result.items}
+            onApprove={approve}
+            onShowSources={setSources}
+            onSaveMeta={saveMeta}
+          />
           <button className="link" onClick={() => setResult(null)}>
             ← Upload another
           </button>
@@ -635,17 +666,92 @@ function Upload({ me, onChange, onNavigate }) {
   );
 }
 
-function ReviewList({ items, onApprove, onShowSources }) {
+function ReviewList({ items, onApprove, onShowSources, onSaveMeta }) {
   return (
     <div className="stack">
       {items.map((it) => (
-        <ReviewItem key={it.id} item={it} onApprove={onApprove} onShowSources={onShowSources} />
+        <ReviewItem
+          key={it.id}
+          item={it}
+          onApprove={onApprove}
+          onShowSources={onShowSources}
+          onSaveMeta={onSaveMeta}
+        />
       ))}
     </div>
   );
 }
 
-function ReviewItem({ item, onApprove, onShowSources }) {
+function RemediationFields({ item, onSaveMeta }) {
+  const isNo = (item.choice || "").trim() === "No";
+  const isNa = (item.choice || "").trim() === "Not Applicable" && !item.excluded;
+  if (!isNo && !isNa) return null;
+
+  const [remDate, setRemDate] = useState(item.remediation_date || "");
+  const [noPlan, setNoPlan] = useState(!!item.no_plan);
+  const [naReason, setNaReason] = useState(item.na_reason || "");
+
+  const unresolved = isNo ? !remDate.trim() && !noPlan : !naReason.trim();
+
+  function save(patch) {
+    onSaveMeta(item.id, {
+      remediation_date: remDate,
+      no_plan: noPlan,
+      na_reason: naReason,
+      ...patch,
+    });
+  }
+
+  if (isNo)
+    return (
+      <div className={`gatebox ${unresolved ? "unresolved" : ""}`}>
+        <div className="gatelabel">
+          This is a “No”. Add a fix date or note there’s no plan before you export.
+        </div>
+        <div className="gaterow">
+          <label className="gatefield">
+            Remediation date
+            <input
+              type="date"
+              value={remDate}
+              onChange={(e) => {
+                setRemDate(e.target.value);
+                setNoPlan(false);
+              }}
+              onBlur={() => save({ no_plan: false })}
+            />
+          </label>
+          <label className="gatecheck">
+            <input
+              type="checkbox"
+              checked={noPlan}
+              onChange={(e) => {
+                const v = e.target.checked;
+                setNoPlan(v);
+                if (v) setRemDate("");
+                save({ no_plan: v, remediation_date: v ? "" : remDate });
+              }}
+            />
+            No remediation planned
+          </label>
+        </div>
+      </div>
+    );
+
+  return (
+    <div className={`gatebox ${unresolved ? "unresolved" : ""}`}>
+      <div className="gatelabel">This is “N/A”. Add a one-line reason before you export.</div>
+      <input
+        placeholder="Why is this not applicable? (e.g. we don't process card data)"
+        value={naReason}
+        onChange={(e) => setNaReason(e.target.value)}
+        onBlur={() => save({})}
+      />
+    </div>
+  );
+}
+
+function ReviewItem({ item, onApprove, onShowSources, onSaveMeta }) {
   const [answer, setAnswer] = useState(item.answer);
   const approved = item.status === "approved";
   const cites = parseCitations(item.citations);
@@ -676,6 +782,7 @@ function ReviewItem({ item, onApprove, onShowSources }) {
       </div>
       <div className="q">{item.question}</div>
       <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={4} />
+      {onSaveMeta && <RemediationFields item={item} onSaveMeta={onSaveMeta} />}
       <div className="itemfoot">
         {cites.length > 0 ? (
           <button className="citebtn" onClick={() => onShowSources({ item, cites })}>
