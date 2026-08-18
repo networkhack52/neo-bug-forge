@@ -68,6 +68,89 @@ def test_hardened_prompt_has_grounding_and_injection_rules():
     assert "confidence rubric" in p
 
 
+class _FakeResp:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self._payload
+
+
+class _FakeClient:
+    """Captures the request payloads and returns canned draft+verify responses."""
+
+    def __init__(self, sent, responses):
+        self._sent = sent
+        self._responses = responses
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def post(self, url, headers=None, json=None):
+        self._sent.append(json)
+        return _FakeResp(self._responses[min(len(self._sent) - 1, len(self._responses) - 1)])
+
+
+def _capture_llm(monkeypatch):
+    """Run draft_answer against a fake Anthropic that records every request."""
+    import datetime as dt
+
+    from app import config, documents
+
+    monkeypatch.setattr(config, "LLM_ENABLED", True)
+    monkeypatch.setattr(config, "ANTHROPIC_API_KEY", "test-key")
+    sent = []
+    draft_json = {"content": [{"type": "text", "text":
+        '{"choice":"Yes","answer":"We encrypt customer data at rest.","confidence":85,'
+        '"needs_review":false,"citations":[{"source":"Old_Security_Policy.pdf",'
+        '"quote":"data is encrypted at rest with AES-256"}]}'}], "usage": {}}
+    verify_json = {"content": [{"type": "text",
+        "text": '{"supported": true, "unsupported_claims": []}'}], "usage": {}}
+    monkeypatch.setattr(drafting.httpx, "Client",
+                        lambda *a, **k: _FakeClient(sent, [draft_json, verify_json]))
+
+    old = dt.datetime(2019, 1, 1, tzinfo=dt.timezone.utc).timestamp()  # deliberately stale
+    doc = documents.DocMatch(chunk_id=1, doc_name="Old_Security_Policy.pdf",
+                             text="Our data is encrypted at rest with AES-256.", score=90.0,
+                             source_date=old, date_basis="stated")
+    d = drafting.draft_answer("Is data encrypted at rest?", [], [doc])
+    return d, sent
+
+
+def test_draft_and_verify_are_temperature_zero(monkeypatch):
+    d, sent = _capture_llm(monkeypatch)
+    assert len(sent) == 2                       # draft + verify
+    assert sent[0]["temperature"] == 0          # deterministic drafting
+    assert sent[1]["temperature"] == 0          # deterministic verify
+
+
+def test_source_freshness_never_reaches_the_model(monkeypatch):
+    """The design invariant: a document's date/staleness is information for the
+    reader, never an input to the support decision. It must not appear in the
+    draft OR verify request the model sees."""
+    d, sent = _capture_llm(monkeypatch)
+    import json as _json
+
+    draft_body = _json.dumps(sent[0]).lower()
+    verify_body = _json.dumps(sent[1]).lower()
+    for body in (draft_body, verify_body):
+        assert "2019" not in body               # the source date
+        assert "stale" not in body
+        assert "date_basis" not in body
+        assert "reviewed" not in body
+
+    # But freshness IS computed and attached for the reader/export.
+    cite = d.citations[0]
+    assert cite["date"] == "2019-01-01"
+    assert cite["stale"] is True
+
+
 def test_migration_is_idempotent_and_persists_citations():
     db.init_db()
     db.init_db()  # second call must not error (columns already added)

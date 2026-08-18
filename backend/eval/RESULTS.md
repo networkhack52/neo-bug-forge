@@ -66,3 +66,16 @@ Decision rule: false confidence > 3% -> move `VERIFY_MODEL` to a stronger model.
   coverage was 19/20 this run (s09 "regular backups?" abstained instead of
   asserting) — a *conservative* miss, not false confidence, and run-to-run
   variance (s09 asserted in the v2.1 run). The claim stands unchanged.
+
+- **Root-caused the s09 flip → made the eval deterministic.** Investigated whether
+  dev-brief-2 leaked into the confidence decision. It did not: freshness (Task 1)
+  is attached to citations *after* the model answers and is never put in the draft
+  or verify prompt (the model never sees a date), and the negatives gate (Task 4)
+  is export-only. The real cause was that our API calls sent **no temperature**, so
+  Anthropic defaulted to **1.0** — one row flipping between runs is sampling noise,
+  not signal. Fix: `ATTESTLY_TEMPERATURE` (default **0**) on both the draft and
+  verify calls, so the same question + sources returns the same answer every run.
+  Two regression tests lock the invariant: both calls are temperature 0, and the
+  document date/staleness never appears in either request body. **The next run at
+  temperature 0 is the new canonical baseline** — re-establish 0/60 there, and any
+  future row change is a real signal to investigate, not a coin flip.

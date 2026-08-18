@@ -267,6 +267,7 @@ def draft_answer(question: str, context: list[Match], documents: list | None = N
     payload = {
         "model": config.ANTHROPIC_MODEL,
         "max_tokens": 800,
+        "temperature": config.ANSWER_TEMPERATURE,  # 0 = deterministic (reproducible eval)
         "system": _system(SYSTEM_PROMPT),
         "messages": [{"role": "user", "content": _build_user_prompt(question, context, documents)}],
     }
@@ -374,6 +375,7 @@ def _verify(draft: Draft) -> None:
     payload = {
         "model": config.VERIFY_MODEL,
         "max_tokens": 300,
+        "temperature": config.ANSWER_TEMPERATURE,  # deterministic verdicts
         "system": _system(VERIFY_SYSTEM_PROMPT),
         "messages": [{
             "role": "user",

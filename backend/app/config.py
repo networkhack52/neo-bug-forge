@@ -86,6 +86,12 @@ VERIFY_MODEL = os.environ.get("ATTESTLY_VERIFY_MODEL", ANTHROPIC_MODEL)
 ANTHROPIC_BASE_URL = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
 ANTHROPIC_VERSION = os.environ.get("ANTHROPIC_VERSION", "2023-06-01")
 LLM_ENABLED = bool(ANTHROPIC_API_KEY)
+# Sampling temperature for drafting AND verification. Default 0 = deterministic:
+# the same question + same sources returns the same answer every time. This is
+# right for a compliance tool (consistency across questionnaires is the point)
+# and it makes the eval reproducible, so a row that changes between runs is a
+# real signal (a code/prompt/model change), not sampling noise.
+ANSWER_TEMPERATURE = float(os.environ.get("ATTESTLY_TEMPERATURE", "0"))
 # Trust features (only active when the LLM is enabled). Each is one extra
 # request per drafted answer; disable to trade trust for lower COGS.
 CITATIONS_ENABLED = os.environ.get("ATTESTLY_CITATIONS", "1") not in ("0", "false", "False")
