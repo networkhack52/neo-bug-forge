@@ -40,6 +40,27 @@ def _upload_doc(token, text="Security policy: access is least privilege; data en
     assert r.status_code == 200, r.text
 
 
+_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def _triage(token, data, filename="q.xlsx"):
+    """Phase 1: upload for triage (no answering yet)."""
+    files = {"file": (filename, data, _XLSX)}
+    return client.post("/v1/questionnaires", headers=_auth(token), files=files)
+
+
+def _answer(token, qid, exclude=None):
+    """Phase 2: answer a triaged questionnaire."""
+    return client.post(f"/v1/questionnaires/{qid}/answer",
+                       headers=_auth(token), json={"exclude": exclude or []})
+
+
+def _upload_answer(token, data, filename="q.xlsx", exclude=None):
+    """Full flow: triage then answer. Returns the answered response body."""
+    up = _triage(token, data, filename).json()
+    return _answer(token, up["questionnaire_id"], exclude).json()
+
+
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200
@@ -127,16 +148,17 @@ def test_full_flow_signup_bank_upload_export():
         "answer": "Yes, TLS 1.2+ everywhere.",
     })
 
-    # Upload a questionnaire -> auto-answered.
-    files = {"file": ("q.xlsx", _questionnaire_bytes(),
-                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
-    r = client.post("/v1/questionnaires", headers=_auth(token), files=files)
-    assert r.status_code == 200, r.text
-    body = r.json()
+    # Phase 1: triage detects the format and library coverage, answers nothing.
+    tri = _triage(token, _questionnaire_bytes()).json()
+    assert tri["phase"] == "triage"
+    assert tri["total_questions"] == 2
+    assert tri["library_covered"] >= 1
+    qid = tri["questionnaire_id"]
+
+    # Phase 2: answer the triaged questionnaire.
+    body = _answer(token, qid).json()
     assert body["total_questions"] == 2
     assert body["reused_from_bank"] >= 1   # at least the verbatim MFA question
-
-    qid = body["questionnaire_id"]
     assert body["answered"] == 2
     assert body["locked"] == 0
 
@@ -155,6 +177,53 @@ def test_full_flow_signup_bank_upload_export():
     assert len(r.content) > 0
 
 
+def test_triage_reports_framework_coverage_and_quota():
+    token = _token()
+    # One library answer so coverage > 0.
+    q_known = "Do you enforce MFA for all employees?"
+    client.post("/v1/answers", headers=_auth(token),
+                json={"question": q_known, "answer": "Yes, MFA is enforced."})
+    data = _one_q2_bytes([q_known, "Do you run background checks on staff?"])
+    tri = _triage(token, data, filename="Vendor_CAIQ.xlsx").json()
+    assert tri["phase"] == "triage"
+    assert tri["framework"] == "CAIQ"
+    assert tri["total_questions"] == 2
+    assert tri["library_covered"] == 1
+    assert tri["will_use_quota"] == 1
+    # Triage alone consumes no quota.
+    assert client.get("/v1/me", headers=_auth(token)).json()["onboarding_remaining"] == 150
+
+
+def test_excluded_rows_use_no_quota_and_export_as_na():
+    token = _token()
+    _upload_doc(token)
+    data = _one_q2_bytes(["Do you support control A?", "Describe physical data centre access."])
+    tri = _triage(token, data).json()
+    # Exclude the second row as out of scope.
+    ex_id = tri["items"][1]["id"]
+    body = _answer(token, tri["questionnaire_id"],
+                   exclude=[{"id": ex_id, "reason": "Cloud-only, no data centres."}]).json()
+    assert body["excluded"] == 1
+    assert body["answered"] == 1                      # only the non-excluded row
+    me = client.get("/v1/me", headers=_auth(token)).json()
+    assert me["onboarding_remaining"] == 149          # 1 answer charged, excluded row free
+
+    # Export succeeds (excluded row carries its reason -> not a bare N/A) and is N/A.
+    r = client.get(f"/v1/questionnaires/{tri['questionnaire_id']}/export", headers=_auth(token))
+    assert r.status_code == 200
+
+
+def _one_q2_bytes(questions):
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Question", "Answer"])
+    for q in questions:
+        ws.append([q, ""])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
 def _big_questionnaire(n):
     wb = Workbook()
     ws = wb.active
@@ -171,11 +240,7 @@ def test_onboarding_allowance_answers_beyond_the_free_period_limit():
     # (>25) in one go, because the 150 onboarding pool covers it — nothing declined.
     token = _token()
     _upload_doc(token)  # unlocks drafting
-    files = {"file": ("big.xlsx", _big_questionnaire(30),
-                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
-    r = client.post("/v1/questionnaires", headers=_auth(token), files=files)
-    assert r.status_code == 200, r.text
-    body = r.json()
+    body = _upload_answer(token, _big_questionnaire(30), filename="big.xlsx")
     assert body["answered"] == 30 and body["locked"] == 0
     me = client.get("/v1/me", headers=_auth(token)).json()
     assert me["questions_used"] == 0            # drawn from onboarding, not the period
@@ -187,12 +252,8 @@ def test_over_quota_partial_answers_and_locks_the_rest(monkeypatch):
     monkeypatch.setattr(config, "ONBOARDING_ALLOWANCE", 0)  # only the 25 period remains
     token = _token()
     _upload_doc(token)
-    files = {"file": ("big.xlsx", _big_questionnaire(30),
-                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
-    r = client.post("/v1/questionnaires", headers=_auth(token), files=files)
-    assert r.status_code == 200, r.text          # partial, never declined
-    body = r.json()
-    assert body["answered"] == 25 and body["locked"] == 5
+    body = _upload_answer(token, _big_questionnaire(30), filename="big.xlsx")
+    assert body["answered"] == 25 and body["locked"] == 5   # partial, never declined
     # The export is still produced, with the locked rows in it.
     ex = client.get(f"/v1/questionnaires/{body['questionnaire_id']}/export", headers=_auth(token))
     assert ex.status_code == 200 and len(ex.content) > 0
@@ -205,9 +266,7 @@ def test_onboarding_allowance_is_shared_per_domain(monkeypatch):
     a = _token(domain=domain)
     b = _token(domain=domain)  # same company, second signup
     _upload_doc(a)
-    files = {"file": ("big.xlsx", _big_questionnaire(30),
-                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
-    client.post("/v1/questionnaires", headers=_auth(a), files=files)
+    _upload_answer(a, _big_questionnaire(30), filename="big.xlsx")
     # Account A spent 30 of the shared 40; account B sees only 10 left in the pool.
     me_b = client.get("/v1/me", headers=_auth(b)).json()
     assert me_b["onboarding_remaining"] == 10
@@ -249,9 +308,7 @@ def test_free_tier_spend_cap_pauses_drafting(monkeypatch):
     db.record_usage(_org_id(token), None, None,
                     {"model": "claude-haiku-4-5-20251001", "input_tokens": 0,
                      "cached_input_tokens": 0, "output_tokens": 0}, cost=1.0)
-    files = {"file": ("q.xlsx", _big_questionnaire(3),
-                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
-    body = client.post("/v1/questionnaires", headers=_auth(token), files=files).json()
+    body = _upload_answer(token, _big_questionnaire(3))
     assert body["spend_paused"] is True
     assert body["answered"] == 0 and body["blocked"] == 3
 
@@ -277,14 +334,12 @@ def test_upload_is_rate_limited(monkeypatch):
 def test_free_tier_gates_drafting_until_a_document_is_uploaded():
     # No document -> questions that need drafting are blocked and cost nothing.
     token = _token()
-    files = {"file": ("q.xlsx", _big_questionnaire(3),
-                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
-    body = client.post("/v1/questionnaires", headers=_auth(token), files=files).json()
+    body = _upload_answer(token, _big_questionnaire(3))
     assert body["answered"] == 0 and body["blocked"] == 3
     assert client.get("/v1/me", headers=_auth(token)).json()["onboarding_remaining"] == 150
     # After a document, the same questions draft normally.
     _upload_doc(token)
-    body2 = client.post("/v1/questionnaires", headers=_auth(token), files=files).json()
+    body2 = _upload_answer(token, _big_questionnaire(3))
     assert body2["answered"] == 3 and body2["blocked"] == 0
 
 
@@ -323,9 +378,7 @@ def test_resolve_contradiction_keep_new_updates_library():
     q = "How often do you rotate encryption keys?"
     ans = client.post("/v1/answers", headers=_auth(token),
                       json={"question": q, "answer": "We rotate keys annually."}).json()
-    files = {"file": ("q.xlsx", _one_q_bytes(q),
-                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
-    body = client.post("/v1/questionnaires", headers=_auth(token), files=files).json()
+    body = _triage(token, _one_q_bytes(q)).json()
     item_id = body["items"][0]["id"]
 
     # Simulate a flagged contradiction on the item (new drafted answer differs).
@@ -356,9 +409,7 @@ def test_resolve_contradiction_keep_prior_reverts_item():
     q = "What is your data retention period?"
     ans = client.post("/v1/answers", headers=_auth(token),
                       json={"question": q, "answer": "We retain data for 30 days."}).json()
-    files = {"file": ("q.xlsx", _one_q_bytes(q),
-                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
-    body = client.post("/v1/questionnaires", headers=_auth(token), files=files).json()
+    body = _triage(token, _one_q_bytes(q)).json()
     item_id = body["items"][0]["id"]
 
     db.set_item_answer_text(item_id, "We retain data for 90 days.", "")
@@ -394,9 +445,7 @@ def test_export_blocks_bare_no_until_remediation_is_set():
     # A reused library answer that reads as a 'No' -> the item's choice is No.
     client.post("/v1/answers", headers=_auth(token),
                 json={"question": q, "answer": "No, we do not sell customer data."})
-    files = {"file": ("q.xlsx", _one_q_bytes(q),
-                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
-    body = client.post("/v1/questionnaires", headers=_auth(token), files=files).json()
+    body = _upload_answer(token, _one_q_bytes(q))
     qid = body["questionnaire_id"]
     item = body["items"][0]
     assert item["choice"] == "No"

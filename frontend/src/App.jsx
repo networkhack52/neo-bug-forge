@@ -476,6 +476,7 @@ function ResetPassword({ token, onDone }) {
 
 function Upload({ me, onChange, onNavigate }) {
   const [result, setResult] = useState(null);
+  const [triage, setTriage] = useState(null); // triage summary before answering
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [library, setLibrary] = useState([]);
@@ -507,9 +508,23 @@ function Upload({ me, onChange, onNavigate }) {
     setBusy(true);
     setErr("");
     setResult(null);
+    setTriage(null);
     try {
-      const res = await api.uploadQuestionnaire(file);
+      const res = await api.uploadQuestionnaire(file); // triage, no answering yet
+      setTriage(res);
+    } catch (e) {
+      setErr(e.message);
+    }
+    setBusy(false);
+  }
+
+  async function runAnswer(exclude) {
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await api.answerQuestionnaire(triage.questionnaire_id, exclude);
       setResult(res);
+      setTriage(null);
       onChange();
     } catch (e) {
       setErr(e.message);
@@ -539,7 +554,7 @@ function Upload({ me, onChange, onNavigate }) {
 
   return (
     <div>
-      {!result && empty && (
+      {!result && !triage && empty && (
         <div className="card nudge">
           <h2>New here? Do this first ↓</h2>
           <p className="muted">
@@ -578,20 +593,33 @@ function Upload({ me, onChange, onNavigate }) {
         </div>
       )}
 
-      {!result && (
+      {!result && !triage && (
         <div className="card dropzone">
           <h2>Upload a questionnaire</h2>
           <p className="muted">.xlsx or .csv. We auto-detect the question column.</p>
           <label className="primary filebtn">
-            {busy ? "Answering…" : "Choose file"}
+            {busy ? "Reading…" : "Choose file"}
             <input type="file" accept=".xlsx,.xlsm,.csv" onChange={onFile} hidden />
           </label>
           {err && <div className="error">{err}</div>}
           <p className="muted small">
-            {me.answers_remaining} answers left on your {me.tier_name} plan. A larger file is answered up
-            to your limit; the remaining rows are locked until you upgrade.
+            {me.answers_remaining} answers left on your {me.tier_name} plan. We scope the file first,
+            so you answer only what you choose; the rest stays locked until you upgrade.
           </p>
         </div>
+      )}
+
+      {triage && !result && (
+        <TriagePanel
+          triage={triage}
+          busy={busy}
+          err={err}
+          onAnswer={runAnswer}
+          onCancel={() => {
+            setTriage(null);
+            setErr("");
+          }}
+        />
       )}
 
       {result && (
@@ -628,6 +656,7 @@ function Upload({ me, onChange, onNavigate }) {
             <Stat label="Answered" value={result.answered} />
             <Stat label="Reused from library" value={result.reused_from_bank} accent="green" />
             <Stat label="Drafted" value={result.drafted} accent="blue" />
+            {result.excluded > 0 && <Stat label="N/A (excluded)" value={result.excluded} />}
             {result.locked > 0 && <Stat label="Locked" value={result.locked} accent="amber" />}
             {result.can_export_original && (
               <button
@@ -670,6 +699,135 @@ function Upload({ me, onChange, onNavigate }) {
       {sources && (
         <SourcePanel data={sources} library={library} onClose={() => setSources(null)} />
       )}
+    </div>
+  );
+}
+
+function TriagePanel({ triage, busy, err, onAnswer, onCancel }) {
+  // Per-item exclusion state, seeded from the server's out-of-scope suggestions.
+  const [excluded, setExcluded] = useState(() => {
+    const m = {};
+    for (const it of triage.items) {
+      if (it.suggested_exclude) m[it.id] = it.suggested_reason || "Out of scope for our product.";
+    }
+    return m;
+  });
+
+  const isExcluded = (id) => Object.prototype.hasOwnProperty.call(excluded, id);
+  function toggle(it) {
+    setExcluded((m) => {
+      const next = { ...m };
+      if (isExcluded(it.id)) delete next[it.id];
+      else next[it.id] = it.suggested_reason || "Out of scope for our product.";
+      return next;
+    });
+  }
+  function setReason(id, reason) {
+    setExcluded((m) => ({ ...m, [id]: reason }));
+  }
+
+  const total = triage.total_questions;
+  const covered = triage.library_covered;
+  const excludedCount = Object.keys(excluded).length;
+  // Rows that will consume an answer: not covered by the library, not excluded.
+  const willUse = triage.items.filter((it) => !it.covered && !isExcluded(it.id)).length;
+  const remaining = triage.answers_remaining;
+  const overBudget = Math.max(0, willUse - remaining);
+
+  function answer() {
+    const exclude = Object.entries(excluded).map(([id, reason]) => ({
+      id: Number(id),
+      reason,
+    }));
+    onAnswer(exclude);
+  }
+
+  return (
+    <div className="card">
+      <div className="triage-head">
+        <div>
+          <span className="pill">{triage.framework}</span>
+          <h2 style={{ marginTop: 8 }}>Scope this questionnaire</h2>
+        </div>
+        <button className="link" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+
+      <div className="triage-summary">
+        <span>
+          <strong>{total}</strong> questions
+        </span>
+        <span>
+          <strong>{covered}</strong> covered by your library
+        </span>
+        {excludedCount > 0 && (
+          <span>
+            <strong>{excludedCount}</strong> excluded (N/A)
+          </span>
+        )}
+        <span>
+          <strong>{willUse}</strong> answers will be used
+        </span>
+        <span className={overBudget ? "stale" : ""}>
+          <strong>{remaining}</strong> remaining
+        </span>
+      </div>
+
+      {overBudget > 0 && (
+        <div className="lockbanner">
+          This would use {willUse} answers but you have {remaining} left. The first {remaining} rows
+          are answered; the other {overBudget} are locked until you upgrade. Exclude out-of-scope rows
+          to fit more of what matters.
+        </div>
+      )}
+      {triage.no_docs && (
+        <div className="lockbanner">
+          Drafting needs a trust document. Rows your library can't cover will be blocked until you
+          upload your SOC 2 or a policy. Reused answers still work.
+        </div>
+      )}
+      {triage.suggested_exclusions.length > 0 && (
+        <p className="muted small">
+          We pre-selected {triage.suggested_exclusions.length} row(s) that look out of scope for your
+          product (they're marked N/A with a reason). Uncheck any that do apply.
+        </p>
+      )}
+
+      <div className="triage-list">
+        {triage.items.map((it) => {
+          const ex = isExcluded(it.id);
+          return (
+            <div key={it.id} className={`triage-row ${ex ? "excluded" : ""}`}>
+              <label className="triage-check">
+                <input type="checkbox" checked={ex} onChange={() => toggle(it)} />
+                <span className="triage-q">{it.question}</span>
+              </label>
+              <div className="triage-tags">
+                {it.covered && <span className="tag green">Library</span>}
+                {!it.covered && <span className="tag blue">Will draft</span>}
+                {it.suggested_exclude && !ex && <span className="tag amber">Maybe N/A</span>}
+              </div>
+              {ex && (
+                <input
+                  className="triage-reason"
+                  value={excluded[it.id]}
+                  onChange={(e) => setReason(it.id, e.target.value)}
+                  placeholder="Reason for N/A (required)"
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {err && <div className="error">{err}</div>}
+      <div className="triage-actions">
+        <button className="primary" onClick={answer} disabled={busy}>
+          {busy ? "Answering…" : `Answer ${total - excludedCount} questions`}
+        </button>
+        <span className="muted small">Excluded rows are marked N/A in your export and use no quota.</span>
+      </div>
     </div>
   );
 }

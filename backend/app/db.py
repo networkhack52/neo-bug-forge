@@ -643,14 +643,15 @@ def create_questionnaire(
     question_col: Optional[int] = None,
     answer_col: Optional[int] = None,
     detail_col: Optional[int] = None,
+    framework: str = "",
 ) -> int:
     with cursor() as cur:
         return cur.insert(
             "INSERT INTO questionnaires (org_id, name, source_filename, total_questions, "
             "source_bytes, source_kind, sheet_name, question_col, answer_col, detail_col, "
-            "created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "framework, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (org_id, name, source_filename, total, source_bytes, source_kind, sheet_name,
-             question_col, answer_col, detail_col, time.time()),
+             question_col, answer_col, detail_col, framework, time.time()),
         )
 
 

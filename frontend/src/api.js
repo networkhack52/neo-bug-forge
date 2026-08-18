@@ -55,6 +55,8 @@ export const api = {
     fd.append("file", file);
     return req("/v1/questionnaires", { method: "POST", body: fd, isForm: true });
   },
+  answerQuestionnaire: (id, exclude = []) =>
+    req(`/v1/questionnaires/${id}/answer`, { method: "POST", body: { exclude } }),
   approveItem: (id, answer) => req(`/v1/items/${id}/approve`, { method: "POST", body: { answer } }),
   setRemediation: (id, body) => req(`/v1/items/${id}/remediation`, { method: "POST", body }),
   resolveContradiction: (id, keep) =>

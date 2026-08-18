@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from . import (
     __version__, assessment as assess, billing, config, db, documents, email as email_svc,
-    engine, export, parsing, passwords, ratelimit, tokens,
+    engine, export, parsing, passwords, ratelimit, tokens, triage,
 )
 from .report import render as render_report
 
@@ -424,19 +424,8 @@ def delete_document(doc_id: int, org: dict = Depends(require_org)) -> dict:
 # --------------------------------------------------------------------------
 # Questionnaires
 # --------------------------------------------------------------------------
-@app.post("/v1/questionnaires")
-async def upload_questionnaire(
-    request: Request, file: UploadFile = File(...), org: dict = Depends(require_org)
-) -> dict:
-    rate_limit_request_and_account(request, "upload", org["id"], config.RL_UPLOAD)
-    data = await file.read()
-    _reject_if_oversized(data)
-    parsed = parsing.parse(file.filename or "upload.xlsx", data)
-    if not parsed.questions:
-        raise HTTPException(status_code=422, detail="No questions detected in the file")
-
-    # Metering: partial-answer up to the plan's remaining quota, lock the rest.
-    # Never decline the whole file — a rejected upload is a dead first impression.
+def _quota_state(org: dict) -> dict:
+    """This account's answer allowance right now (onboarding pool + period)."""
     tier = config.TIERS[org["tier"]]
     is_free = org["tier"] == "free"
     domain = db.email_domain(org.get("email"))
@@ -444,27 +433,112 @@ async def upload_questionnaire(
         max(0, config.ONBOARDING_ALLOWANCE - db.domain_onboarding_used(domain)) if is_free else 0
     )
     period_remaining = max(0, tier["question_limit"] - org["questions_used"])
-    total_remaining = onboarding_remaining + period_remaining
+    return {
+        "is_free": is_free,
+        "domain": domain,
+        "onboarding_remaining": onboarding_remaining,
+        "period_remaining": period_remaining,
+        "total_remaining": onboarding_remaining + period_remaining,
+    }
 
+
+@app.post("/v1/questionnaires")
+async def upload_questionnaire(
+    request: Request, file: UploadFile = File(...), org: dict = Depends(require_org)
+) -> dict:
+    """Triage step: parse and scope the questionnaire WITHOUT answering. Detects
+    the framework, counts questions, shows how many the library already covers
+    and how much quota the rest will use, and suggests out-of-scope rows to
+    exclude. No model call, no quota consumed — answering happens on confirm via
+    POST /v1/questionnaires/{id}/answer."""
+    rate_limit_request_and_account(request, "upload", org["id"], config.RL_UPLOAD)
+    data = await file.read()
+    _reject_if_oversized(data)
+    parsed = parsing.parse(file.filename or "upload.xlsx", data)
+    if not parsed.questions:
+        raise HTTPException(status_code=422, detail="No questions detected in the file")
+
+    framework = triage.detect_framework(file.filename or "", parsed.questions)
     n_questions = len(parsed.questions)
-    answerable = min(n_questions, total_remaining)
 
     qid = db.create_questionnaire(
         org["id"], file.filename or "Questionnaire", file.filename or "", n_questions,
         source_bytes=data, source_kind=parsed.kind, sheet_name=parsed.sheet_name,
         question_col=parsed.question_col, answer_col=parsed.answer_col,
-        detail_col=parsed.detail_col,
+        detail_col=parsed.detail_col, framework=framework,
     )
     for eq in parsed.questions:
         db.add_item(qid, eq.row_index, eq.question, excel_row=eq.excel_row)
 
-    # Rows beyond the quota are locked (in row order) and never answered.
-    ordered = db.list_items(qid)
-    db.lock_items([it["id"] for it in ordered[answerable:]])
+    # Coverage + out-of-scope: no model calls (library ranking + heuristics only).
+    covered = triage.coverage_flags(org["id"], parsed.questions)
+    suggestions = triage.out_of_scope_suggestions(org["id"], parsed.questions)
+    covered_count = sum(covered)
 
-    # Free tier gates DRAFTING (model calls) two ways: (1) behind a trust
-    # document, and (2) behind the monthly free-tier spend cap. Reused answers
-    # still work; questions that would be drafted are blocked (and cost nothing).
+    q = _quota_state(org)
+    items = db.list_items(qid)
+    # Attach the triage hints to each item (row order matches parsed.questions).
+    for it, eq, is_covered in zip(items, parsed.questions, covered):
+        it["covered"] = bool(is_covered)
+        reason = suggestions.get(eq.row_index)
+        it["suggested_exclude"] = reason is not None
+        it["suggested_reason"] = reason or ""
+
+    is_free = q["is_free"]
+    no_docs = is_free and db.count_documents(org["id"]) == 0
+    spend_paused = is_free and _free_tier_drafting_paused()
+
+    # Answers the non-covered rows would consume (covered rows reuse for free).
+    to_draft = n_questions - covered_count
+    return {
+        "questionnaire_id": qid,
+        "phase": "triage",
+        "framework": framework,
+        "total_questions": n_questions,
+        "library_covered": covered_count,
+        "will_use_quota": to_draft,
+        "suggested_exclusions": [it["id"] for it in items if it.get("suggested_exclude")],
+        "onboarding_remaining": q["onboarding_remaining"],
+        "period_remaining": q["period_remaining"],
+        "answers_remaining": q["total_remaining"],
+        "no_docs": no_docs,
+        "spend_paused": spend_paused,
+        "can_export_original": parsed.answer_col is not None,
+        "source_kind": parsed.kind,
+        "items": items,
+    }
+
+
+@app.post("/v1/questionnaires/{qid}/answer")
+def answer_questionnaire_endpoint(qid: int, body: dict, org: dict = Depends(require_org)) -> dict:
+    """Answer a triaged questionnaire. Applies the user's exclusions (out-of-scope
+    rows -> N/A, no quota), partial-answers up to the remaining quota, locks the
+    rest, and charges only the answers actually produced."""
+    q = db.get_questionnaire(qid, org["id"])
+    if not q:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    # Apply exclusions from triage: [{id, reason}] -> N/A rows (no quota).
+    exclude_ids = set()
+    for ex in body.get("exclude") or []:
+        iid = ex.get("id")
+        if iid is None:
+            continue
+        db.set_item_exclusion(int(iid), True, (ex.get("reason") or "").strip())
+        exclude_ids.add(int(iid))
+
+    state = _quota_state(org)
+    onboarding_remaining = state["onboarding_remaining"]
+    total_remaining = state["total_remaining"]
+
+    # Answerable = rows that aren't excluded, capped at remaining quota; lock the
+    # overflow (in row order) so it's never answered.
+    ordered = db.list_items(qid)
+    answerable_items = [it for it in ordered if it["id"] not in exclude_ids and not it.get("excluded")]
+    over = answerable_items[total_remaining:] if total_remaining < len(answerable_items) else []
+    db.lock_items([it["id"] for it in over])
+
+    is_free = state["is_free"]
     no_docs = is_free and db.count_documents(org["id"]) == 0
     spend_paused = is_free and _free_tier_drafting_paused()
     allow_draft = not (no_docs or spend_paused)
@@ -475,31 +549,33 @@ async def upload_questionnaire(
     engine.answer_questionnaire(org["id"], qid, allow_draft=allow_draft, block_message=block_message)
 
     items = db.list_items(qid)
-    reused = sum(1 for it in items if it["match_type"] == "reuse" and not it["locked"])
-    drafted = sum(1 for it in items if it["match_type"] in ("drafted", "fallback") and not it["locked"])
+    reused = sum(1 for it in items if it["match_type"] == "reuse" and not it["locked"] and not it["excluded"])
+    drafted = sum(1 for it in items if it["match_type"] in ("drafted", "fallback") and not it["locked"] and not it["excluded"])
     blocked = sum(1 for it in items if it["match_type"] == "blocked")
     locked = sum(1 for it in items if it["locked"])
+    excluded = sum(1 for it in items if it["excluded"])
     answered = reused + drafted
 
-    # Charge only answers we actually produced (reuse + draft), never blocked or
-    # locked rows. Draw from the onboarding pool first, then the period.
     from_onboarding = min(answered, onboarding_remaining)
-    db.consume_domain_onboarding(domain, from_onboarding)
+    db.consume_domain_onboarding(state["domain"], from_onboarding)
     if answered - from_onboarding > 0:
         db.increment_usage(org["id"], answered - from_onboarding)
 
     return {
         "questionnaire_id": qid,
-        "total_questions": n_questions,
+        "phase": "answered",
+        "framework": q.get("framework", ""),
+        "total_questions": q.get("total_questions", len(items)),
         "answered": answered,
         "locked": locked,
         "blocked": blocked,
+        "excluded": excluded,
         "reused_from_bank": reused,
         "drafted": drafted,
         "spend_paused": spend_paused,
         "cost_usd": db.cost_for_questionnaire(qid)["cost_usd"],
-        "can_export_original": parsed.answer_col is not None,
-        "source_kind": parsed.kind,
+        "can_export_original": bool(q.get("answer_col")),
+        "source_kind": q.get("source_kind", "xlsx"),
         "items": items,
     }
 

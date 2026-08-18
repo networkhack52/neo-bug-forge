@@ -67,6 +67,10 @@ Questions are answered **concurrently** (10-wide, `ATTESTLY_ANSWER_CONCURRENCY`,
 - **Verification pass** — flags unsupported claims; **abstains** instead of hallucinating
 - **First-run nudge** — empty Upload screen guides new users to load starter answers + upload a SOC 2 first, so the first questionnaire returns cited answers, not abstentions
 - **Choice field** (Yes/No/Partially/Not Applicable)
+- **Triage before answering** — on upload we detect the framework (SIG/CAIQ/VSAQ/Custom), count questions, show how many the library already covers and how much quota the rest will use, and suggest out-of-scope rows (e.g. physical data-centre controls for a cloud-only vendor) to exclude in bulk. No model call until you confirm. Excluded rows export as N/A with a reason and cost no quota. (`triage.py`, two-phase upload → `/answer`)
+- **Source freshness** — every cited answer shows the date of the document behind it (a parsed "Last reviewed"/"Effective" date, else the file date), and flags sources older than 12 months. The date rides along into the export's Source cell. (`dates.py`)
+- **Contradiction check** — a freshly drafted answer that materially differs from a previously approved one (a yes/no flip, a number, a frequency, a named technology) is flagged with both versions side by side + dates; confirming updates the library and logs the change. Wording-only changes are ignored. (`diffing.py`)
+- **No bare negatives** — a "No" needs a remediation date or an explicit no-plan note, and an "N/A" needs a reason, before it can export. "No evidence" (your docs don't say) stays distinct from "No" (you don't do this).
 - Export: **clean .xlsx** and **filled original** (write back into the customer's own template)
 - Real accounts: email + password login, one account per email
 - **Forgot-password flow** — single-use, 1-hour reset link emailed via Resend (`app/email.py`); non-enumerating `/v1/password/forgot`, and `/v1/password/reset` also rotates the API token. Gated on `RESEND_API_KEY`: with no key the link is logged, not emailed (needs Resend + verified sending domain to reach inboxes)
