@@ -40,7 +40,33 @@ v3 is the new, harder eval:
   false "Yes". Coverage and "contradicted caught" become end-to-end (retrieval +
   model) numbers; read them together with the retrieval mode printed in the header.
 
-_v3 live results to be recorded here after the first run._
+**v3 first live run (2026-08-18, semantic top-3):** FALSE CONFIDENCE 2/150 = 1.3%
+(PASS, < 3%). Supported coverage 39/50, contradicted caught 34/35, ambiguous
+25/25, $0.00226/answer. Flagged: u07, c23. On inspection:
+
+- **c23 was a labeling error, not a model error.** "Is access revoked within 7
+  days?" is *satisfied* by the real "within 24 hours" (24h is within 7 days), so
+  the model's confident "Yes" was correct. Reviewing the whole contradicted group
+  found **8 items** with the same bug — a *looser* bound the real value already
+  satisfies (c15, c20, c22, c23, c26, c33, c34, c35). Most abstained by luck; c23
+  asserted and got (wrongly) flagged. All 8 reworded to genuine contradictions
+  (a tighter interval or a conflicting method), which makes the class *harder*.
+  This is the advisor's warning made real: inspect flagged rows, don't trust the
+  aggregate. A re-run is needed on the corrected set.
+- **u07 is a real (minor) over-confidence.** "Do you have a SOC 1 / SSAE 18
+  report?" is genuinely silent (the corpus has a SOC 2). The model answered
+  confidently ("no SOC 1", inferred from the SOC 2's presence) rather than
+  abstaining — the exact "absence is not evidence" case. Kept as an honest catch.
+  After the c23 fix, true false confidence is ~1/150 (0.67%).
+- **New signal — supported coverage 39/50 (78%) at top-3.** Not a safety issue
+  (a miss abstains, never a false Yes), but it means real retrieval at K=3 over 59
+  passages misses ~22% of supported controls, so the model abstains on answers it
+  could have given. This is the retrieval-recall failure the larger corpus was
+  built to expose. Worth testing whether raising the product's grounding K
+  (MAX_GROUND_CHUNKS 3 -> 5) lifts coverage without introducing false confidence:
+  re-run with ATTESTLY_EVAL_TOP_K=5.
+
+_v3 corrected-set results to be recorded after the re-run._
 
 ## Notes
 
