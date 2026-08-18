@@ -10,6 +10,7 @@ Decision rule: false confidence > 3% -> move `VERIFY_MODEL` to a stronger model.
 | 2026-08-16 | v1 (50 Q, 8 passages) | haiku / haiku | 0.0% (0/50) | 20/20 | n/a | 10/10 | $0.00260 | PASS (weak eval) |
 | 2026-08-16 | v2 (60 Q, near-miss) | haiku / haiku | 3.3% (2/60)* | 19/20 | 10/10 | 10/10 | $0.00335 | *both flags were correct denials (mislabels) |
 | 2026-08-16 | v2.1 (labels fixed) | haiku / haiku | **0.0%** (0/60) | 20/20 | 10/10 | 10/10 | $0.00335 | PASS — haiku-only stands |
+| 2026-08-18 | v2.1 rerun (post dev-brief-2) | haiku / haiku | **0.0%** (0/60) | 19/20 | 10/10 | 10/10 | $0.00341 | PASS — brief-2 changes didn't touch grounding |
 
 ## Notes
 
@@ -56,3 +57,12 @@ Decision rule: false confidence > 3% -> move `VERIFY_MODEL` to a stronger model.
   answered correctly this run — the earlier miss was run-to-run variance.
   **Claim we can stand behind: "0% false confidence across 60 questions including
   near-miss and contradicted evidence."**
+
+- **2026-08-18 rerun after dev-brief-2** (source freshness, contradiction check,
+  triage, no-bare-negatives). Those features all sit *around* the drafting path
+  and don't touch the grounding rules the eval measures, so the frozen 60 was
+  the regression check. Result held: **0% false confidence (0/60)**, 10/10
+  contradicted caught, 10/10 ambiguous flagged, $0.00341/answer. Supported
+  coverage was 19/20 this run (s09 "regular backups?" abstained instead of
+  asserting) — a *conservative* miss, not false confidence, and run-to-run
+  variance (s09 asserted in the v2.1 run). The claim stands unchanged.
