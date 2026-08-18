@@ -187,6 +187,14 @@ button, .primary, .secondary {
 .rowactions { display: inline-flex; gap: 16px; align-items: center; }
 .seedbox { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 10px; }
 .notice.small { font-size: 13px; padding: 8px 12px; }
+.contra { margin-top: 10px; padding: 12px; border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); border-radius: 8px; background: var(--amber-bg); }
+.contra-head { font-size: 13px; color: var(--ink); margin-bottom: 10px; }
+.contra-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.contra-col { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.contra-col.current { border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.contra-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.contra-text { font-size: 13px; white-space: pre-wrap; flex: 1; }
+@media (max-width: 640px) { .contra-cols { grid-template-columns: 1fr; } }
 .gatebox { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
 .gatebox.unresolved { border-color: color-mix(in srgb, var(--amber) 45%, transparent); background: var(--amber-bg); }
 .gatelabel { font-size: 13px; color: var(--muted); margin-bottom: 8px; }

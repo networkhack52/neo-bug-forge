@@ -57,6 +57,8 @@ export const api = {
   },
   approveItem: (id, answer) => req(`/v1/items/${id}/approve`, { method: "POST", body: { answer } }),
   setRemediation: (id, body) => req(`/v1/items/${id}/remediation`, { method: "POST", body }),
+  resolveContradiction: (id, keep) =>
+    req(`/v1/items/${id}/resolve_contradiction`, { method: "POST", body: { keep } }),
   documents: () => req("/v1/documents"),
   uploadDocument: (file) => {
     const fd = new FormData();

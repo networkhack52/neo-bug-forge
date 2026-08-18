@@ -146,6 +146,11 @@ APP_BASE_URL = os.environ.get("ATTESTLY_APP_URL", "http://localhost:5173")
 FUZZY_REUSE_THRESHOLD = float(os.environ.get("ATTESTLY_FUZZY_THRESHOLD", "88"))
 # Matches at/above this are passed to Claude as grounding context.
 FUZZY_CONTEXT_THRESHOLD = float(os.environ.get("ATTESTLY_CONTEXT_THRESHOLD", "45"))
+# A drafted answer is compared against the closest approved library answer only
+# when that match is at/above this score — high enough that it's genuinely the
+# same question, so a material difference is a real contradiction (T2), not two
+# different questions that happen to share words.
+CONTRADICTION_MATCH_THRESHOLD = float(os.environ.get("ATTESTLY_CONTRADICTION_THRESHOLD", "72"))
 # How many context Q&A pairs to hand the model.
 CONTEXT_TOP_K = int(os.environ.get("ATTESTLY_CONTEXT_TOP_K", "5"))
 # Questions answered concurrently per questionnaire (each drafted one makes

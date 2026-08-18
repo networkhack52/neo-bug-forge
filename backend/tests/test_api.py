@@ -316,6 +316,68 @@ def test_invalid_interval_rejected():
     assert r.status_code == 400
 
 
+def test_resolve_contradiction_keep_new_updates_library():
+    from app import db
+
+    token = _token()
+    q = "How often do you rotate encryption keys?"
+    ans = client.post("/v1/answers", headers=_auth(token),
+                      json={"question": q, "answer": "We rotate keys annually."}).json()
+    files = {"file": ("q.xlsx", _one_q_bytes(q),
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    body = client.post("/v1/questionnaires", headers=_auth(token), files=files).json()
+    item_id = body["items"][0]["id"]
+
+    # Simulate a flagged contradiction on the item (new drafted answer differs).
+    db.set_item_answer_text(item_id, "We rotate keys quarterly.", "")
+    db.set_item_contradiction(item_id, {
+        "answer_id": ans["id"], "question": q,
+        "prior_answer": "We rotate keys annually.",
+        "new_answer": "We rotate keys quarterly.",
+        "reason": "frequency changed",
+    })
+
+    r = client.post(f"/v1/items/{item_id}/resolve_contradiction",
+                    headers=_auth(token), json={"keep": "new"})
+    assert r.status_code == 200
+    # The library entry now reflects the new answer, with a change log.
+    updated = db.get_answer(ans["id"])
+    assert "quarterly" in updated["answer"]
+    import json as _json
+    assert len(_json.loads(updated["change_log"])) == 1
+    # Flag is cleared.
+    assert (db.get_item(item_id)["contradiction"] or "") == ""
+
+
+def test_resolve_contradiction_keep_prior_reverts_item():
+    from app import db
+
+    token = _token()
+    q = "What is your data retention period?"
+    ans = client.post("/v1/answers", headers=_auth(token),
+                      json={"question": q, "answer": "We retain data for 30 days."}).json()
+    files = {"file": ("q.xlsx", _one_q_bytes(q),
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    body = client.post("/v1/questionnaires", headers=_auth(token), files=files).json()
+    item_id = body["items"][0]["id"]
+
+    db.set_item_answer_text(item_id, "We retain data for 90 days.", "")
+    db.set_item_contradiction(item_id, {
+        "answer_id": ans["id"], "question": q,
+        "prior_answer": "We retain data for 30 days.",
+        "new_answer": "We retain data for 90 days.",
+        "reason": "a number or time period changed",
+    })
+
+    r = client.post(f"/v1/items/{item_id}/resolve_contradiction",
+                    headers=_auth(token), json={"keep": "prior"})
+    assert r.status_code == 200
+    # Item reverted to the prior library answer; library unchanged.
+    assert "30 days" in db.get_item(item_id)["answer"]
+    assert "30 days" in db.get_answer(ans["id"])["answer"]
+    assert (db.get_item(item_id)["contradiction"] or "") == ""
+
+
 def _one_q_bytes(question):
     wb = Workbook()
     ws = wb.active

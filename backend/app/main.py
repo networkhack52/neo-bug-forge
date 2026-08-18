@@ -572,6 +572,35 @@ def set_item_remediation(item_id: int, body: dict, org: dict = Depends(require_o
     return {"ok": True}
 
 
+@app.post("/v1/items/{item_id}/resolve_contradiction")
+def resolve_contradiction(item_id: int, body: dict, org: dict = Depends(require_org)) -> dict:
+    """Resolve a flagged contradiction between a drafted answer and the approved
+    library answer for the same question. keep='new' updates the library to the
+    new answer (with a dated change note); keep='prior' reverts the item to the
+    library answer. Either way the flag clears."""
+    import json as _json
+
+    item = _require_item(item_id, org)
+    try:
+        data = _json.loads(item.get("contradiction") or "{}")
+    except (ValueError, TypeError):
+        data = {}
+    if not data:
+        return {"resolved": True}  # nothing to do
+
+    keep = (body.get("keep") or "new").strip().lower()
+    answer_id = data.get("answer_id")
+    if keep == "prior":
+        prior = data.get("prior_answer") or ""
+        db.set_item_answer_text(item_id, prior, engine.infer_choice(prior))
+    else:  # keep the new answer -> update the library entry so it's now current
+        if answer_id and db.get_answer(answer_id):
+            note = body.get("note") or "Updated from a questionnaire answer"
+            db.update_answer(answer_id, item.get("answer") or data.get("new_answer") or "", note)
+    db.set_item_contradiction(item_id, None)
+    return {"resolved": True, "kept": keep}
+
+
 def retrieval_close(a: str, b: str) -> bool:
     from . import fuzzy
 

@@ -530,6 +530,13 @@ function Upload({ me, onChange, onNavigate }) {
     setResult((r) => ({ ...r, items: fresh.items }));
   }
 
+  async function resolveContradiction(itemId, keep) {
+    await api.resolveContradiction(itemId, keep);
+    const fresh = await api.getQuestionnaire(result.questionnaire_id);
+    setResult((r) => ({ ...r, items: fresh.items }));
+    onChange(); // library may have changed
+  }
+
   return (
     <div>
       {!result && empty && (
@@ -652,6 +659,7 @@ function Upload({ me, onChange, onNavigate }) {
             onApprove={approve}
             onShowSources={setSources}
             onSaveMeta={saveMeta}
+            onResolveContradiction={resolveContradiction}
           />
           <button className="link" onClick={() => setResult(null)}>
             ← Upload another
@@ -666,7 +674,7 @@ function Upload({ me, onChange, onNavigate }) {
   );
 }
 
-function ReviewList({ items, onApprove, onShowSources, onSaveMeta }) {
+function ReviewList({ items, onApprove, onShowSources, onSaveMeta, onResolveContradiction }) {
   return (
     <div className="stack">
       {items.map((it) => (
@@ -676,8 +684,44 @@ function ReviewList({ items, onApprove, onShowSources, onSaveMeta }) {
           onApprove={onApprove}
           onShowSources={onShowSources}
           onSaveMeta={onSaveMeta}
+          onResolveContradiction={onResolveContradiction}
         />
       ))}
+    </div>
+  );
+}
+
+function ContradictionPanel({ item, onResolve }) {
+  let data = {};
+  try {
+    data = JSON.parse(item.contradiction || "{}");
+  } catch (_) {
+    data = {};
+  }
+  if (!data || !data.prior_answer) return null;
+  const priorDate = data.prior_date ? fmtEpoch(data.prior_date) : "earlier";
+  return (
+    <div className="contra">
+      <div className="contra-head">
+        ⚠ This differs from what you answered before: {data.reason || "a specific changed"}. Confirm which
+        is current.
+      </div>
+      <div className="contra-cols">
+        <div className="contra-col">
+          <div className="contra-label">Previously approved · {priorDate}</div>
+          <div className="contra-text">{data.prior_answer}</div>
+          <button className="secondary" onClick={() => onResolve(item.id, "prior")}>
+            Keep this one
+          </button>
+        </div>
+        <div className="contra-col current">
+          <div className="contra-label">New answer · today</div>
+          <div className="contra-text">{data.new_answer || item.answer}</div>
+          <button className="primary" onClick={() => onResolve(item.id, "new")}>
+            Use new &amp; update library
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -751,9 +795,10 @@ function RemediationFields({ item, onSaveMeta }) {
   );
 }
 
-function ReviewItem({ item, onApprove, onShowSources, onSaveMeta }) {
+function ReviewItem({ item, onApprove, onShowSources, onSaveMeta, onResolveContradiction }) {
   const [answer, setAnswer] = useState(item.answer);
   const approved = item.status === "approved";
+  const hasContradiction = !!(item.contradiction && item.contradiction !== "" && item.contradiction !== "{}");
   const cites = parseCitations(item.citations);
   const stale = cites.some((c) => c && c.stale);
   const docDate = (cites.find((c) => c && c.kind === "document" && c.date) || {}).date;
@@ -777,11 +822,19 @@ function ReviewItem({ item, onApprove, onShowSources, onSaveMeta }) {
             ⚠ Source {docDate}
           </span>
         )}
+        {hasContradiction && (
+          <span className="tag amber" title="Differs from a previously approved answer">
+            ⚠ Differs from before
+          </span>
+        )}
         <span className="muted small">confidence {Math.round(item.confidence)}%</span>
         {approved && <span className="tag green">✓ approved</span>}
       </div>
       <div className="q">{item.question}</div>
       <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={4} />
+      {hasContradiction && onResolveContradiction && (
+        <ContradictionPanel item={item} onResolve={onResolveContradiction} />
+      )}
       {onSaveMeta && <RemediationFields item={item} onSaveMeta={onSaveMeta} />}
       <div className="itemfoot">
         {cites.length > 0 ? (

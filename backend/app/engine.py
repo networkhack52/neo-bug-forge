@@ -12,7 +12,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
-from . import config, db, documents, embeddings, retrieval
+from . import config, db, diffing, documents, embeddings, retrieval
 from .drafting import draft_answer, infer_choice, usage_cost
 
 
@@ -104,6 +104,26 @@ def answer_question(
         citations=result.citations,
         verification=result.verification,
     )
+
+    # Contradiction check (T2): when we DRAFT a new answer to a question that
+    # closely matches an approved library answer, and the two conflict on a
+    # specific (a yes/no flip, a number, a frequency, a named technology), flag
+    # it so the user confirms which version is current before exporting. A
+    # verbatim reuse can't contradict itself, so this only runs on drafts.
+    if result.match_type in ("drafted", "fallback"):
+        best = matches[0] if matches else None
+        if best is not None and best.score >= config.CONTRADICTION_MATCH_THRESHOLD:
+            reason = diffing.materially_differs(result.answer, best.answer)
+            if reason:
+                prior = next((b for b in bank if b["id"] == best.answer_id), None)
+                db.set_item_contradiction(item_id, {
+                    "answer_id": best.answer_id,
+                    "question": best.question,
+                    "prior_answer": best.answer,
+                    "prior_date": (prior or {}).get("updated_at"),
+                    "new_answer": result.answer,
+                    "reason": reason,
+                })
     return result
 
 

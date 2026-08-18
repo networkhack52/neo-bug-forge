@@ -736,6 +736,59 @@ def set_item_remediation(item_id: int, remediation_date: str = "", no_plan: bool
         )
 
 
+def set_item_contradiction(item_id: int, data: Optional[dict]) -> None:
+    """Attach (or clear, with None/{}) the prior-answer contradiction flag (T2)."""
+    import json as _json
+
+    payload = _json.dumps(data) if data else ""
+    with cursor() as cur:
+        cur.execute("UPDATE questionnaire_items SET contradiction = ? WHERE id = ?", (payload, item_id))
+
+
+def set_item_answer_text(item_id: int, answer: str, choice: str) -> None:
+    """Overwrite an item's answer text + choice (used when the user keeps the
+    prior library version over a freshly drafted one)."""
+    with cursor() as cur:
+        cur.execute(
+            "UPDATE questionnaire_items SET answer = ?, choice = ? WHERE id = ?",
+            (answer, choice, item_id),
+        )
+
+
+def get_answer(answer_id: int) -> Optional[dict]:
+    with cursor() as cur:
+        row = cur.execute("SELECT * FROM answers WHERE id = ?", (answer_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def update_answer(answer_id: int, new_answer: str, note: str = "") -> None:
+    """Update a library answer's text and append a dated change note to its
+    change_log, so a discrepancy between two submissions can be explained later.
+    Re-embeds the question is unaffected (question text is unchanged)."""
+    import json as _json
+
+    now = time.time()
+    with cursor() as cur:
+        row = cur.execute("SELECT answer, change_log FROM answers WHERE id = ?", (answer_id,)).fetchone()
+        if not row:
+            return
+        prev = dict(row)
+        try:
+            log = _json.loads(prev.get("change_log") or "[]")
+        except (ValueError, TypeError):
+            log = []
+        log.append({
+            "date": now,
+            "note": note or "Answer updated from a questionnaire",
+            "from": prev.get("answer", ""),
+            "to": new_answer,
+        })
+        cur.execute(
+            "UPDATE answers SET answer = ?, change_log = ?, updated_at = ? WHERE id = ?",
+            (new_answer.strip(), _json.dumps(log[-20:]), now, answer_id),
+        )
+
+
 def set_item_exclusion(item_id: int, excluded: bool, reason: str = "") -> None:
     """Mark/unmark an item as out of scope; excluded rows export as N/A (T3)."""
     with cursor() as cur:
