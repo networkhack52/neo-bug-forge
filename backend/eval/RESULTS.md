@@ -14,6 +14,7 @@ Decision rule: false confidence > 3% -> move `VERIFY_MODEL` to a stronger model.
 | 2026-08-18 | v2.1 **canonical (temperature 0)** | haiku / haiku | **0.0%** (0/60) | 20/20 | 10/10 | 10/10 | $0.00331 | PASS — reproducible baseline, s09 asserts deterministically |
 | 2026-08-18 | v3 first run (150, semantic top-3) | haiku / haiku | 1.3% (2/150) | 39/50 | 34/35 | 25/25 | $0.00226 | PASS — but c23 was a mislabel (fixed) |
 | 2026-08-18 | v3 **corrected (150, semantic top-3)** | haiku / haiku | **0.7%** (1/150) | 39/50 | **35/35** | 25/25 | $0.00225 | PASS — only u07 (a real, minor over-claim). Coverage 39/50 is a retrieval-recall signal at K=3 |
+| 2026-08-18 | v3 (150, semantic **top-5**) | haiku / haiku | **0.7%** (1/150) | **43/50** | 35/35 | 25/25 | $0.00241 | PASS — top-5 lifted coverage +8pts, no new false confidence. **Product grounding bumped 3 -> 5.** |
 
 ## v3 — 150 questions against a realistic corpus with real retrieval (2026-08-18)
 

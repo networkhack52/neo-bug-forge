@@ -25,7 +25,12 @@ from . import dates, db, embeddings, fuzzy
 # that a citation points at something specific.
 CHUNK_CHARS = 900
 CHUNK_OVERLAP = 150
-MAX_GROUND_CHUNKS = int(os.environ.get("ATTESTLY_DOC_TOP_K", "3"))
+# How many document passages to ground each drafted answer in. Raised from 3 to
+# 5 on eval evidence (v3, 2026-08-18): over a realistic 59-passage corpus, top-3
+# retrieval missed the right control on ~22% of supported questions, so the model
+# abstained on answers it could have given. Top-5 lifted supported coverage
+# 39/50 -> 43/50 with NO new false confidence and ~$0.0002 more per answer.
+MAX_GROUND_CHUNKS = int(os.environ.get("ATTESTLY_DOC_TOP_K", "5"))
 
 
 @dataclass
