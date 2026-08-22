@@ -15,37 +15,55 @@ def _wb_bytes(rows):
     return buf.getvalue()
 
 
-def test_detects_question_column_and_skips_headers_and_sections():
+def test_only_real_questions_are_extracted_from_a_messy_sheet():
     rows = [
-        ["Section", "Question", "Answer"],
-        ["Access", "", ""],  # section row, no question
-        ["AC-1", "Do you enforce MFA for all employees?", ""],
-        ["AC-2", "Is customer data encrypted at rest?", ""],
-        ["", "", ""],  # blank
-        ["EN-1", "Please describe your key management process.", ""],
+        ["Question", "Answer"],
+        ["Vendor Security Assessment 2025", ""],                 # title
+        ["1. Access Control", ""],                               # section header
+        ["Please answer all questions in this section.", ""],    # instruction
+        ["Do you enforce MFA for all employees?", ""],           # REAL question
+        ["The organization maintains a documented access control policy.", ""],  # control statement
+        ["2. Encryption", ""],                                   # section header
+        ["Is data encrypted at rest?", ""],                      # REAL question
+        ["Confidential - Acme Corp - Page 1 of 3", ""],          # footer
+        ["© 2025 Acme Corp. All rights reserved.", ""],          # boilerplate
     ]
     result = parsing.parse_xlsx(_wb_bytes(rows))
-    questions = [q.question for q in result.questions]
-    assert "Do you enforce MFA for all employees?" in questions
-    assert "Is customer data encrypted at rest?" in questions
-    assert len(questions) == 3
-    # question col is 2 (1-based) -> the "Question" column
-    assert result.question_col == 2
-    assert result.answer_col == 3
+    got = [q.question for q in result.questions]
+    assert got == [
+        "Do you enforce MFA for all employees?",
+        "The organization maintains a documented access control policy.",
+        "Is data encrypted at rest?",
+    ], got
 
 
-def test_csv_parsing():
-    csv_bytes = (
-        "Question,Response\n"
-        "Do you encrypt data in transit?,\n"
-        "How long are audit logs retained?,\n"
-    ).encode()
-    result = parsing.parse_csv(csv_bytes)
-    assert len(result.questions) == 2
-    assert result.questions[0].question.startswith("Do you encrypt")
+def test_section_titles_and_footers_score_zero():
+    for noise in ["Access Control", "ENCRYPTION", "Section 3: Governance",
+                  "Page 2 of 10", "© 2025 Acme", "Instructions", "Overview",
+                  "Please complete the following table.", "For each control, provide evidence.",
+                  "This document is confidential and proprietary."]:
+        assert parsing._question_score(noise) == 0.0, noise
 
 
-def test_no_questions_returns_empty():
-    rows = [["a", "b"], ["1", "2"], ["3", "4"]]
-    result = parsing.parse_xlsx(_wb_bytes(rows))
-    assert result.questions == []
+def test_real_questions_and_control_statements_score_positive():
+    for q in ["Do you enforce MFA for all employees?",
+              "Is data encrypted at rest?",
+              "Describe your incident response process.",
+              "The organization maintains a documented data classification policy.",
+              "We encrypt all customer data at rest and in transit."]:
+        assert parsing._question_score(q) > 0.0, q
+
+
+def test_csv_messy_sheet_extracts_only_questions():
+    csv_text = (
+        "Question,Answer\n"
+        "Information Security Questionnaire,\n"          # title
+        "Domain: Access Management,\n"                   # section
+        "Do you review user access periodically?,\n"     # REAL
+        "Please see the guidance notes above.,\n"        # instruction
+        "Are audit logs retained?,\n"                    # REAL
+        "Page 1,\n"                                      # footer
+    )
+    result = parsing.parse_csv(csv_text.encode())
+    got = [q.question for q in result.questions]
+    assert got == ["Do you review user access periodically?", "Are audit logs retained?"], got
