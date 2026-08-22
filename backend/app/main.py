@@ -518,10 +518,14 @@ async def upload_questionnaire(
 
 
 @app.post("/v1/questionnaires/{qid}/answer")
-def answer_questionnaire_endpoint(qid: int, body: dict, org: dict = Depends(require_org)) -> dict:
+def answer_questionnaire_endpoint(
+    qid: int, body: dict, request: Request, org: dict = Depends(require_org)
+) -> dict:
     """Answer a triaged questionnaire. Applies the user's exclusions (out-of-scope
     rows -> N/A, no quota), partial-answers up to the remaining quota, locks the
-    rest, and charges only the answers actually produced."""
+    rest, and charges ONLY the answers produced in this run (re-running to fill
+    blocked rows never re-charges what's already answered)."""
+    rate_limit_request_and_account(request, "answer", org["id"], config.RL_ANSWER)
     q = db.get_questionnaire(qid, org["id"])
     if not q:
         raise HTTPException(status_code=404, detail="Not found")
@@ -539,11 +543,15 @@ def answer_questionnaire_endpoint(qid: int, body: dict, org: dict = Depends(requ
     onboarding_remaining = state["onboarding_remaining"]
     total_remaining = state["total_remaining"]
 
-    # Answerable = rows that aren't excluded, capped at remaining quota; lock the
-    # overflow (in row order) so it's never answered.
+    # Lock the overflow among UNANSWERED, in-scope rows only — already-answered
+    # rows don't consume quota again, so a re-run doesn't wrongly lock them.
     ordered = db.list_items(qid)
-    answerable_items = [it for it in ordered if it["id"] not in exclude_ids and not it.get("excluded")]
-    over = answerable_items[total_remaining:] if total_remaining < len(answerable_items) else []
+    unanswered = [
+        it for it in ordered
+        if it["id"] not in exclude_ids and not it.get("excluded") and not it.get("locked")
+        and (it.get("match_type") or "none") in ("none", "blocked")
+    ]
+    over = unanswered[total_remaining:] if total_remaining < len(unanswered) else []
     db.lock_items([it["id"] for it in over])
 
     is_free = state["is_free"]
@@ -554,8 +562,19 @@ def answer_questionnaire_endpoint(qid: int, body: dict, org: dict = Depends(requ
     if spend_paused:
         block_message = ("Free capacity for this month has been reached. Upgrade to keep drafting, "
                          "or try again next month.")
-    engine.answer_questionnaire(org["id"], qid, allow_draft=allow_draft, block_message=block_message)
+    produced = engine.answer_questionnaire(
+        org["id"], qid, allow_draft=allow_draft, block_message=block_message
+    )
 
+    # Charge ONLY the answers produced in THIS run (reuse + draft), never blocked
+    # rows, never already-answered rows from a prior run, never edits.
+    new_answered = sum(1 for it in produced if it.match_type in ("reuse", "drafted", "fallback"))
+    from_onboarding = min(new_answered, onboarding_remaining)
+    db.consume_domain_onboarding(state["domain"], from_onboarding)
+    if new_answered - from_onboarding > 0:
+        db.increment_usage(org["id"], new_answered - from_onboarding)
+
+    # Cumulative display counts for the whole questionnaire.
     items = db.list_items(qid)
     reused = sum(1 for it in items if it["match_type"] == "reuse" and not it["locked"] and not it["excluded"])
     drafted = sum(1 for it in items if it["match_type"] in ("drafted", "fallback") and not it["locked"] and not it["excluded"])
@@ -563,11 +582,6 @@ def answer_questionnaire_endpoint(qid: int, body: dict, org: dict = Depends(requ
     locked = sum(1 for it in items if it["locked"])
     excluded = sum(1 for it in items if it["excluded"])
     answered = reused + drafted
-
-    from_onboarding = min(answered, onboarding_remaining)
-    db.consume_domain_onboarding(state["domain"], from_onboarding)
-    if answered - from_onboarding > 0:
-        db.increment_usage(org["id"], answered - from_onboarding)
 
     return {
         "questionnaire_id": qid,

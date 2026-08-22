@@ -132,11 +132,14 @@ def answer_questionnaire(
     block_message: str = BLOCKED_ANSWER,
 ) -> list[AnsweredItem]:
     bank = db.list_answers(org_id, status="approved")
-    # Locked items are over the plan's quota; excluded items are out of scope
-    # (they export as N/A). Neither is answered — only spend model calls (and
-    # quota) on the rest.
+    # Only answer items that are NOT already answered. Locked (over quota) and
+    # excluded (out of scope) rows are skipped, and so are rows that already have
+    # an answer from a previous run — so re-running to fill blocked rows (e.g.
+    # after uploading a document) never re-answers or re-charges what's done.
+    # Blocked items are retried, since a document/quota may now be available.
     items = [it for it in db.list_items(questionnaire_id)
-             if not it.get("locked") and not it.get("excluded")]
+             if not it.get("locked") and not it.get("excluded")
+             and (it.get("match_type") or "none") in ("none", "blocked")]
     out: list[AnsweredItem | None] = [None] * len(items)
 
     # Answer questions concurrently — each drafted one makes several sequential
@@ -161,6 +164,13 @@ def answer_questionnaire(
         if it and it.usage and it.usage.get("input_tokens", 0) > 0:
             db.record_usage(org_id, questionnaire_id, it.item_id, it.usage, usage_cost(it.usage))
 
-    db.set_answered_count(questionnaire_id, len(out))
+    # Cumulative answered count for the questionnaire (not just this run), so a
+    # gap-filling re-run doesn't reset the total.
+    answered_total = sum(
+        1 for it in db.list_items(questionnaire_id)
+        if it["match_type"] in ("reuse", "drafted", "fallback")
+        and not it["locked"] and not it["excluded"]
+    )
+    db.set_answered_count(questionnaire_id, answered_total)
     db.set_questionnaire_status(questionnaire_id, "ready")
-    return out  # type: ignore[return-value]
+    return out  # only the items answered in THIS call (for correct charging)

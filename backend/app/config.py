@@ -46,6 +46,7 @@ RL_LOGIN = (10, 300)        # 10 attempts / 5 min — brute-force guard
 RL_SIGNUP = (8, 3600)       # 8 new accounts / hour — mass-signup / cost guard
 RL_ASSESSMENT = (20, 3600)  # 20 / hour — public endpoint, bounds compute cost
 RL_UPLOAD = (30, 3600)      # 30 uploads / hour, enforced per IP AND per account
+RL_ANSWER = (20, 3600)      # 20 answer-runs / hour per IP AND per account — bounds LLM spend
 
 # Disposable / throwaway domains are ALWAYS blocked at signup (pure abuse vector).
 _DISPOSABLE = (
