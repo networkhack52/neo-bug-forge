@@ -881,3 +881,23 @@ def delete_document(org_id: int, doc_id: int) -> bool:
         cur.execute("DELETE FROM document_chunks WHERE document_id = ? AND org_id = ?", (doc_id, org_id))
         cur.execute("DELETE FROM documents WHERE id = ? AND org_id = ?", (doc_id, org_id))
     return True
+
+
+def delete_org_data(org_id: int) -> None:
+    """Permanently delete an org and ALL of its data (right-to-delete). Removes
+    questionnaires + items, documents + chunks, the answer library, usage events,
+    reset tokens, and the account row itself. The shared domain onboarding pool is
+    left intact so it can't be farmed by delete-and-re-signup."""
+    with cursor() as cur:
+        cur.execute(
+            "DELETE FROM questionnaire_items WHERE questionnaire_id IN "
+            "(SELECT id FROM questionnaires WHERE org_id = ?)",
+            (org_id,),
+        )
+        cur.execute("DELETE FROM questionnaires WHERE org_id = ?", (org_id,))
+        cur.execute("DELETE FROM document_chunks WHERE org_id = ?", (org_id,))
+        cur.execute("DELETE FROM documents WHERE org_id = ?", (org_id,))
+        cur.execute("DELETE FROM answers WHERE org_id = ?", (org_id,))
+        cur.execute("DELETE FROM usage_events WHERE org_id = ?", (org_id,))
+        cur.execute("DELETE FROM password_resets WHERE org_id = ?", (org_id,))
+        cur.execute("DELETE FROM orgs WHERE id = ?", (org_id,))

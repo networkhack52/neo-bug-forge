@@ -1384,6 +1384,8 @@ function Billing({ me, onChange }) {
   const [plans, setPlans] = useState({});
   const [msg, setMsg] = useState("");
   const [interval, setInterval] = useState("year"); // default to annual (better value)
+  const [delText, setDelText] = useState("");
+  const [delBusy, setDelBusy] = useState(false);
   useEffect(() => {
     api.plans().then((r) => setPlans(r.plans));
   }, []);
@@ -1471,6 +1473,40 @@ function Billing({ me, onChange }) {
         >
           Rotate API key
         </button>
+      </div>
+
+      <div className="card dangerzone" style={{ marginTop: 24 }}>
+        <h3>Delete my data</h3>
+        <p className="muted small">
+          Permanently delete your account and everything in it: questionnaires, uploaded documents,
+          and your answer library. This can't be undone, and we keep nothing. Your data is never used
+          to train AI models.
+        </p>
+        <div className="dangerrow">
+          <input
+            placeholder="Type DELETE to confirm"
+            value={delText}
+            onChange={(e) => setDelText(e.target.value)}
+            aria-label="Type DELETE to confirm"
+          />
+          <button
+            className="danger"
+            disabled={delText !== "DELETE" || delBusy}
+            onClick={async () => {
+              setDelBusy(true);
+              try {
+                await api.deleteAccount();
+                clearToken();
+                window.location.reload();
+              } catch (e) {
+                setMsg("Could not delete your data: " + e.message);
+                setDelBusy(false);
+              }
+            }}
+          >
+            {delBusy ? "Deleting…" : "Delete everything"}
+          </button>
+        </div>
       </div>
     </div>
   );

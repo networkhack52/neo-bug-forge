@@ -329,6 +329,14 @@ def rotate_token_endpoint(org: dict = Depends(require_org)) -> dict:
     return {"api_token": db.rotate_token(org["id"])}
 
 
+@app.delete("/v1/account")
+def delete_account(org: dict = Depends(require_org)) -> dict:
+    """Right-to-delete: permanently remove this account and ALL of its data
+    (questionnaires, documents, answer library, usage). Irreversible."""
+    db.delete_org_data(org["id"])
+    return {"deleted": True}
+
+
 # --------------------------------------------------------------------------
 # Answer Bank
 # --------------------------------------------------------------------------

@@ -44,6 +44,7 @@ export const api = {
     req("/v1/password/reset", { method: "POST", body: { token, password } }),
   me: () => req("/v1/me"),
   rotateToken: () => req("/v1/token/rotate", { method: "POST" }),
+  deleteAccount: () => req("/v1/account", { method: "DELETE" }),
   answers: () => req("/v1/answers"),
   addAnswer: (a) => req("/v1/answers", { method: "POST", body: a }),
   bulkAnswers: (answers) => req("/v1/answers/bulk", { method: "POST", body: { answers } }),

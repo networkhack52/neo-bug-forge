@@ -12,8 +12,18 @@
   --blue: #2563eb;
   --amber: #b45309;
   --amber-bg: #fef3c7;
+  --danger: #dc2626;
+  --danger-bg: #fef2f2;
   --radius: 12px;
 }
+.dangerzone { border-color: color-mix(in srgb, var(--danger) 30%, var(--line)); }
+.dangerzone h3 { color: var(--danger); }
+.dangerrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.dangerrow input { max-width: 260px; }
+button.danger { background: var(--danger); color: #fff; border: 1px solid transparent; font-weight: 600;
+  padding: 10px 16px; border-radius: 8px; cursor: pointer; }
+button.danger:hover:not(:disabled) { background: #b91c1c; }
+button.danger:disabled { opacity: .5; cursor: not-allowed; }
 * { box-sizing: border-box; }
 body {
   margin: 0;

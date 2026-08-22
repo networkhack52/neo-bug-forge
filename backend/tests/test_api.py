@@ -429,6 +429,28 @@ def test_resolve_contradiction_keep_prior_reverts_item():
     assert (db.get_item(item_id)["contradiction"] or "") == ""
 
 
+def test_delete_account_wipes_all_data_and_revokes_token():
+    from app import db
+
+    token = _token()
+    # Create some data across tables.
+    client.post("/v1/answers", headers=_auth(token),
+                json={"question": "Do you encrypt data?", "answer": "Yes, AES-256."})
+    _upload_doc(token)
+    org_id = _org_id(token)
+    assert db.count_answers(org_id) >= 1
+    assert db.count_documents(org_id) >= 1
+
+    r = client.delete("/v1/account", headers=_auth(token))
+    assert r.status_code == 200 and r.json()["deleted"] is True
+
+    # Data is gone and the token no longer authenticates.
+    assert db.count_answers(org_id) == 0
+    assert db.count_documents(org_id) == 0
+    assert db.get_org(org_id) is None
+    assert client.get("/v1/me", headers=_auth(token)).status_code == 401
+
+
 def _one_q_bytes(question):
     wb = Workbook()
     ws = wb.active
