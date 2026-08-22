@@ -159,7 +159,7 @@ function Landing({ onStart }) {
         </div>
 
         <div className="lp-device" aria-hidden="true">
-          <div className="lp-chrome"><i></i><i></i><i></i><span className="lp-url">🔒 attestly.app/review</span></div>
+          <div className="lp-chrome"><i></i><i></i><i></i><span className="lp-url">🔒 tryattestly.com/review</span></div>
           <div className="lp-app">
             <div className="lp-card lp-dim">
               <div className="lp-chips"><span className="lp-chip yes">Yes</span><span className="lp-chip ver">✓ Verified</span></div>
@@ -186,11 +186,12 @@ function Landing({ onStart }) {
       </section>
 
       <section className="lp-eval">
-        <div className="lp-eval-num">0<span> in 60</span></div>
+        <div className="lp-eval-num">35/35</div>
         <div>
-          <strong>It abstains instead of guessing.</strong> In a labelled 60-question eval that included
-          near-miss and contradicted evidence, Attestly never asserted a control the documents didn't
-          support. When your documents don't cover something, it says so.
+          <strong>It catches the near-miss traps.</strong> We tested Attestly on 35 questions where the
+          evidence is close but wrong: a wrong date, a wrong key size, a flipped yes/no. It confirmed
+          none of them, and kept false confidence under 1% across 150 questions. When your documents
+          don't cover something, it says so instead of guessing.
         </div>
       </section>
 
