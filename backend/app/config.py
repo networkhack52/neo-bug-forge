@@ -196,6 +196,19 @@ DEFAULT_TIER = "free"
 # warning. Configurable; 0 disables the flag.
 SOURCE_STALE_MONTHS = int(os.environ.get("ATTESTLY_SOURCE_STALE_MONTHS", "12"))
 
+# --- Internal analytics -----------------------------------------------------
+# Token that guards the internal metrics page (/internal). Set ATTESTLY_ADMIN_TOKEN
+# in prod; when unset the page is disabled (404) rather than world-readable.
+ADMIN_TOKEN = os.environ.get("ATTESTLY_ADMIN_TOKEN", "").strip()
+# Request headers a fronting CDN uses to pass the client's country (ISO alpha-2).
+# Cloudflare sets CF-IPCountry; Vercel sets X-Vercel-IP-Country. First match wins;
+# empty when the API isn't behind a country-aware proxy. Override/extend via CSV.
+COUNTRY_HEADERS = [
+    h.strip() for h in os.environ.get(
+        "ATTESTLY_COUNTRY_HEADERS", "cf-ipcountry,x-vercel-ip-country,x-country"
+    ).split(",") if h.strip()
+]
+
 # One-time onboarding allowance: a pool of free answers granted per email DOMAIN
 # (shared across everyone at the same company), so a new team can run a real
 # 124-855 question questionnaire before falling back to the recurring free limit.

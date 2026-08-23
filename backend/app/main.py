@@ -127,6 +127,25 @@ def _free_tier_drafting_paused() -> bool:
     return False
 
 
+def _client_country(request: Request) -> str:
+    """Client country (ISO alpha-2) from a fronting CDN's header, '' if none.
+    Cloudflare (CF-IPCountry) / Vercel (X-Vercel-IP-Country) set these when the
+    API is behind them; direct-to-origin traffic has no country and stores ''."""
+    for h in config.COUNTRY_HEADERS:
+        v = (request.headers.get(h) or "").strip()
+        if v and v.upper() not in ("XX", "T1"):  # CF placeholders for unknown/Tor
+            return v[:2].upper()
+    return ""
+
+
+def _event(name: str, org_id=None, country: str = "", **props) -> None:
+    """Record a funnel event, best-effort: analytics must never break a request."""
+    try:
+        db.record_event(name, org_id=org_id, country=country, props=props or {})
+    except Exception:
+        logging.getLogger("attestly.events").exception("failed to record %s", name)
+
+
 def _reject_if_oversized(data: bytes) -> None:
     if len(data) > config.MAX_UPLOAD_BYTES:
         raise HTTPException(
@@ -261,6 +280,7 @@ def signup(body: dict, request: Request) -> dict:
     if db.get_org_by_email(email):
         raise HTTPException(status_code=409, detail="An account with this email already exists — log in instead")
     org = db.create_org(name=name, email=email, password_hash=passwords.hash_password(password))
+    _event("signup_completed", org_id=org["id"], country=_client_country(request), domain=_domain)
     return {"org_id": org["id"], "api_token": org["api_token"], "tier": org["tier"]}
 
 
@@ -427,6 +447,8 @@ async def upload_document(
         doc = documents.ingest(org["id"], file.filename or "document", data)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+    _event("source_doc_uploaded", org_id=org["id"], kind=doc.get("kind", ""),
+           chunks=doc.get("chunk_count", 0))
     return {"document": doc}
 
 
@@ -662,6 +684,10 @@ def start_questionnaire_run(
         org["id"], qid, ctx["allow_draft"], ctx["block_message"],
         use_onboarding=state["is_free"], domain=state["domain"],
     )
+    if started:
+        # The sample is the top of the onboarding funnel, so it's its own event.
+        ev = "sample_run_started" if body.get("sample") else "run_started"
+        _event(ev, org_id=org["id"], questionnaire_id=qid, to_answer=ctx["to_answer"])
     q = db.get_questionnaire(qid, org["id"]) or q
     items = db.list_items(qid)
     return {
@@ -704,6 +730,112 @@ def _run_progress(q: dict, items: list) -> dict:
 def usage_cost_view(org: dict = Depends(require_org)) -> dict:
     """This account's model spend: answers, tokens (with cached split), and USD."""
     return db.cost_summary(org["id"])
+
+
+# --------------------------------------------------------------------------
+# Internal analytics page (guarded by ATTESTLY_ADMIN_TOKEN)
+# --------------------------------------------------------------------------
+def _median(values: list) -> float | None:
+    if not values:
+        return None
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    return s[mid] if n % 2 else (s[mid - 1] + s[mid]) / 2
+
+
+def _internal_metrics(days: int = 30) -> dict:
+    since = time.time() - days * 86400
+    wall = db.run_completed_wall_seconds_since(since, min_rows=100)
+    med = _median(wall)
+    return {
+        "window_days": days,
+        "counts": db.event_counts_since(since),
+        "countries": db.event_country_split_since(since),
+        "big_run_median_seconds": round(med, 1) if med is not None else None,
+        "big_run_sample": len(wall),
+    }
+
+
+def _require_admin(key: str) -> None:
+    """Gate the internal page. Disabled entirely (404) when no admin token is set,
+    so it's never world-readable by default; wrong key is also 404 (no reveal)."""
+    if not config.ADMIN_TOKEN or not key or not secrets.compare_digest(key, config.ADMIN_TOKEN):
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+@app.get("/v1/internal/metrics")
+def internal_metrics(key: str = "", days: int = 30) -> dict:
+    _require_admin(key)
+    return _internal_metrics(max(1, min(days, 365)))
+
+
+@app.get("/internal", response_class=HTMLResponse)
+def internal_page(key: str = "", days: int = 30) -> HTMLResponse:
+    _require_admin(key)
+    m = _internal_metrics(max(1, min(days, 365)))
+    return HTMLResponse(_render_internal_html(m, key))
+
+
+def _render_internal_html(m: dict, key: str) -> str:
+    import html as _html
+
+    c = m["counts"]
+    order = [
+        ("sample_run_started", "Sample runs started"),
+        ("signup_completed", "Signups completed"),
+        ("source_doc_uploaded", "Source docs uploaded"),
+        ("run_started", "Runs started"),
+        ("run_completed", "Runs completed"),
+        ("export_downloaded", "Exports downloaded"),
+    ]
+    rows = "".join(
+        f"<tr><td>{_html.escape(label)}</td><td class='n'>{c.get(k, 0)}</td></tr>"
+        for k, label in order
+    )
+    if m["countries"]:
+        countries = "".join(
+            f"<tr><td>{_html.escape(str(r['country']))}</td><td class='n'>{r['n']}</td></tr>"
+            for r in m["countries"]
+        )
+    else:
+        countries = "<tr><td colspan='2' class='muted'>No signups in this window.</td></tr>"
+    med = m["big_run_median_seconds"]
+    med_txt = f"{med:.0f}s" if med is not None else "n/a"
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Attestly internal metrics</title>
+<style>
+  body{{font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+       margin:0;background:#0b1220;color:#e8eefc;padding:32px}}
+  .wrap{{max-width:760px;margin:0 auto}}
+  h1{{font-size:20px;margin:0 0 4px}}
+  .muted{{color:#8ea0c0}} .small{{font-size:13px}}
+  .cards{{display:flex;gap:16px;flex-wrap:wrap;margin:24px 0}}
+  .card{{background:#131d33;border:1px solid #23324f;border-radius:12px;padding:18px 20px;flex:1;min-width:220px}}
+  table{{width:100%;border-collapse:collapse}}
+  th{{text-align:left;color:#8ea0c0;font-weight:600;font-size:13px;padding:6px 0;border-bottom:1px solid #23324f}}
+  td{{padding:8px 0;border-bottom:1px solid #1a2740}}
+  td.n{{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}}
+  .big{{font-size:30px;font-weight:700}}
+</style></head><body><div class="wrap">
+<h1>Internal metrics</h1>
+<div class="muted small">Trailing {m['window_days']} days. Own data, no third party.</div>
+<div class="cards">
+  <div class="card"><div class="muted small">Median wall-clock, runs &gt;100 rows</div>
+    <div class="big">{med_txt}</div>
+    <div class="muted small">{m['big_run_sample']} run(s) in window</div></div>
+</div>
+<div class="cards">
+  <div class="card"><table><thead><tr><th>Event</th><th class="n">Count</th></tr></thead>
+    <tbody>{rows}</tbody></table></div>
+  <div class="card"><table><thead><tr><th>Signups by country</th><th class="n">Count</th></tr></thead>
+    <tbody>{countries}</tbody></table></div>
+</div>
+<div class="muted small">Country is read from the CDN edge header (CF-IPCountry / X-Vercel-IP-Country);
+'Unknown' when the API is reached directly, without a country-aware proxy in front.</div>
+</div></body></html>"""
 
 
 @app.get("/v1/questionnaires")
@@ -844,6 +976,8 @@ def export_questionnaire(
         filename = f"{base}_answers.xlsx"
 
     db.set_questionnaire_status(qid, "exported")
+    _event("export_downloaded", org_id=org["id"], questionnaire_id=qid,
+           original=bool(original and export.can_export_original(q)))
     return StreamingResponse(
         io.BytesIO(data),
         media_type=media_type,

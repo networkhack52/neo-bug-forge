@@ -552,7 +552,7 @@ function Upload({ me, onChange, onNavigate }) {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       const tri = await api.uploadQuestionnaire(file);
-      await runAnswer([], tri.questionnaire_id); // one click: answer the whole small sample
+      await runAnswer([], tri.questionnaire_id, { sample: true }); // one click: answer the whole small sample
     } catch (e) {
       setErr(e.message);
       setBusy(false);
@@ -645,7 +645,7 @@ function Upload({ me, onChange, onNavigate }) {
     tick(); // fire immediately so a fast/already-done run doesn't wait 1.5s
   }
 
-  async function runAnswer(exclude, qidArg) {
+  async function runAnswer(exclude, qidArg, opts = {}) {
     const qid = qidArg || triage.questionnaire_id;
     setBusy(true);
     setErr("");
@@ -653,7 +653,7 @@ function Upload({ me, onChange, onNavigate }) {
     setStream({ items: [], done: 0, total: 0, running: true });
     rememberRun(qid);
     try {
-      const r = await api.startRun(qid, exclude);
+      const r = await api.startRun(qid, exclude, !!opts.sample);
       const total0 = r.to_answer || (r.progress ? (r.progress.answered || 0) + (r.progress.pending || 0) : 0);
       setStream((s) => (s ? { ...s, total: total0 } : s));
       poll(qid, total0);

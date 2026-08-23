@@ -60,8 +60,8 @@ export const api = {
     req(`/v1/questionnaires/${id}/answer`, { method: "POST", body: { exclude } }),
   // Start a DURABLE background run and return immediately; poll getQuestionnaire
   // for progress. Closing the tab does not stop the work.
-  startRun: (id, exclude = []) =>
-    req(`/v1/questionnaires/${id}/run`, { method: "POST", body: { exclude } }),
+  startRun: (id, exclude = [], sample = false) =>
+    req(`/v1/questionnaires/${id}/run`, { method: "POST", body: { exclude, sample } }),
   approveItem: (id, answer) => req(`/v1/items/${id}/approve`, { method: "POST", body: { answer } }),
   setRemediation: (id, body) => req(`/v1/items/${id}/remediation`, { method: "POST", body }),
   resolveContradiction: (id, keep) =>

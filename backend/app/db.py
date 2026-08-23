@@ -113,6 +113,16 @@ CREATE INDEX IF NOT EXISTS idx_usage_org ON usage_events(org_id);
 CREATE INDEX IF NOT EXISTS idx_usage_qid ON usage_events(questionnaire_id);
 CREATE INDEX IF NOT EXISTS idx_items_q ON questionnaire_items(questionnaire_id);
 
+CREATE TABLE IF NOT EXISTS analytics_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL,           -- sample_run_started | signup_completed | source_doc_uploaded | run_started | run_completed | export_downloaded
+    org_id      INTEGER,
+    country     TEXT DEFAULT '',         -- ISO-3166 alpha-2 from the request IP (signup), '' when unknown
+    props       TEXT DEFAULT '{}',       -- JSON: event-specific fields (e.g. wall_seconds, rows)
+    created_at  REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_events_name ON analytics_events(name, created_at);
+
 CREATE TABLE IF NOT EXISTS password_resets (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     org_id      INTEGER NOT NULL REFERENCES orgs(id),
@@ -574,6 +584,83 @@ def free_tier_spend_since(since_epoch: float) -> float:
             (since_epoch,),
         ).fetchone()
     return float(dict(row)["c"])
+
+
+# --------------------------------------------------------------------------
+# Product analytics (own table, no third party)
+# --------------------------------------------------------------------------
+# The six funnel events we track. Kept as a constant so a typo can't silently
+# create a phantom event name that never shows on the internal page.
+EVENT_NAMES = (
+    "sample_run_started",
+    "signup_completed",
+    "source_doc_uploaded",
+    "run_started",
+    "run_completed",
+    "export_downloaded",
+)
+
+
+def record_event(name: str, org_id: Optional[int] = None, country: str = "",
+                 props: Optional[dict] = None) -> None:
+    """Append one funnel event. Best-effort: instrumentation must never break the
+    request it's measuring, so callers wrap this and swallow failures."""
+    import json as _json
+
+    with cursor() as cur:
+        cur.execute(
+            "INSERT INTO analytics_events (name, org_id, country, props, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (name, org_id, (country or "")[:2].upper() if country else "",
+             _json.dumps(props or {}), time.time()),
+        )
+
+
+def event_counts_since(since_epoch: float) -> dict:
+    """Count of each event name since a timestamp. Zero-filled for all six names."""
+    with cursor() as cur:
+        rows = cur.execute(
+            "SELECT name, COUNT(*) AS n FROM analytics_events WHERE created_at >= ? GROUP BY name",
+            (since_epoch,),
+        ).fetchall()
+    counts = {name: 0 for name in EVENT_NAMES}
+    for r in rows:
+        d = dict(r)
+        counts[d["name"]] = int(d["n"])
+    return counts
+
+
+def event_country_split_since(since_epoch: float) -> list[dict]:
+    """Signup counts by country since a timestamp (highest first). '' -> 'Unknown'."""
+    with cursor() as cur:
+        rows = cur.execute(
+            "SELECT CASE WHEN country = '' OR country IS NULL THEN 'Unknown' ELSE country END AS country, "
+            "COUNT(*) AS n FROM analytics_events "
+            "WHERE name = 'signup_completed' AND created_at >= ? GROUP BY 1 ORDER BY n DESC",
+            (since_epoch,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def run_completed_wall_seconds_since(since_epoch: float, min_rows: int = 100) -> list[float]:
+    """Wall-clock seconds of completed runs with more than ``min_rows`` rows, for
+    computing a median. Reads wall_seconds/rows out of each event's JSON props."""
+    import json as _json
+
+    with cursor() as cur:
+        rows = cur.execute(
+            "SELECT props FROM analytics_events WHERE name = 'run_completed' AND created_at >= ?",
+            (since_epoch,),
+        ).fetchall()
+    out: list[float] = []
+    for r in rows:
+        try:
+            p = _json.loads(dict(r)["props"] or "{}")
+        except (ValueError, TypeError):
+            continue
+        if int(p.get("rows", 0)) > min_rows and p.get("wall_seconds") is not None:
+            out.append(float(p["wall_seconds"]))
+    return out
 
 
 # --------------------------------------------------------------------------

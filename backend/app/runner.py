@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from . import config, db, engine
@@ -59,6 +60,7 @@ def _do_run(org_id: int, qid: int, allow_draft: bool, block_message: str,
     worker thread. The engine generator sets the final answered-count and marks
     the questionnaire ``ready`` when it drains; we only add per-answer charging
     and keep the live progress count moving so a poll sees rows accrue."""
+    started_at = time.time()
     try:
         produced = 0
         for ai in engine.stream_answer_questionnaire(org_id, qid, allow_draft, block_message):
@@ -69,6 +71,12 @@ def _do_run(org_id: int, qid: int, allow_draft: bool, block_message: str,
                 # cumulative total when the run drains).
                 db.set_answered_count(qid, _answered_count(qid))
         _log.info("run %s finished: %s answers produced", qid, produced)
+        _record_event("run_completed", org_id, {
+            "questionnaire_id": qid,
+            "answers": produced,
+            "rows": _run_rows(qid),
+            "wall_seconds": round(time.time() - started_at, 3),
+        })
     except Exception:  # never let a worker die silently — leave the run resumable
         _log.exception("run %s failed; leaving pending rows for resume", qid)
         # Reset to 'running' so startup resume (or a manual retry) picks up the
@@ -87,6 +95,19 @@ def _answered_count(qid: int) -> int:
         if it["match_type"] in ("reuse", "drafted", "fallback")
         and not it["locked"] and not it["excluded"]
     )
+
+
+def _run_rows(qid: int) -> int:
+    """Total rows in the questionnaire (the run's size, for the >100-row median)."""
+    return len(db.list_items(qid))
+
+
+def _record_event(name: str, org_id: int, props: dict) -> None:
+    """Best-effort funnel event — instrumentation must never break a run."""
+    try:
+        db.record_event(name, org_id=org_id, props=props)
+    except Exception:
+        _log.exception("failed to record %s event for run %s", name, org_id)
 
 
 def start_run(org_id: int, qid: int, allow_draft: bool, block_message: str,

@@ -14,3 +14,15 @@ os.environ["ATTESTLY_RATE_LIMIT"] = "0"      # don't rate-limit the test suite's
 from app import db as _db  # noqa: E402
 
 _db.init_db()
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture
+def client():
+    """A TestClient bound to the app (no lifespan; the schema is inited above)."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    return TestClient(app)
