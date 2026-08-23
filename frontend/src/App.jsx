@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api, answerStream, getToken, setToken, clearToken, downloadExport } from "./api.js";
+import { api, getToken, setToken, clearToken, downloadExport } from "./api.js";
 
 // Citations are stored as a JSON string in the DB; accept either form.
 function parseCitations(c) {
@@ -487,7 +487,8 @@ function ResetPassword({ token, onDone }) {
 function Upload({ me, onChange, onNavigate }) {
   const [result, setResult] = useState(null);
   const [triage, setTriage] = useState(null); // triage summary before answering
-  const [stream, setStream] = useState(null); // { items, done, total } while answers stream in
+  const [stream, setStream] = useState(null); // { items, done, total, running } while a run is live
+  const pollRef = React.useRef(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [library, setLibrary] = useState([]);
@@ -558,29 +559,151 @@ function Upload({ me, onChange, onNavigate }) {
     }
   }
 
+  // --- Durable run plumbing -------------------------------------------------
+  // A run is a background job on the server. We start it, then poll the
+  // questionnaire for progress. Closing the tab or reloading does not stop the
+  // work: the run keeps going server-side and is re-openable from `?run=<id>`.
+  const answeredOf = (items) =>
+    items.filter(
+      (it) => ["reuse", "drafted", "fallback"].includes(it.match_type) && !it.locked && !it.excluded
+    );
+
+  function rememberRun(qid) {
+    try {
+      localStorage.setItem("attestly_active_run", String(qid));
+    } catch (_) {}
+    try {
+      const u = new URL(window.location);
+      u.searchParams.set("run", String(qid));
+      window.history.replaceState({}, "", u);
+    } catch (_) {}
+  }
+
+  function forgetRun() {
+    try {
+      localStorage.removeItem("attestly_active_run");
+    } catch (_) {}
+    try {
+      const u = new URL(window.location);
+      u.searchParams.delete("run");
+      window.history.replaceState({}, "", u);
+    } catch (_) {}
+  }
+
+  function stopPolling() {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }
+
+  // Build the result summary the review panel expects from the polled rows.
+  function summarize(q, items) {
+    const n = (m) => items.filter(m).length;
+    return {
+      questionnaire_id: q.id,
+      phase: "answered",
+      framework: q.framework || "",
+      total_questions: q.total_questions || items.length,
+      answered: answeredOf(items).length,
+      reused_from_bank: n((it) => it.match_type === "reuse" && !it.locked && !it.excluded),
+      drafted: n((it) => ["drafted", "fallback"].includes(it.match_type) && !it.locked && !it.excluded),
+      locked: n((it) => it.locked),
+      blocked: n((it) => it.match_type === "blocked"),
+      excluded: n((it) => it.excluded),
+      spend_paused: false,
+      can_export_original: q.can_export_original,
+      source_kind: q.source_kind || "xlsx",
+      items,
+    };
+  }
+
+  function poll(qid, totalHint) {
+    stopPolling();
+    const tick = async () => {
+      let data;
+      try {
+        data = await api.getQuestionnaire(qid);
+      } catch (_) {
+        return; // transient error: keep polling
+      }
+      const p = data.progress || {};
+      const total = totalHint || (p.answered || 0) + (p.pending || 0) || answeredOf(data.items).length;
+      setStream((s) =>
+        s ? { ...s, items: answeredOf(data.items), done: p.answered ?? answeredOf(data.items).length, total } : s
+      );
+      if (!p.running) {
+        stopPolling();
+        setResult(summarize(data.questionnaire, data.items));
+        setStream(null);
+        setBusy(false);
+        forgetRun();
+        onChange();
+      }
+    };
+    pollRef.current = setInterval(tick, 1500);
+    tick(); // fire immediately so a fast/already-done run doesn't wait 1.5s
+  }
+
   async function runAnswer(exclude, qidArg) {
     const qid = qidArg || triage.questionnaire_id;
     setBusy(true);
     setErr("");
     setTriage(null);
-    setStream({ items: [], done: 0, total: 0 }); // enter streaming mode
+    setStream({ items: [], done: 0, total: 0, running: true });
+    rememberRun(qid);
     try {
-      await answerStream(qid, exclude, {
-        onStart: (m) => setStream((s) => ({ ...s, total: m.to_answer || 0 })),
-        onItem: (item) =>
-          setStream((s) => (s ? { ...s, items: [...s.items, item], done: s.done + 1 } : s)),
-        onDone: (summary) => {
-          setResult(summary);
-          setStream(null);
-          onChange();
-        },
-      });
+      const r = await api.startRun(qid, exclude);
+      const total0 = r.to_answer || (r.progress ? (r.progress.answered || 0) + (r.progress.pending || 0) : 0);
+      setStream((s) => (s ? { ...s, total: total0 } : s));
+      poll(qid, total0);
     } catch (e) {
       setErr(e.message);
       setStream(null);
+      setBusy(false);
+      forgetRun();
     }
-    setBusy(false);
   }
+
+  // Re-open an in-flight (or finished) run on mount: from `?run=<id>` or the last
+  // remembered run. This is what makes a run survive a tab close / reload.
+  useEffect(() => {
+    let qid = null;
+    try {
+      qid = new URL(window.location).searchParams.get("run");
+    } catch (_) {}
+    if (!qid) {
+      try {
+        qid = localStorage.getItem("attestly_active_run");
+      } catch (_) {}
+    }
+    if (!qid) return undefined;
+    (async () => {
+      try {
+        const data = await api.getQuestionnaire(qid);
+        const p = data.progress || {};
+        if (p.running) {
+          setBusy(true);
+          setStream({
+            items: answeredOf(data.items),
+            done: p.answered || 0,
+            total: (p.answered || 0) + (p.pending || 0),
+            running: true,
+          });
+          rememberRun(qid);
+          poll(qid);
+        } else if ((p.answered || 0) > 0 || ["ready", "exported"].includes(p.status)) {
+          setResult(summarize(data.questionnaire, data.items));
+          forgetRun();
+        } else {
+          forgetRun();
+        }
+      } catch (_) {
+        forgetRun();
+      }
+    })();
+    return stopPolling;
+  }, []);
 
   async function approve(item, answer) {
     await api.approveItem(item.id, answer);
@@ -685,7 +808,9 @@ function Upload({ me, onChange, onNavigate }) {
             <strong>
               Answering{stream.total ? ` · ${stream.done} of ${stream.total}` : "…"}
             </strong>
-            <span className="muted small">Answers appear as each one is ready.</span>
+            <span className="muted small">
+              Safe to close this tab. The run keeps going and this page reopens it.
+            </span>
           </div>
           {stream.total > 0 && (
             <div className="progressbar" aria-hidden="true">

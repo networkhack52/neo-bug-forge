@@ -473,6 +473,50 @@ def consume_domain_onboarding(domain: str, n: int) -> None:
             )
 
 
+def charge_one_answer(org_id: int, domain: str, use_onboarding: bool) -> str:
+    """Charge exactly ONE produced answer against quota, atomically: draw from the
+    domain's shared onboarding pool first (free tier only), else the org's monthly
+    period. Called as each answer lands during a durable run, so a run that dies
+    mid-way has already consumed exactly what it produced — never a whole run at
+    once. Returns which bucket was charged ('onboarding' | 'period')."""
+    now = time.time()
+    with cursor() as cur:
+        if use_onboarding and domain:
+            row = cur.execute(
+                "SELECT onboarding_used FROM domain_allowances WHERE domain = ?", (domain,)
+            ).fetchone()
+            used = int(dict(row)["onboarding_used"]) if row else 0
+            if used < config.ONBOARDING_ALLOWANCE:
+                if row:
+                    cur.execute(
+                        "UPDATE domain_allowances SET onboarding_used = onboarding_used + 1 "
+                        "WHERE domain = ?", (domain,),
+                    )
+                else:
+                    cur.execute(
+                        "INSERT INTO domain_allowances (domain, onboarding_used, created_at) "
+                        "VALUES (?, 1, ?)", (domain, now),
+                    )
+                return "onboarding"
+        cur.execute(
+            "UPDATE orgs SET questions_used = questions_used + 1 WHERE id = ?", (org_id,)
+        )
+    return "period"
+
+
+def running_questionnaires() -> list[dict]:
+    """Questionnaires whose run was in flight when the process last stopped —
+    used at startup to resume interrupted runs. Includes the org so the resumer
+    can recompute the quota gate without a second query."""
+    with cursor() as cur:
+        rows = cur.execute(
+            "SELECT q.id, q.org_id, o.tier AS org_tier, o.email AS org_email "
+            "FROM questionnaires q JOIN orgs o ON o.id = q.org_id "
+            "WHERE q.status = 'running'"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def lock_items(item_ids: list[int]) -> None:
     """Mark items as locked (over quota, not answered)."""
     if not item_ids:

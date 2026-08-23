@@ -164,6 +164,20 @@ CONTEXT_TOP_K = int(os.environ.get("ATTESTLY_CONTEXT_TOP_K", "5"))
 # several sequential API calls, so parallelism is the main latency win).
 ANSWER_CONCURRENCY = int(os.environ.get("ATTESTLY_ANSWER_CONCURRENCY", "10"))
 
+# --- Durable runs ---------------------------------------------------------
+# A questionnaire run is a BACKGROUND job, not a request: the browser starts it
+# and polls, so closing the tab (or a deploy) never stops the work. These bound
+# the in-process worker pool so we fix the architecture before touching machine
+# size.
+#   RUN_WORKERS            = questionnaire runs processed at once (each answers
+#                            its rows with ANSWER_CONCURRENCY sub-threads).
+#   MAX_CONCURRENT_MODEL_CALLS = global ceiling on simultaneous Anthropic calls
+#                            across ALL runs, so parallelism can't blow past the
+#                            box's CPU or the provider rate limit. This is the
+#                            real throttle; raise it (not the box) if runs queue.
+RUN_WORKERS = int(os.environ.get("ATTESTLY_RUN_WORKERS", "4"))
+MAX_CONCURRENT_MODEL_CALLS = int(os.environ.get("ATTESTLY_MAX_MODEL_CALLS", "12"))
+
 # --- Plans / metering -----------------------------------------------------
 # question_limit = billable "answers generated" per 30-day period.
 # bank_limit     = max approved entries in the Answer Bank.

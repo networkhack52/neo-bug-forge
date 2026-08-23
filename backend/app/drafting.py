@@ -23,12 +23,21 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from dataclasses import dataclass, field
 
 import httpx
 
 from . import config
 from .retrieval import Match
+
+# Global ceiling on simultaneous Anthropic calls across every questionnaire run
+# in this process. Each run answers its rows with several worker threads, so
+# with multiple runs live the raw concurrency is RUN_WORKERS * ANSWER_CONCURRENCY
+# — this semaphore caps the actual API fan-out at one place, protecting the box's
+# CPU and staying under the provider rate limit. Raise MAX_CONCURRENT_MODEL_CALLS
+# (not the machine) when runs start queuing.
+_MODEL_CALL_SEMAPHORE = threading.Semaphore(config.MAX_CONCURRENT_MODEL_CALLS)
 
 # Customer-facing abstention. One line — the detail (what's missing, next step)
 # belongs in the export's Status column, not in text the customer forwards.
@@ -273,7 +282,7 @@ def draft_answer(question: str, context: list[Match], documents: list | None = N
     }
 
     try:
-        with httpx.Client(timeout=60) as client:
+        with httpx.Client(timeout=60) as client, _MODEL_CALL_SEMAPHORE:
             resp = client.post(_messages_endpoint(), headers=_headers(), json=payload)
             resp.raise_for_status()
             body = resp.json()
@@ -383,7 +392,7 @@ def _verify(draft: Draft) -> None:
         }],
     }
     try:
-        with httpx.Client(timeout=45) as client:
+        with httpx.Client(timeout=45) as client, _MODEL_CALL_SEMAPHORE:
             resp = client.post(_messages_endpoint(), headers=_headers(), json=payload)
             resp.raise_for_status()
             body = resp.json()

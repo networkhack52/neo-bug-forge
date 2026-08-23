@@ -22,7 +22,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from . import (
     __version__, assessment as assess, billing, config, db, documents, email as email_svc,
-    engine, export, parsing, passwords, ratelimit, tokens, triage,
+    engine, export, parsing, passwords, ratelimit, runner, tokens, triage,
 )
 from .report import render as render_report
 
@@ -32,6 +32,12 @@ _spend_log = logging.getLogger("attestly.spend")
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     db.init_db()
+    # Finish any run that was in flight when the process last stopped (deploy,
+    # crash, restart). Best-effort: a resume failure must never block boot.
+    try:
+        runner.resume_interrupted()
+    except Exception:
+        logging.getLogger("attestly.runner").exception("startup resume failed")
     yield
 
 
@@ -632,6 +638,68 @@ def answer_questionnaire_stream(
     return StreamingResponse(gen(), media_type="application/x-ndjson")
 
 
+@app.post("/v1/questionnaires/{qid}/run")
+def start_questionnaire_run(
+    qid: int, body: dict, request: Request, org: dict = Depends(require_org)
+) -> dict:
+    """Start a DURABLE background run and return immediately. Answering happens in
+    an in-process worker; each answer is persisted and charged the moment it lands,
+    so closing the tab (or a deploy) never loses work. The client polls
+    GET /v1/questionnaires/{id} for progress, and the run is re-openable from its
+    URL. Applies exclusions and locks the over-quota overflow before starting."""
+    rate_limit_request_and_account(request, "answer", org["id"], config.RL_ANSWER)
+    q = db.get_questionnaire(qid, org["id"])
+    if not q:
+        raise HTTPException(status_code=404, detail="Not found")
+    if runner.is_running(qid):
+        items = db.list_items(qid)
+        return {"questionnaire_id": qid, "phase": "running", "already_running": True,
+                "progress": _run_progress(q, items)}
+
+    ctx = _prepare_answer_run(qid, body, org)
+    state = ctx["state"]
+    started = runner.start_run(
+        org["id"], qid, ctx["allow_draft"], ctx["block_message"],
+        use_onboarding=state["is_free"], domain=state["domain"],
+    )
+    q = db.get_questionnaire(qid, org["id"]) or q
+    items = db.list_items(qid)
+    return {
+        "questionnaire_id": qid,
+        "phase": "running",
+        "started": started,
+        "to_answer": ctx["to_answer"],
+        "spend_paused": ctx["spend_paused"],
+        "progress": _run_progress(q, items),
+    }
+
+
+def _run_progress(q: dict, items: list) -> dict:
+    """Live per-row rollup for the poll: how many rows are answered, blocked,
+    locked, excluded, or still pending, plus whether the run is finished."""
+    answered = sum(1 for it in items
+                   if it["match_type"] in ("reuse", "drafted", "fallback")
+                   and not it["locked"] and not it["excluded"])
+    blocked = sum(1 for it in items if it["match_type"] == "blocked")
+    locked = sum(1 for it in items if it["locked"])
+    excluded = sum(1 for it in items if it["excluded"])
+    pending = sum(1 for it in items
+                  if (it["match_type"] or "none") in ("none", "blocked")
+                  and not it["locked"] and not it["excluded"])
+    running = runner.is_running(q["id"]) or q.get("status") == "running"
+    return {
+        "status": q.get("status"),
+        "running": running,
+        "done": not running and q.get("status") in ("ready", "exported"),
+        "total": len(items),
+        "answered": answered,
+        "blocked": blocked,
+        "locked": locked,
+        "excluded": excluded,
+        "pending": pending,
+    }
+
+
 @app.get("/v1/usage/cost")
 def usage_cost_view(org: dict = Depends(require_org)) -> dict:
     """This account's model spend: answers, tokens (with cached split), and USD."""
@@ -648,7 +716,9 @@ def get_questionnaire(qid: int, org: dict = Depends(require_org)) -> dict:
     q = db.get_questionnaire(qid, org["id"])
     if not q:
         raise HTTPException(status_code=404, detail="Not found")
-    return {"questionnaire": public_questionnaire(q), "items": db.list_items(qid)}
+    items = db.list_items(qid)
+    return {"questionnaire": public_questionnaire(q), "items": items,
+            "progress": _run_progress(q, items)}
 
 
 @app.post("/v1/items/{item_id}/approve")
