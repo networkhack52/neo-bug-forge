@@ -25,13 +25,34 @@ class ExtractedQuestion:
 
 
 @dataclass
+class SheetInfo:
+    name: str
+    question_count: int
+    selected: bool = False
+
+
+@dataclass
+class ColumnInfo:
+    index: int          # 1-based worksheet column
+    header: str         # header cell text (or "Column C" when blank)
+    sample: str         # a representative question-like value from the column
+    selected: bool = False
+
+
+@dataclass
 class ParseResult:
     questions: list[ExtractedQuestion] = field(default_factory=list)
     question_col: Optional[int] = None   # 1-based worksheet column
     answer_col: Optional[int] = None     # 1-based; status/response goes here
     detail_col: Optional[int] = None     # 1-based; free-text comments go here (if distinct)
     sheet_name: Optional[str] = None
-    kind: str = "xlsx"                    # xlsx | csv
+    kind: str = "xlsx"                    # xlsx | csv | text
+    # Format-resilience metadata for the confirm-before-quota screen:
+    sheets: list = field(default_factory=list)          # SheetInfo per worksheet (xlsx)
+    columns: list = field(default_factory=list)         # ColumnInfo candidates in the chosen sheet
+    first_questions: list = field(default_factory=list)  # up to 3 extracted questions, for preview
+    languages: list = field(default_factory=list)       # detected scripts, e.g. ['en', 'ar']
+    rtl: bool = False                                    # any right-to-left script present
 
 
 _QUESTION_WORDS = (
@@ -180,21 +201,36 @@ def _pick_columns(rows: list[list[str]]) -> tuple[Optional[int], Optional[int], 
     return q_col, a_col, d_col
 
 
-def parse_xlsx(data: bytes) -> ParseResult:
-    wb = load_workbook(io.BytesIO(data), read_only=False, data_only=True)
-    ws = wb.active
-    rows: list[list[str]] = []
-    for row in ws.iter_rows(values_only=True):
-        rows.append(["" if v is None else str(v) for v in row])
+# Right-to-left scripts: Hebrew, Arabic (+ supplements), Syriac, Thaana, and the
+# Arabic presentation forms. Used to detect bilingual / RTL questionnaires.
+_RTL_RE = re.compile(
+    r"[֐-׿؀-ۿ܀-ݏݐ-ݿࢠ-ࣿ"
+    r"יִ-﷿ﹰ-﻿]"
+)
+_ARABIC_RE = re.compile(r"[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]")
+_HEBREW_RE = re.compile(r"[֐-׿יִ-ﭏ]")
+_LATIN_RE = re.compile(r"[A-Za-z]")
 
-    q_col, a_col, d_col = _pick_columns(rows)
-    result = ParseResult(question_col=None if q_col is None else q_col + 1,
-                         answer_col=None if a_col is None else a_col + 1,
-                         detail_col=None if d_col is None else d_col + 1,
-                         sheet_name=ws.title, kind="xlsx")
-    if q_col is None:
-        return result
 
+def _detect_languages(questions: list[ExtractedQuestion]) -> tuple[list[str], bool]:
+    """Best-effort script detection across the extracted questions. Returns
+    (languages, rtl). We answer in English regardless; this only NOTES what the
+    source used so a bilingual sheet is handled transparently (no Arabic drafting)."""
+    text = "\n".join(q.question for q in questions)
+    langs: list[str] = []
+    if _LATIN_RE.search(text):
+        langs.append("en")
+    if _ARABIC_RE.search(text):
+        langs.append("ar")
+    if _HEBREW_RE.search(text):
+        langs.append("he")
+    return langs, bool(_RTL_RE.search(text))
+
+
+def _extract_questions(rows: list[list[str]], q_col: int) -> list[ExtractedQuestion]:
+    """Pull the real questions out of one column, skipping the header row, section
+    titles, instructions, notes, and footers (they score 0)."""
+    out: list[ExtractedQuestion] = []
     logical = 0
     header_seen = False
     for excel_row, r in enumerate(rows, start=1):
@@ -204,38 +240,104 @@ def parse_xlsx(data: bytes) -> ParseResult:
         if not header_seen and _looks_like_header(cell):
             header_seen = True
             continue
-        result.questions.append(
-            ExtractedQuestion(row_index=logical, excel_row=excel_row, question=cell.strip())
-        )
+        out.append(ExtractedQuestion(row_index=logical, excel_row=excel_row, question=cell.strip()))
         logical += 1
+    return out
+
+
+def _column_candidates(rows: list[list[str]], chosen: Optional[int]) -> list[ColumnInfo]:
+    """Every column that holds at least one question-like cell, so the user can
+    override the auto-detected question column on the confirm screen."""
+    if not rows:
+        return []
+    n_cols = max(len(r) for r in rows)
+    header = rows[0] if rows else []
+    out: list[ColumnInfo] = []
+    for c in range(n_cols):
+        best = ""
+        best_score = 0.0
+        for r in rows[:200]:
+            val = r[c] if c < len(r) else ""
+            s = _question_score(val)
+            if s > best_score:
+                best_score, best = s, val.strip()
+        if best_score <= 0:
+            continue
+        head = (header[c].strip() if c < len(header) and header[c] else "") or f"Column {chr(65 + c) if c < 26 else c + 1}"
+        out.append(ColumnInfo(index=c + 1, header=head,
+                              sample=best[:120], selected=(chosen is not None and c == chosen)))
+    return out
+
+
+def _finish_result(result: ParseResult, rows: list[list[str]], q_col: Optional[int]) -> ParseResult:
+    """Attach the confirm-screen metadata (column candidates, preview, languages)."""
+    result.columns = _column_candidates(rows, q_col)
+    result.first_questions = [q.question for q in result.questions[:3]]
+    result.languages, result.rtl = _detect_languages(result.questions)
     return result
 
 
-def parse_csv(data: bytes) -> ParseResult:
+def parse_xlsx(data: bytes, sheet: Optional[str] = None,
+               force_col: Optional[int] = None) -> ParseResult:
+    """Parse an .xlsx/.xlsm. Scores EVERY worksheet and answers the one with the
+    most real questions (cover sheets and instruction tabs score ~0), listing the
+    others so the user can switch. ``sheet``/``force_col`` (1-based) override the
+    auto-detected worksheet and question column from the confirm screen."""
+    wb = load_workbook(io.BytesIO(data), read_only=False, data_only=True)
+
+    # Read each worksheet's rows once and score it.
+    per_sheet: dict[str, list[list[str]]] = {}
+    scored: list[tuple[str, int, Optional[int], Optional[int], Optional[int]]] = []
+    for name in wb.sheetnames:
+        ws = wb[name]
+        rows = [["" if v is None else str(v) for v in row] for row in ws.iter_rows(values_only=True)]
+        per_sheet[name] = rows
+        qc, ac, dc = _pick_columns(rows)
+        n = len(_extract_questions(rows, qc)) if qc is not None else 0
+        scored.append((name, n, qc, ac, dc))
+
+    if not scored:
+        return ParseResult(kind="xlsx")
+
+    # Choose the requested sheet, else the one with the most questions.
+    chosen = None
+    if sheet:
+        chosen = next((s for s in scored if s[0] == sheet), None)
+    if chosen is None:
+        chosen = max(scored, key=lambda s: s[1])
+    name, _n, q_col, a_col, d_col = chosen
+    if force_col is not None:
+        q_col = force_col - 1  # 1-based -> 0-based
+    rows = per_sheet[name]
+
+    result = ParseResult(
+        question_col=None if q_col is None else q_col + 1,
+        answer_col=None if a_col is None else a_col + 1,
+        detail_col=None if d_col is None else d_col + 1,
+        sheet_name=name, kind="xlsx",
+        sheets=[SheetInfo(name=s[0], question_count=s[1], selected=(s[0] == name)) for s in scored],
+    )
+    if q_col is None:
+        return _finish_result(result, rows, None)
+    result.questions = _extract_questions(rows, q_col)
+    return _finish_result(result, rows, q_col)
+
+
+def parse_csv(data: bytes, force_col: Optional[int] = None) -> ParseResult:
     text = data.decode("utf-8-sig", errors="replace")
     reader = csv.reader(io.StringIO(text))
     rows = [[c for c in row] for row in reader]
     q_col, a_col, d_col = _pick_columns(rows)
+    if force_col is not None:
+        q_col = force_col - 1  # 1-based -> 0-based override from the confirm screen
     result = ParseResult(question_col=None if q_col is None else q_col + 1,
                          answer_col=None if a_col is None else a_col + 1,
                          detail_col=None if d_col is None else d_col + 1,
                          kind="csv")
     if q_col is None:
-        return result
-    logical = 0
-    header_seen = False
-    for excel_row, r in enumerate(rows, start=1):
-        cell = r[q_col] if q_col < len(r) else ""
-        if _question_score(cell) <= 0:
-            continue
-        if not header_seen and _looks_like_header(cell):
-            header_seen = True
-            continue
-        result.questions.append(
-            ExtractedQuestion(row_index=logical, excel_row=excel_row, question=cell.strip())
-        )
-        logical += 1
-    return result
+        return _finish_result(result, rows, None)
+    result.questions = _extract_questions(rows, q_col)
+    return _finish_result(result, rows, q_col)
 
 
 # Leading list markers on a plain-text question line: "1. ", "12) ", "- ", "• ".
@@ -257,28 +359,34 @@ def parse_text(data: bytes) -> ParseResult:
             ExtractedQuestion(row_index=logical, excel_row=line_no, question=line)
         )
         logical += 1
+    # No columns in plain text, but still surface the preview + languages.
+    result.first_questions = [q.question for q in result.questions[:3]]
+    result.languages, result.rtl = _detect_languages(result.questions)
     return result
 
 
-def parse(filename: str, data: bytes) -> ParseResult:
+def parse(filename: str, data: bytes, sheet: Optional[str] = None,
+          force_col: Optional[int] = None) -> ParseResult:
+    """Route by extension. ``sheet`` and ``force_col`` (1-based) let the confirm
+    screen re-parse with a user-chosen worksheet / question column."""
     name = (filename or "").lower()
     if name.endswith(".csv"):
-        return parse_csv(data)
+        return parse_csv(data, force_col=force_col)
     if name.endswith((".xlsx", ".xlsm")):
-        return parse_xlsx(data)
+        return parse_xlsx(data, sheet=sheet, force_col=force_col)
     if name.endswith((".txt", ".md", ".text")):
         return parse_text(data)
     # Unknown extension: try xlsx; else pick text vs csv by how comma-delimited it
     # looks, so a plain-text list isn't mangled by comma-splitting.
     try:
-        return parse_xlsx(data)
+        return parse_xlsx(data, sheet=sheet, force_col=force_col)
     except Exception:
         pass
     try:
         sample = data.decode("utf-8-sig", errors="replace")[:5000]
         lines = [ln for ln in sample.splitlines() if ln.strip()]
         if lines and sum(1 for ln in lines if "," in ln) / len(lines) >= 0.5:
-            return parse_csv(data)
+            return parse_csv(data, force_col=force_col)
     except Exception:
         pass
     return parse_text(data)

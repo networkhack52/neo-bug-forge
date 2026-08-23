@@ -90,6 +90,61 @@ def test_plain_text_questionnaire_keeps_questions_whole():
     ], got
 
 
+def _multi_sheet_bytes():
+    wb = Workbook()
+    cover = wb.active
+    cover.title = "Cover"
+    for r in [["Vendor Security Questionnaire"], ["Prepared for Acme Corp"], ["Confidential"]]:
+        cover.append(r)
+    ws = wb.create_sheet("Controls")
+    for r in [["#", "Question", "Response"],
+              ["1", "Do you encrypt data at rest?", ""],
+              ["2", "Is MFA enforced for all staff?", ""],
+              ["3", "Do you run annual penetration tests?", ""]]:
+        ws.append(r)
+    notes = wb.create_sheet("Instructions")
+    notes.append(["Please complete the Controls tab and return it."])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_multi_sheet_picks_the_controls_tab_and_lists_the_others():
+    result = parsing.parse_xlsx(_multi_sheet_bytes())
+    assert result.sheet_name == "Controls"
+    assert len(result.questions) == 3
+    names = {s.name for s in result.sheets}
+    assert names == {"Cover", "Controls", "Instructions"}
+    selected = [s for s in result.sheets if s.selected]
+    assert len(selected) == 1 and selected[0].name == "Controls"
+    # The confirm screen gets a 3-question preview + the chosen 1-based column.
+    assert result.first_questions[0] == "Do you encrypt data at rest?"
+    assert result.question_col == 2  # 'Question' is the 2nd column
+
+
+def test_column_override_reparses_on_the_chosen_column():
+    data = _multi_sheet_bytes()
+    # Force column 1 ('#') — it holds no questions, so extraction yields nothing.
+    forced = parsing.parse_xlsx(data, sheet="Controls", force_col=1)
+    assert forced.question_col == 1
+    assert len(forced.questions) == 0
+    # The candidate list still offers the real question column to switch back to.
+    assert any(c.index == 2 for c in forced.columns)
+
+
+def test_rtl_and_bilingual_detection():
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Question", "Answer"])
+    ws.append(["Do you encrypt data at rest? هل تقومون بتشفير البيانات؟", ""])
+    ws.append(["Is MFA enforced? هل يتم فرض المصادقة الثنائية؟", ""])
+    buf = io.BytesIO()
+    wb.save(buf)
+    result = parsing.parse_xlsx(buf.getvalue())
+    assert result.rtl is True
+    assert "ar" in result.languages and "en" in result.languages
+
+
 def test_csv_messy_sheet_extracts_only_questions():
     csv_text = (
         "Question,Answer\n"

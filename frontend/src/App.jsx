@@ -653,6 +653,21 @@ function Upload({ me, onChange, onNavigate }) {
     tick(); // fire immediately so a fast/already-done run doesn't wait 1.5s
   }
 
+  // Re-parse the stored upload with a chosen sheet/column (confirm screen). No
+  // quota is spent, so switching the detected column is free.
+  async function reparse(patch) {
+    if (!triage) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await api.reparse(triage.questionnaire_id, patch);
+      setTriage(res);
+    } catch (e) {
+      setErr(e.message);
+    }
+    setBusy(false);
+  }
+
   async function runAnswer(exclude, qidArg, opts = {}) {
     const qid = qidArg || triage.questionnaire_id;
     setBusy(true);
@@ -802,6 +817,7 @@ function Upload({ me, onChange, onNavigate }) {
           busy={busy}
           err={err}
           onAnswer={runAnswer}
+          onReparse={reparse}
           onCancel={() => {
             setTriage(null);
             setErr("");
@@ -950,7 +966,87 @@ function Upload({ me, onChange, onNavigate }) {
   );
 }
 
-function TriagePanel({ triage, busy, err, onAnswer, onCancel }) {
+// A short language label for the bilingual/RTL note.
+const LANG_NAMES = { en: "English", ar: "Arabic", he: "Hebrew" };
+
+function DetectedFormat({ triage, busy, onReparse }) {
+  const sheets = triage.sheets || [];
+  const columns = triage.columns || [];
+  const langs = triage.languages || [];
+  const nonEnglish = langs.filter((l) => l !== "en");
+  const multiSheet = sheets.length > 1;
+  const multiCol = columns.length > 1;
+  if (!triage.sheet_name && !multiCol && !multiSheet && nonEnglish.length === 0) return null;
+
+  return (
+    <div className="detected">
+      <div className="detected-grid">
+        {triage.sheet_name && (
+          <label className="detected-field">
+            <span className="detected-label">Worksheet</span>
+            {multiSheet ? (
+              <select
+                value={triage.sheet_name}
+                disabled={busy}
+                onChange={(e) => onReparse({ sheet: e.target.value })}
+              >
+                {sheets.map((s) => (
+                  <option key={s.name} value={s.name}>
+                    {s.name} ({s.question_count} question{s.question_count === 1 ? "" : "s"})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="detected-value">{triage.sheet_name}</span>
+            )}
+          </label>
+        )}
+        {columns.length > 0 && (
+          <label className="detected-field">
+            <span className="detected-label">Question column</span>
+            {multiCol ? (
+              <select
+                value={triage.question_col || ""}
+                disabled={busy}
+                onChange={(e) => onReparse({ question_col: Number(e.target.value) })}
+              >
+                {columns.map((c) => (
+                  <option key={c.index} value={c.index}>
+                    {c.header}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="detected-value">{columns[0].header}</span>
+            )}
+          </label>
+        )}
+      </div>
+      {triage.first_questions && triage.first_questions.length > 0 && (
+        <div className="detected-preview">
+          <span className="detected-label">First questions</span>
+          <ol>
+            {triage.first_questions.map((q, i) => (
+              <li key={i}>{q}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {nonEnglish.length > 0 && (
+        <p className="detected-lang">
+          This questionnaire includes {nonEnglish.map((l) => LANG_NAMES[l] || l).join(" and ")}
+          {triage.rtl ? " (right-to-left)" : ""}. Attestly reads it and answers in English. The
+          original text and layout stay intact in your export.
+        </p>
+      )}
+      <p className="muted xsmall">
+        Wrong column or sheet? Change it above before answering. Re-parsing is free and uses no quota.
+      </p>
+    </div>
+  );
+}
+
+function TriagePanel({ triage, busy, err, onAnswer, onReparse, onCancel }) {
   // Per-item exclusion state, seeded from the server's out-of-scope suggestions.
   const [excluded, setExcluded] = useState(() => {
     const m = {};
@@ -1020,6 +1116,8 @@ function TriagePanel({ triage, busy, err, onAnswer, onCancel }) {
           <strong>{remaining}</strong> remaining
         </span>
       </div>
+
+      <DetectedFormat triage={triage} busy={busy} onReparse={onReparse} />
 
       {overBudget > 0 && (
         <div className="lockbanner">

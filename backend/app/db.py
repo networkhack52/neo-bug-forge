@@ -930,6 +930,25 @@ def set_item_exclusion(item_id: int, excluded: bool, reason: str = "") -> None:
         )
 
 
+def clear_items(qid: int) -> None:
+    """Remove all items for a questionnaire (used when re-parsing with a different
+    sheet/column from the confirm screen, before answering — no quota was spent)."""
+    with cursor() as cur:
+        cur.execute("DELETE FROM questionnaire_items WHERE questionnaire_id = ?", (qid,))
+
+
+def update_questionnaire_parse(qid: int, total: int, source_kind: str, sheet_name: Optional[str],
+                               question_col: Optional[int], answer_col: Optional[int],
+                               detail_col: Optional[int], framework: str) -> None:
+    """Rewrite the captured parse layout after a re-parse on the confirm screen."""
+    with cursor() as cur:
+        cur.execute(
+            "UPDATE questionnaires SET total_questions = ?, source_kind = ?, sheet_name = ?, "
+            "question_col = ?, answer_col = ?, detail_col = ?, framework = ? WHERE id = ?",
+            (total, source_kind, sheet_name, question_col, answer_col, detail_col, framework, qid),
+        )
+
+
 def set_questionnaire_status(qid: int, status: str) -> None:
     with cursor() as cur:
         cur.execute("UPDATE questionnaires SET status = ? WHERE id = ?", (status, qid))

@@ -221,6 +221,19 @@ button, .primary, .secondary {
 .triage-tags { display: flex; gap: 6px; align-items: center; }
 .triage-reason { grid-column: 1 / -1; }
 .triage-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+
+/* Confirm-before-quota: what Attestly detected, with a way to override it. */
+.detected { border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin: 4px 0 14px; background: var(--card); }
+.detected-grid { display: flex; gap: 20px; flex-wrap: wrap; }
+.detected-field { display: flex; flex-direction: column; gap: 4px; min-width: 200px; }
+.detected-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.detected-value { font-size: 14px; font-weight: 600; color: var(--ink); }
+.detected-field select { max-width: 320px; }
+.detected-preview { margin-top: 12px; }
+.detected-preview ol { margin: 4px 0 0; padding-left: 20px; }
+.detected-preview li { font-size: 13px; color: var(--ink); margin: 2px 0; }
+.detected-lang { margin: 12px 0 6px; padding: 10px 12px; font-size: 13px; border-radius: 8px;
+  background: var(--accent-soft); color: var(--ink); border-left: 3px solid var(--accent); }
 .contra { margin-top: 10px; padding: 12px; border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); border-radius: 8px; background: var(--amber-bg); }
 .contra-head { font-size: 13px; color: var(--ink); margin-bottom: 10px; }
 .contra-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

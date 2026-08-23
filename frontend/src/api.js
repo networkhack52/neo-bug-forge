@@ -50,6 +50,7 @@ export const api = {
   bulkAnswers: (answers) => req("/v1/answers/bulk", { method: "POST", body: { answers } }),
   seedStarter: () => req("/v1/answers/seed_starter", { method: "POST" }),
   sample: () => req("/v1/sample"),
+  reparse: (id, body) => req(`/v1/questionnaires/${id}/reparse`, { method: "POST", body }),
   listQuestionnaires: () => req("/v1/questionnaires"),
   getQuestionnaire: (id) => req(`/v1/questionnaires/${id}`),
   uploadQuestionnaire: (file) => {

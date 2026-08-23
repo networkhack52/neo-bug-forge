@@ -507,25 +507,60 @@ async def upload_questionnaire(
         raise HTTPException(status_code=422, detail="No questions detected in the file")
 
     framework = triage.detect_framework(file.filename or "", parsed.questions)
-    n_questions = len(parsed.questions)
-
     qid = db.create_questionnaire(
-        org["id"], file.filename or "Questionnaire", file.filename or "", n_questions,
+        org["id"], file.filename or "Questionnaire", file.filename or "", len(parsed.questions),
         source_bytes=data, source_kind=parsed.kind, sheet_name=parsed.sheet_name,
         question_col=parsed.question_col, answer_col=parsed.answer_col,
         detail_col=parsed.detail_col, framework=framework,
     )
     for eq in parsed.questions:
         db.add_item(qid, eq.row_index, eq.question, excel_row=eq.excel_row)
+    return _triage_response(org, qid, parsed, framework)
 
-    # Coverage + out-of-scope: no model calls (library ranking + heuristics only).
+
+@app.post("/v1/questionnaires/{qid}/reparse")
+async def reparse_questionnaire(
+    qid: int, body: dict, org: dict = Depends(require_org)
+) -> dict:
+    """Re-parse the stored upload with a user-chosen worksheet and/or question
+    column (from the confirm screen), replacing the items. No quota is spent —
+    this runs before answering — so switching the detected column is free."""
+    q = db.get_questionnaire(qid, org["id"])
+    if not q:
+        raise HTTPException(status_code=404, detail="Not found")
+    data = q.get("source_bytes")
+    if not data:
+        raise HTTPException(status_code=422, detail="Original file is no longer available to re-parse")
+    sheet = (body.get("sheet") or None)
+    col = body.get("question_col")
+    force_col = int(col) if col not in (None, "") else None
+    parsed = parsing.parse(q.get("source_filename") or q.get("name") or "upload.xlsx",
+                           bytes(data), sheet=sheet, force_col=force_col)
+    if not parsed.questions:
+        raise HTTPException(status_code=422, detail="No questions detected with that sheet/column")
+
+    framework = triage.detect_framework(q.get("name") or "", parsed.questions)
+    db.clear_items(qid)
+    for eq in parsed.questions:
+        db.add_item(qid, eq.row_index, eq.question, excel_row=eq.excel_row)
+    db.update_questionnaire_parse(
+        qid, len(parsed.questions), parsed.kind, parsed.sheet_name,
+        parsed.question_col, parsed.answer_col, parsed.detail_col, framework,
+    )
+    return _triage_response(org, qid, parsed, framework)
+
+
+def _triage_response(org: dict, qid: int, parsed, framework: str) -> dict:
+    """Build the triage / confirm-before-quota payload: counts, coverage, quota,
+    plus the format-resilience metadata (worksheets, column candidates, a first-3
+    preview, and detected languages) the confirm screen renders."""
+    n_questions = len(parsed.questions)
     covered = triage.coverage_flags(org["id"], parsed.questions)
     suggestions = triage.out_of_scope_suggestions(org["id"], parsed.questions)
     covered_count = sum(covered)
 
     q = _quota_state(org)
     items = db.list_items(qid)
-    # Attach the triage hints to each item (row order matches parsed.questions).
     for it, eq, is_covered in zip(items, parsed.questions, covered):
         it["covered"] = bool(is_covered)
         reason = suggestions.get(eq.row_index)
@@ -535,16 +570,13 @@ async def upload_questionnaire(
     is_free = q["is_free"]
     no_docs = is_free and db.count_documents(org["id"]) == 0
     spend_paused = is_free and _free_tier_drafting_paused()
-
-    # Answers the non-covered rows would consume (covered rows reuse for free).
-    to_draft = n_questions - covered_count
     return {
         "questionnaire_id": qid,
         "phase": "triage",
         "framework": framework,
         "total_questions": n_questions,
         "library_covered": covered_count,
-        "will_use_quota": to_draft,
+        "will_use_quota": n_questions - covered_count,
         "suggested_exclusions": [it["id"] for it in items if it.get("suggested_exclude")],
         "onboarding_remaining": q["onboarding_remaining"],
         "period_remaining": q["period_remaining"],
@@ -553,6 +585,16 @@ async def upload_questionnaire(
         "spend_paused": spend_paused,
         "can_export_original": parsed.answer_col is not None,
         "source_kind": parsed.kind,
+        # Format-resilience metadata for the confirm screen.
+        "sheet_name": parsed.sheet_name,
+        "sheets": [{"name": s.name, "question_count": s.question_count, "selected": s.selected}
+                   for s in parsed.sheets],
+        "question_col": parsed.question_col,
+        "columns": [{"index": c.index, "header": c.header, "sample": c.sample, "selected": c.selected}
+                    for c in parsed.columns],
+        "first_questions": parsed.first_questions,
+        "languages": parsed.languages,
+        "rtl": parsed.rtl,
         "items": items,
     }
 
