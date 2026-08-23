@@ -64,9 +64,22 @@ def _negative_suffix(item: dict) -> str:
     return ""
 
 
+def is_bare_negative(item: dict) -> bool:
+    """True when a 'No' answer is genuinely bare — essentially just the word 'No'
+    with no explanation. A substantive negative (e.g. 'We do not use customer data
+    to train models…') is a complete answer and is NOT a control gap, so it does
+    NOT need a remediation date."""
+    if (item.get("choice") or "").strip() != "No":
+        return False
+    ans = clean_answer(item.get("answer", "")).strip().lower()
+    ans = re.sub(r"^(no|yes|not applicable|n/?a)[\s.:,;-]*", "", ans).strip()
+    return len(ans) < 12
+
+
 def gate_issues(items: list[dict]) -> list[dict]:
-    """Rows that can't export yet: a bare 'No' (no remediation date and no
-    explicit no-plan acknowledgement) or a bare 'N/A' (no justification).
+    """Rows that can't export yet: a BARE 'No' (just 'No' with no explanation and
+    no remediation date / no-plan note) or an 'N/A' with no justification. A
+    substantive 'No' that explains itself exports freely.
     Returns [{id, question, issue}] so the caller can prompt for what's missing."""
     out = []
     for it in items:
@@ -78,7 +91,7 @@ def gate_issues(items: list[dict]) -> list[dict]:
                 out.append({"id": it.get("id"), "question": it.get("question", ""),
                             "issue": "na_reason"})
             continue
-        if choice == "No":
+        if choice == "No" and is_bare_negative(it):
             if not str(it.get("remediation_date") or "").strip() and not it.get("no_plan"):
                 out.append({"id": it.get("id"), "question": it.get("question", ""),
                             "issue": "remediation"})

@@ -20,6 +20,14 @@ def test_flags_named_technology_change():
                                       "Data is encrypted with AES-128.") is not None
 
 
+def test_hyphenated_and_spaced_units_are_equal():
+    # "72-hour" and "72 hours" mean the same thing — not a contradiction.
+    assert diffing.materially_differs(
+        "we will notify you within 72 hours of confirmation",
+        "notification consistent with the 72-hour framework",
+    ) is None
+
+
 def test_ignores_pure_wording_changes():
     assert diffing.materially_differs("We enforce MFA for all staff.",
                                       "MFA is required for every employee.") is None

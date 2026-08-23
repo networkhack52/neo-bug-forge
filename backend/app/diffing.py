@@ -53,10 +53,15 @@ def _numbers(text: str) -> set[str]:
     the 2 in SOC 2 is not mistaken for a bare figure)."""
     stripped = _TECH_RE.sub(" ", text or "")
     out = set()
-    for m in re.finditer(r"\b(\d+(?:\.\d+)?)\s*(%|percent|hours?|hrs?|days?|weeks?|months?|years?|minutes?)?",
-                         stripped, re.IGNORECASE):
+    # Allow a hyphen OR a space between the number and its unit, so "72-hour" and
+    # "72 hours" normalise to the same token (they mean the same thing).
+    for m in re.finditer(
+        r"\b(\d+(?:\.\d+)?)[-\s]*(%|percent|hours?|hrs?|days?|weeks?|months?|years?|minutes?|mins?)?",
+        stripped, re.IGNORECASE,
+    ):
         num = m.group(1)
         unit = (m.group(2) or "").lower().rstrip("s")
+        unit = {"hr": "hour", "min": "minute"}.get(unit, unit)  # normalise abbreviations
         # Ignore lone small integers with no unit (list markers, "1-3 sentences").
         if unit:
             out.add(f"{num}{unit}")

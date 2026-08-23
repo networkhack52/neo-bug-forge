@@ -23,14 +23,23 @@ function docStale(epoch) {
   return Date.now() / 1000 - epoch > 365 * 86400;
 }
 
-// Rows that can't export yet (mirrors the server gate): a bare "No" needs a
+// A "No" is bare only when it's essentially just the word "No". A substantive
+// negative ("We do not train on your data…") is a complete answer, not a gap.
+function isBareNegative(it) {
+  if ((it.choice || "").trim() !== "No") return false;
+  let ans = (it.answer || "").replace(/\s*\[Attestly[^\]]*\]/gi, "").trim().toLowerCase();
+  ans = ans.replace(/^(no|yes|not applicable|n\/?a)[\s.:,;-]*/, "").trim();
+  return ans.length < 12;
+}
+
+// Rows that can't export yet (mirrors the server gate): a BARE "No" needs a
 // remediation date or an explicit no-plan; an "N/A" needs a reason.
 function gateIssues(items) {
   return (items || []).filter((it) => {
     if (it.locked) return false;
     const choice = (it.choice || "").trim();
     if (it.excluded) return !(it.exclusion_reason || "").trim();
-    if (choice === "No") return !(it.remediation_date || "").trim() && !it.no_plan;
+    if (choice === "No") return isBareNegative(it) && !(it.remediation_date || "").trim() && !it.no_plan;
     if (choice === "Not Applicable") return !(it.na_reason || "").trim();
     return false;
   });
@@ -973,7 +982,9 @@ function ContradictionPanel({ item, onResolve }) {
 }
 
 function RemediationFields({ item, onSaveMeta }) {
-  const isNo = (item.choice || "").trim() === "No";
+  // Only a BARE "No" needs a remediation prompt. A substantive negative answer
+  // is complete and exports as-is.
+  const isNo = (item.choice || "").trim() === "No" && isBareNegative(item);
   const isNa = (item.choice || "").trim() === "Not Applicable" && !item.excluded;
   if (!isNo && !isNa) return null;
 

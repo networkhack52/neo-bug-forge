@@ -525,9 +525,9 @@ def _one_q_bytes(question):
 def test_export_blocks_bare_no_until_remediation_is_set():
     token = _token()
     q = "Do you sell customer data to third parties?"
-    # A reused library answer that reads as a 'No' -> the item's choice is No.
-    client.post("/v1/answers", headers=_auth(token),
-                json={"question": q, "answer": "No, we do not sell customer data."})
+    # A reused library answer that is a BARE 'No' -> the item's choice is No and
+    # the answer carries no explanation, so it must be gated.
+    client.post("/v1/answers", headers=_auth(token), json={"question": q, "answer": "No."})
     body = _upload_answer(token, _one_q_bytes(q))
     qid = body["questionnaire_id"]
     item = body["items"][0]

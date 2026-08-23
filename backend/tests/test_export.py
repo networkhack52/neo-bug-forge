@@ -158,6 +158,17 @@ def test_gate_flags_bare_no_and_bare_na():
     assert {i["issue"] for i in issues} == {"remediation", "na_reason"}
 
 
+def test_substantive_no_is_not_gated():
+    # A full negative answer (e.g. "we do not train on your data") is complete and
+    # must NOT demand a remediation date.
+    item = {"id": 1, "question": "Do you train on our data?", "choice": "No",
+            "answer": "We do not use customer data to train any AI or machine learning models."}
+    assert export.is_bare_negative(item) is False
+    assert export.gate_issues([item]) == []
+    # A truly bare "No" still gates.
+    assert export.is_bare_negative({"choice": "No", "answer": "No."}) is True
+
+
 def test_gate_clears_when_negatives_resolved():
     items = [
         {"id": 1, "choice": "No", "answer": "No.", "remediation_date": "2025-12-01"},
