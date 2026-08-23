@@ -1309,6 +1309,12 @@ function ReviewItem({ item, onApprove, onShowSources, onSaveMeta, onResolveContr
   const stale = cites.some((c) => c && c.stale);
   const docDate = (cites.find((c) => c && c.kind === "document" && c.date) || {}).date;
   const verified = item.verification === "supported";
+  // Name the object of verification from the cited document (name + date already
+  // shown in the source block), so the badge reads as precise, not third-party.
+  const verifiedDoc = cites.find((c) => c && c.kind === "document" && c.title);
+  const verifiedTitle = verifiedDoc
+    ? `Verified against ${verifiedDoc.title}${verifiedDoc.date ? `, ${verifiedDoc.date}` : ""}`
+    : "Verified against the cited source";
   const badge =
     { reuse: ["Reused", "green"], drafted: ["AI draft", "blue"], fallback: ["Needs review", "amber"] }[
       item.match_type
@@ -1322,7 +1328,12 @@ function ReviewItem({ item, onApprove, onShowSources, onSaveMeta, onResolveContr
           <span className="tag amber">No status</span>
         )}
         <span className={`tag ${badge[1]}`}>{badge[0]}</span>
-        {verified && <span className="tag green" title="Checked against your approved sources">✓ Verified</span>}
+        {verified && (
+          <span className="tag green vbadge" title={verifiedTitle}>
+            ✓ <span className="vlabel-full">Verified against source</span>
+            <span className="vlabel-short">Source verified</span>
+          </span>
+        )}
         {stale && (
           <span className="tag amber" title="The cited document is over 12 months old">
             ⚠ Source {docDate}
@@ -1333,7 +1344,6 @@ function ReviewItem({ item, onApprove, onShowSources, onSaveMeta, onResolveContr
             ⚠ Differs from before
           </span>
         )}
-        <span className="muted small">confidence {Math.round(item.confidence)}%</span>
         {approved && <span className="tag green">✓ approved</span>}
       </div>
       <div className="q">{item.question}</div>
@@ -1426,8 +1436,12 @@ function SourcePanel({ data, library, onClose }) {
         <div className="drawer-a">{item.answer}</div>
         <div className="drawer-meta">
           {item.choice && <span className="tag choice">{item.choice}</span>}
-          {item.verification === "supported" && <span className="tag green">✓ Verified</span>}
-          <span className="muted xsmall">confidence {Math.round(item.confidence)}%</span>
+          {item.verification === "supported" && (
+            <span className="tag green vbadge">
+              ✓ <span className="vlabel-full">Verified against source</span>
+              <span className="vlabel-short">Source verified</span>
+            </span>
+          )}
         </div>
 
         <div className="drawer-sub">Sources ({resolved.length})</div>

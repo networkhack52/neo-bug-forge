@@ -234,6 +234,14 @@ button, .primary, .secondary {
 .detected-preview li { font-size: 13px; color: var(--ink); margin: 2px 0; }
 .detected-lang { margin: 12px 0 6px; padding: 10px 12px; font-size: 13px; border-radius: 8px;
   background: var(--accent-soft); color: var(--ink); border-left: 3px solid var(--accent); }
+
+/* "Verified against source" badge: names the object of verification. Falls back
+   to the shorter "Source verified" on narrow screens so the card never breaks. */
+.vbadge .vlabel-short { display: none; }
+@media (max-width: 560px) {
+  .vbadge .vlabel-full { display: none; }
+  .vbadge .vlabel-short { display: inline; }
+}
 .contra { margin-top: 10px; padding: 12px; border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); border-radius: 8px; background: var(--amber-bg); }
 .contra-head { font-size: 13px; color: var(--ink); margin-bottom: 10px; }
 .contra-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
