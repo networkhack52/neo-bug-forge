@@ -484,6 +484,13 @@ function Upload({ me, onChange, onNavigate }) {
   const [library, setLibrary] = useState([]);
   const [sources, setSources] = useState(null); // { item, cites }
   const [seeding, setSeeding] = useState(false);
+  const [onboarded, setOnboarded] = useState(() => {
+    try {
+      return localStorage.getItem("attestly_onboarded") === "1";
+    } catch (_) {
+      return false;
+    }
+  });
 
   const empty = me.bank_size === 0 && me.doc_count === 0;
 
@@ -520,8 +527,30 @@ function Upload({ me, onChange, onNavigate }) {
     setBusy(false);
   }
 
-  async function runAnswer(exclude) {
-    const qid = triage.questionnaire_id;
+  async function trySample() {
+    setBusy(true);
+    setErr("");
+    setResult(null);
+    setTriage(null);
+    try {
+      if (me.bank_size === 0) {
+        await api.seedStarter(); // so sample answers reuse from the library, with proof
+        onChange();
+      }
+      const blob = await fetch("/sample-questionnaire.xlsx").then((r) => r.blob());
+      const file = new File([blob], "sample-questionnaire.xlsx", {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const tri = await api.uploadQuestionnaire(file);
+      await runAnswer([], tri.questionnaire_id); // one click: answer the whole small sample
+    } catch (e) {
+      setErr(e.message);
+      setBusy(false);
+    }
+  }
+
+  async function runAnswer(exclude, qidArg) {
+    const qid = qidArg || triage.questionnaire_id;
     setBusy(true);
     setErr("");
     setTriage(null);
@@ -609,14 +638,20 @@ function Upload({ me, onChange, onNavigate }) {
         <div className="card dropzone">
           <h2>Upload a questionnaire</h2>
           <p className="muted">.xlsx or .csv. We auto-detect the question column.</p>
-          <label className="primary filebtn">
-            {busy ? "Reading…" : "Choose file"}
-            <input type="file" accept=".xlsx,.xlsm,.csv" onChange={onFile} hidden />
-          </label>
+          <div className="dropcta">
+            <label className="primary filebtn">
+              {busy ? "Reading…" : "Choose file"}
+              <input type="file" accept=".xlsx,.xlsm,.csv" onChange={onFile} hidden />
+            </label>
+            <button className="secondary" onClick={trySample} disabled={busy}>
+              {busy ? "Working…" : "Try a sample (8 questions)"}
+            </button>
+          </div>
           {err && <div className="error">{err}</div>}
           <p className="muted small">
-            {me.answers_remaining} answers left on your {me.tier_name} plan. We scope the file first,
-            so you answer only what you choose; the rest stays locked until you upgrade.
+            New here? “Try a sample” loads a short questionnaire and answers it in seconds, with the
+            source cited on each line. Or upload your own. {me.answers_remaining} answers left on your{" "}
+            {me.tier_name} plan.
           </p>
         </div>
       )}
@@ -655,6 +690,28 @@ function Upload({ me, onChange, onNavigate }) {
 
       {result && (
         <div>
+          {!onboarded && result.answered > 0 && (
+            <div className="onboardsummary">
+              <div>
+                <strong>You just answered {result.answered} questions.</strong>{" "}
+                {result.items.filter((it) => parseCitations(it.citations).length > 0).length} came back
+                with a cited source. Click <em>show proof</em> on any answer to see the exact line it came
+                from. Approve the good ones to save them to your library, so your next questionnaire
+                reuses them and goes faster.
+              </div>
+              <button
+                className="link"
+                onClick={() => {
+                  try {
+                    localStorage.setItem("attestly_onboarded", "1");
+                  } catch (_) {}
+                  setOnboarded(true);
+                }}
+              >
+                Got it
+              </button>
+            </div>
+          )}
           {result.blocked > 0 && result.spend_paused && (
             <div className="lockbanner">
               {result.blocked} rows were not drafted: free capacity for this month has been reached.

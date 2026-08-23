@@ -54,6 +54,18 @@ def test_real_questions_and_control_statements_score_positive():
         assert parsing._question_score(q) > 0.0, q
 
 
+def test_bundled_sample_questionnaire_parses_to_eight_questions():
+    # The onboarding "Try a sample" file must parse cleanly to its 8 questions.
+    import pathlib
+
+    sample = pathlib.Path(__file__).resolve().parents[2] / "frontend" / "public" / "sample-questionnaire.xlsx"
+    assert sample.exists(), sample
+    result = parsing.parse_xlsx(sample.read_bytes())
+    assert len(result.questions) == 8
+    assert all("?" in q.question or q.question.lower().startswith(("how", "do", "is", "are"))
+               for q in result.questions)
+
+
 def test_csv_messy_sheet_extracts_only_questions():
     csv_text = (
         "Question,Answer\n"

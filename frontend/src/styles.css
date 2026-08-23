@@ -120,6 +120,7 @@ button, .primary, .secondary {
 
 .dropzone { text-align: center; padding: 48px 24px; }
 .dropzone .primary { margin: 8px 0; }
+.dropcta { display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; margin: 8px 0; }
 
 .nudge { border: 1px solid var(--accent); background: var(--accent-soft); margin-bottom: 16px; }
 .nudge h2 { color: var(--accent); }
@@ -168,6 +169,10 @@ button, .primary, .secondary {
   margin-bottom: 16px;
   font-size: 14px;
 }
+.onboardsummary { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between;
+  background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; font-size: 14px; }
+.onboardsummary .link { white-space: nowrap; }
 .statnum { font-size: 24px; font-weight: 700; }
 
 .item .itemhead { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
