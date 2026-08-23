@@ -429,6 +429,30 @@ def test_resolve_contradiction_keep_prior_reverts_item():
     assert (db.get_item(item_id)["contradiction"] or "") == ""
 
 
+def test_answer_stream_emits_start_items_and_done():
+    import json as _json
+
+    token = _token()
+    qs = ["Do you support control A?", "Do you support control B?"]
+    for q in qs:
+        client.post("/v1/answers", headers=_auth(token),
+                    json={"question": q, "answer": f"Yes. {q[:-1]} is supported."})
+    up = _triage(token, _one_q2_bytes(qs)).json()
+    qid = up["questionnaire_id"]
+
+    r = client.post(f"/v1/questionnaires/{qid}/answer/stream",
+                    headers=_auth(token), json={"exclude": []})
+    assert r.status_code == 200
+    lines = [_json.loads(x) for x in r.text.splitlines() if x.strip()]
+    types = [x["type"] for x in lines]
+    assert types[0] == "start" and lines[0]["to_answer"] == 2
+    assert types.count("item") == 2
+    assert types[-1] == "done"
+    assert lines[-1]["summary"]["answered"] == 2
+    # Charged once, from the onboarding pool.
+    assert client.get("/v1/me", headers=_auth(token)).json()["onboarding_remaining"] == 148
+
+
 def test_rerun_answer_does_not_double_charge_quota():
     token = _token()
     qs = ["Do you support control A?", "Do you support control B?"]

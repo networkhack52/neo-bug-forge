@@ -74,6 +74,47 @@ export const api = {
   confirm: (tier) => req("/v1/billing/confirm", { method: "POST", body: { tier } }),
 };
 
+// Stream answers as they're produced (NDJSON over fetch). Calls onStart({to_answer}),
+// onItem(item) for each answer as it lands, and onDone(summary) at the end.
+export async function answerStream(id, exclude, { onStart, onItem, onDone } = {}) {
+  const token = getToken();
+  const res = await fetch(`${BASE}/v1/questionnaires/${id}/answer/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ exclude }),
+  });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      detail = (await res.json()).detail || detail;
+    } catch (_) {}
+    throw new Error(detail);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      let msg;
+      try {
+        msg = JSON.parse(line);
+      } catch (_) {
+        continue;
+      }
+      if (msg.type === "start") onStart && onStart(msg);
+      else if (msg.type === "item") onItem && onItem(msg.item);
+      else if (msg.type === "done") onDone && onDone(msg.summary);
+    }
+  }
+}
+
 // Download the exported .xlsx WITH the auth header, then trigger a save.
 // (A plain <a href> can't send the bearer token, so the server 401s.)
 export async function downloadExport(id, filename = `responses_${id}.xlsx`, original = false) {

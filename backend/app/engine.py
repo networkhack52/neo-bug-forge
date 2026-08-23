@@ -127,42 +127,45 @@ def answer_question(
     return result
 
 
-def answer_questionnaire(
+def _pending_items(questionnaire_id: int) -> list[dict]:
+    """Rows still to answer: not locked, not excluded, not already answered.
+    Blocked rows are retried since a document/quota may now be available."""
+    return [it for it in db.list_items(questionnaire_id)
+            if not it.get("locked") and not it.get("excluded")
+            and (it.get("match_type") or "none") in ("none", "blocked")]
+
+
+def stream_answer_questionnaire(
     org_id: int, questionnaire_id: int, allow_draft: bool = True,
     block_message: str = BLOCKED_ANSWER,
-) -> list[AnsweredItem]:
+):
+    """Answer the pending items, YIELDING each AnsweredItem the moment it is ready
+    (in completion order). Records per-answer cost as each lands, then updates the
+    cumulative answered count when the run finishes. Callers that don't need
+    streaming can use ``answer_questionnaire`` to collect the whole list."""
     bank = db.list_answers(org_id, status="approved")
-    # Only answer items that are NOT already answered. Locked (over quota) and
-    # excluded (out of scope) rows are skipped, and so are rows that already have
-    # an answer from a previous run — so re-running to fill blocked rows (e.g.
-    # after uploading a document) never re-answers or re-charges what's done.
-    # Blocked items are retried, since a document/quota may now be available.
-    items = [it for it in db.list_items(questionnaire_id)
-             if not it.get("locked") and not it.get("excluded")
-             and (it.get("match_type") or "none") in ("none", "blocked")]
-    out: list[AnsweredItem | None] = [None] * len(items)
+    items = _pending_items(questionnaire_id)
 
-    # Answer questions concurrently — each drafted one makes several sequential
-    # API calls, so parallelism cuts wall time roughly by the worker count.
-    workers = max(1, min(config.ANSWER_CONCURRENCY, len(items)))
+    def _run(it):
+        return answer_question(org_id, it["id"], it["question"], bank, allow_draft, block_message)
+
+    def _record(ai: AnsweredItem):
+        if ai and ai.usage and ai.usage.get("input_tokens", 0) > 0:
+            db.record_usage(org_id, questionnaire_id, ai.item_id, ai.usage, usage_cost(ai.usage))
+
+    workers = max(1, min(config.ANSWER_CONCURRENCY, len(items))) if items else 1
     if workers == 1 or len(items) <= 1:
-        for i, it in enumerate(items):
-            out[i] = answer_question(org_id, it["id"], it["question"], bank, allow_draft, block_message)
+        for it in items:
+            ai = _run(it)
+            _record(ai)
+            yield ai
     else:
         with ThreadPoolExecutor(max_workers=workers) as ex:
-            futures = {
-                ex.submit(answer_question, org_id, it["id"], it["question"], bank,
-                          allow_draft, block_message): i
-                for i, it in enumerate(items)
-            }
+            futures = [ex.submit(_run, it) for it in items]
             for fut in as_completed(futures):
-                out[futures[fut]] = fut.result()
-
-    # Record token/cost usage per drafted answer (post-join, so no concurrent
-    # writes). Reused and blocked items have no model cost.
-    for it in out:
-        if it and it.usage and it.usage.get("input_tokens", 0) > 0:
-            db.record_usage(org_id, questionnaire_id, it.item_id, it.usage, usage_cost(it.usage))
+                ai = fut.result()
+                _record(ai)
+                yield ai
 
     # Cumulative answered count for the questionnaire (not just this run), so a
     # gap-filling re-run doesn't reset the total.
@@ -173,4 +176,12 @@ def answer_questionnaire(
     )
     db.set_answered_count(questionnaire_id, answered_total)
     db.set_questionnaire_status(questionnaire_id, "ready")
-    return out  # only the items answered in THIS call (for correct charging)
+
+
+def answer_questionnaire(
+    org_id: int, questionnaire_id: int, allow_draft: bool = True,
+    block_message: str = BLOCKED_ANSWER,
+) -> list[AnsweredItem]:
+    """Answer all pending items and return them (the items answered in THIS run,
+    for correct charging)."""
+    return list(stream_answer_questionnaire(org_id, questionnaire_id, allow_draft, block_message))

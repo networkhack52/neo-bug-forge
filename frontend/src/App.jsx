@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api, getToken, setToken, clearToken, downloadExport } from "./api.js";
+import { api, answerStream, getToken, setToken, clearToken, downloadExport } from "./api.js";
 
 // Citations are stored as a JSON string in the DB; accept either form.
 function parseCitations(c) {
@@ -478,6 +478,7 @@ function ResetPassword({ token, onDone }) {
 function Upload({ me, onChange, onNavigate }) {
   const [result, setResult] = useState(null);
   const [triage, setTriage] = useState(null); // triage summary before answering
+  const [stream, setStream] = useState(null); // { items, done, total } while answers stream in
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [library, setLibrary] = useState([]);
@@ -520,15 +521,25 @@ function Upload({ me, onChange, onNavigate }) {
   }
 
   async function runAnswer(exclude) {
+    const qid = triage.questionnaire_id;
     setBusy(true);
     setErr("");
+    setTriage(null);
+    setStream({ items: [], done: 0, total: 0 }); // enter streaming mode
     try {
-      const res = await api.answerQuestionnaire(triage.questionnaire_id, exclude);
-      setResult(res);
-      setTriage(null);
-      onChange();
+      await answerStream(qid, exclude, {
+        onStart: (m) => setStream((s) => ({ ...s, total: m.to_answer || 0 })),
+        onItem: (item) =>
+          setStream((s) => (s ? { ...s, items: [...s.items, item], done: s.done + 1 } : s)),
+        onDone: (summary) => {
+          setResult(summary);
+          setStream(null);
+          onChange();
+        },
+      });
     } catch (e) {
       setErr(e.message);
+      setStream(null);
     }
     setBusy(false);
   }
@@ -555,7 +566,7 @@ function Upload({ me, onChange, onNavigate }) {
 
   return (
     <div>
-      {!result && !triage && empty && (
+      {!result && !triage && !stream && empty && (
         <div className="card nudge">
           <h2>New here? Do this first ↓</h2>
           <p className="muted">
@@ -594,7 +605,7 @@ function Upload({ me, onChange, onNavigate }) {
         </div>
       )}
 
-      {!result && !triage && (
+      {!result && !triage && !stream && (
         <div className="card dropzone">
           <h2>Upload a questionnaire</h2>
           <p className="muted">.xlsx or .csv. We auto-detect the question column.</p>
@@ -610,7 +621,7 @@ function Upload({ me, onChange, onNavigate }) {
         </div>
       )}
 
-      {triage && !result && (
+      {triage && !result && !stream && (
         <TriagePanel
           triage={triage}
           busy={busy}
@@ -621,6 +632,25 @@ function Upload({ me, onChange, onNavigate }) {
             setErr("");
           }}
         />
+      )}
+
+      {stream && (
+        <div>
+          <div className="streamhead">
+            <span className="spinner" aria-hidden="true" />
+            <strong>
+              Answering{stream.total ? ` · ${stream.done} of ${stream.total}` : "…"}
+            </strong>
+            <span className="muted small">Answers appear as each one is ready.</span>
+          </div>
+          {stream.total > 0 && (
+            <div className="progressbar" aria-hidden="true">
+              <div style={{ width: `${Math.round((stream.done / stream.total) * 100)}%` }} />
+            </div>
+          )}
+          {err && <div className="error">{err}</div>}
+          <ReviewList items={stream.items} onShowSources={setSources} />
+        </div>
       )}
 
       {result && (
@@ -1003,7 +1033,7 @@ function ReviewItem({ item, onApprove, onShowSources, onSaveMeta, onResolveContr
         ) : (
           <span className="muted xsmall">No grounded source. Review before sending.</span>
         )}
-        {!approved && (
+        {!approved && onApprove && (
           <button className="secondary" onClick={() => onApprove(item, answer)}>
             Approve &amp; save to library
           </button>
