@@ -22,7 +22,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from . import (
     __version__, assessment as assess, billing, config, db, documents, email as email_svc,
-    engine, export, parsing, passwords, ratelimit, runner, tokens, triage,
+    engine, export, parsing, passwords, ratelimit, runner, sample as sample_mod, tokens, triage,
 )
 from .report import render as render_report
 
@@ -478,6 +478,16 @@ def _quota_state(org: dict) -> dict:
         "period_remaining": period_remaining,
         "total_remaining": onboarding_remaining + period_remaining,
     }
+
+
+@app.get("/v1/sample")
+def get_sample(org: dict = Depends(require_org)) -> dict:
+    """The curated 8-question onboarding sample: precomputed, deterministic, no
+    model call and no quota. The client reveals it with a fake-paced stream so a
+    first-timer sees the full range (clean + cited, stale source, honest
+    abstentions, a substantive 'No') in seconds."""
+    _event("sample_run_started", org_id=org["id"], static=True)
+    return {"items": sample_mod.sample_items(), "sample": True}
 
 
 @app.post("/v1/questionnaires")

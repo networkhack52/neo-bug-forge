@@ -266,6 +266,17 @@ button, .primary, .secondary {
 .sourcedate.stale, .stale { color: var(--amber); font-weight: 600; }
 .drawer-foot { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 12px; }
 
+/* Inline source line under a sample answer: the quote is readable at mobile
+   width with no click. The quote wraps in full; only the doc-name line truncates. */
+.inlinesource { margin: 8px 0 2px; padding: 10px 12px; border-left: 3px solid var(--green);
+  background: #ecfdf5; border-radius: 0 8px 8px 0; }
+.inlinesource.stale { border-left-color: var(--amber); background: #fffbeb; }
+.inlinesource.none { border-left-color: var(--line); background: var(--bg); }
+.inlinesource .q-quote { display: block; color: var(--ink); font-size: 13px; line-height: 1.5; }
+.inlinesource .q-src { display: block; margin-top: 4px; font-size: 12px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.inlinesource.stale .q-src { color: var(--amber); font-weight: 600; }
+
 /* Speed / SLA timer */
 .sla { font-size: 13px; font-weight: 600; color: var(--muted); }
 .sla.late { color: var(--amber); background: var(--amber-bg); padding: 2px 8px; border-radius: 999px; }

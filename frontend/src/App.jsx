@@ -537,25 +537,33 @@ function Upload({ me, onChange, onNavigate }) {
     setBusy(false);
   }
 
+  // The sample is precomputed and served static (no model call, no quota). We
+  // reveal it with a fake-paced stream so it feels live, and it always shows the
+  // full range: clean cited answers, a stale source, honest abstentions, a "No".
   async function trySample() {
     setBusy(true);
     setErr("");
     setResult(null);
     setTriage(null);
     try {
-      if (me.bank_size === 0) {
-        await api.seedStarter(); // so sample answers reuse from the library, with proof
-        onChange();
-      }
-      const blob = await fetch("/sample-questionnaire.xlsx").then((r) => r.blob());
-      const file = new File([blob], "sample-questionnaire.xlsx", {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const tri = await api.uploadQuestionnaire(file);
-      await runAnswer([], tri.questionnaire_id, { sample: true }); // one click: answer the whole small sample
+      const { items } = await api.sample();
+      setStream({ items: [], done: 0, total: items.length, running: true, sample: true });
+      stopPolling();
+      let i = 0;
+      pollRef.current = setInterval(() => {
+        i += 1;
+        setStream((s) => (s ? { ...s, items: items.slice(0, i), done: i } : s));
+        if (i >= items.length) {
+          stopPolling();
+          setResult({ sample: true, items, answered: items.length });
+          setStream(null);
+          setBusy(false);
+        }
+      }, 500);
     } catch (e) {
       setErr(e.message);
       setBusy(false);
+      setStream(null);
     }
   }
 
@@ -818,11 +826,28 @@ function Upload({ me, onChange, onNavigate }) {
             </div>
           )}
           {err && <div className="error">{err}</div>}
-          <ReviewList items={stream.items} onShowSources={setSources} />
+          <ReviewList items={stream.items} onShowSources={setSources} showInlineSource={stream.sample} />
         </div>
       )}
 
-      {result && (
+      {result && result.sample && (
+        <div>
+          <div className="onboardsummary">
+            <div>
+              <strong>This is a sample of what Attestly produces.</strong> Four answers came straight
+              from a cited source, one flags a source over 12 months old, two abstain honestly instead
+              of guessing, and one is a clear "No" with the reason. The exact source line sits under
+              every grounded answer. Upload your own questionnaire to answer it for real.
+            </div>
+          </div>
+          <ReviewList items={result.items} onShowSources={setSources} showInlineSource />
+          <button className="link" onClick={() => setResult(null)}>
+            ← Upload your own questionnaire
+          </button>
+        </div>
+      )}
+
+      {result && !result.sample && (
         <div>
           {!onboarded && result.answered > 0 && (
             <div className="onboardsummary">
@@ -1054,7 +1079,7 @@ function TriagePanel({ triage, busy, err, onAnswer, onCancel }) {
   );
 }
 
-function ReviewList({ items, onApprove, onShowSources, onSaveMeta, onResolveContradiction }) {
+function ReviewList({ items, onApprove, onShowSources, onSaveMeta, onResolveContradiction, showInlineSource }) {
   return (
     <div className="stack">
       {items.map((it) => (
@@ -1065,6 +1090,7 @@ function ReviewList({ items, onApprove, onShowSources, onSaveMeta, onResolveCont
           onShowSources={onShowSources}
           onSaveMeta={onSaveMeta}
           onResolveContradiction={onResolveContradiction}
+          showInlineSource={showInlineSource}
         />
       ))}
     </div>
@@ -1177,7 +1203,7 @@ function RemediationFields({ item, onSaveMeta }) {
   );
 }
 
-function ReviewItem({ item, onApprove, onShowSources, onSaveMeta, onResolveContradiction }) {
+function ReviewItem({ item, onApprove, onShowSources, onSaveMeta, onResolveContradiction, showInlineSource }) {
   const [answer, setAnswer] = useState(item.answer);
   const approved = item.status === "approved";
   const hasContradiction = !!(item.contradiction && item.contradiction !== "" && item.contradiction !== "{}");
@@ -1213,7 +1239,27 @@ function ReviewItem({ item, onApprove, onShowSources, onSaveMeta, onResolveContr
         {approved && <span className="tag green">✓ approved</span>}
       </div>
       <div className="q">{item.question}</div>
-      <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={4} />
+      <textarea
+        value={answer}
+        onChange={(e) => setAnswer(e.target.value)}
+        rows={showInlineSource ? 3 : 4}
+        readOnly={showInlineSource}
+      />
+      {showInlineSource && cites.length > 0 && cites[0].text && (
+        <div className={`inlinesource ${cites[0].stale ? "stale" : ""}`}>
+          <span className="q-quote">"{cites[0].text}"</span>
+          <span className="q-src">
+            {cites[0].title}
+            {cites[0].date ? ` · ${cites[0].date}` : ""}
+            {cites[0].stale ? " · over 12 months old, review recommended" : ""}
+          </span>
+        </div>
+      )}
+      {showInlineSource && cites.length === 0 && (
+        <div className="inlinesource none">
+          <span className="q-src">No source in the documents. Attestly abstains instead of guessing.</span>
+        </div>
+      )}
       {hasContradiction && onResolveContradiction && (
         <ContradictionPanel item={item} onResolve={onResolveContradiction} />
       )}
