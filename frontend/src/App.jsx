@@ -1325,7 +1325,7 @@ function ReviewItem({ item, onApprove, onShowSources, onSaveMeta, onResolveContr
         {item.choice ? (
           <span className="tag choice">{item.choice}</span>
         ) : (
-          <span className="tag amber">No status</span>
+          <span className="tag amber">No evidence</span>
         )}
         <span className={`tag ${badge[1]}`}>{badge[0]}</span>
         {verified && (
