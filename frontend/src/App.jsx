@@ -650,7 +650,7 @@ function Upload({ me, onChange, onNavigate }) {
           <div className="dropcta">
             <label className="primary filebtn">
               {busy ? "Reading…" : "Choose file"}
-              <input type="file" accept=".xlsx,.xlsm,.csv" onChange={onFile} hidden />
+              <input type="file" accept=".xlsx,.xlsm,.csv,.txt,.md" onChange={onFile} hidden />
             </label>
             <button className="secondary" onClick={trySample} disabled={busy}>
               {busy ? "Working…" : "Try a sample (8 questions)"}

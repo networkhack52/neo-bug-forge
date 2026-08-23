@@ -64,7 +64,9 @@ _NOISE_RE = re.compile(
     r"|^\s*(complete the following|for each|for official use|for internal use|note:)"
     r"|\bpage\s+\d+(\s+of\s+\d+)?\b"
     r"|©|\bcopyright\b|all rights reserved|\bconfidential\b|\bproprietary\b"
-    r"|^\s*(version|revision|rev|last updated|last revised)\b[:\s]",
+    r"|^\s*(version|revision|rev|last updated|last revised)\b[:\s]"
+    # Document meta: "Full Question List", "END OF LIST", "(52 questions total)".
+    r"|^\s*end of\b|question list\b|\(\d+\s+questions?(\s+total)?\)",
     re.IGNORECASE,
 )
 
@@ -236,14 +238,47 @@ def parse_csv(data: bytes) -> ParseResult:
     return result
 
 
+# Leading list markers on a plain-text question line: "1. ", "12) ", "- ", "• ".
+_LIST_PREFIX = re.compile(r"^\s*(?:\d{1,3}[.)]|[-*•·])\s+")
+
+
+def parse_text(data: bytes) -> ParseResult:
+    """Plain-text questionnaire: one question per line. Unlike CSV, this never
+    splits on the commas *inside* a question, so questions stay whole. Strips
+    leading list numbering and skips section headers, separators, and notes."""
+    text = data.decode("utf-8-sig", errors="replace")
+    result = ParseResult(kind="text")
+    logical = 0
+    for line_no, raw in enumerate(text.splitlines(), start=1):
+        line = _LIST_PREFIX.sub("", raw.strip()).strip()
+        if _question_score(line) <= 0:
+            continue
+        result.questions.append(
+            ExtractedQuestion(row_index=logical, excel_row=line_no, question=line)
+        )
+        logical += 1
+    return result
+
+
 def parse(filename: str, data: bytes) -> ParseResult:
     name = (filename or "").lower()
     if name.endswith(".csv"):
         return parse_csv(data)
     if name.endswith((".xlsx", ".xlsm")):
         return parse_xlsx(data)
-    # Best-effort: try xlsx, then csv.
+    if name.endswith((".txt", ".md", ".text")):
+        return parse_text(data)
+    # Unknown extension: try xlsx; else pick text vs csv by how comma-delimited it
+    # looks, so a plain-text list isn't mangled by comma-splitting.
     try:
         return parse_xlsx(data)
     except Exception:
-        return parse_csv(data)
+        pass
+    try:
+        sample = data.decode("utf-8-sig", errors="replace")[:5000]
+        lines = [ln for ln in sample.splitlines() if ln.strip()]
+        if lines and sum(1 for ln in lines if "," in ln) / len(lines) >= 0.5:
+            return parse_csv(data)
+    except Exception:
+        pass
+    return parse_text(data)

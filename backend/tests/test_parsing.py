@@ -66,6 +66,30 @@ def test_bundled_sample_questionnaire_parses_to_eight_questions():
                for q in result.questions)
 
 
+def test_plain_text_questionnaire_keeps_questions_whole():
+    # A .txt list: numbered lines, commas INSIDE questions, section headers,
+    # separators, and metadata. Must extract full questions, not comma-truncate.
+    txt = (
+        "OSSTMM 4 Vendor Security Checklist\n"
+        "Full Question List (3 questions)\n"
+        "========================================\n"
+        "SECTION 1 - TRUST (2 questions)\n"
+        "1. Does the contract define mutual obligations, or does the vendor accept terms one-way?\n"
+        "2. Can you observe the vendor's operations relevant to your data (audit reports, logs, dashboards)?\n"
+        "SECTION 2 - OPERATIONS\n"
+        "3. Does the vendor require phishing-resistant MFA for all administrative access?\n"
+        "END OF LIST (3 questions total)\n"
+    )
+    result = parsing.parse("checklist.txt", txt.encode())
+    assert result.kind == "text"
+    got = [q.question for q in result.questions]
+    assert got == [
+        "Does the contract define mutual obligations, or does the vendor accept terms one-way?",
+        "Can you observe the vendor's operations relevant to your data (audit reports, logs, dashboards)?",
+        "Does the vendor require phishing-resistant MFA for all administrative access?",
+    ], got
+
+
 def test_csv_messy_sheet_extracts_only_questions():
     csv_text = (
         "Question,Answer\n"
