@@ -520,11 +520,13 @@ async def upload_questionnaire(
 
 @app.post("/v1/questionnaires/{qid}/reparse")
 async def reparse_questionnaire(
-    qid: int, body: dict, org: dict = Depends(require_org)
+    qid: int, body: dict, request: Request, org: dict = Depends(require_org)
 ) -> dict:
     """Re-parse the stored upload with a user-chosen worksheet and/or question
-    column (from the confirm screen), replacing the items. No quota is spent —
-    this runs before answering — so switching the detected column is free."""
+    column (from the confirm screen), replacing the items. No quota is spent (this
+    runs before answering), so switching the detected column is free. Rate limited
+    like an upload: re-parsing a large workbook is CPU work, so it can't be spammed."""
+    rate_limit_request_and_account(request, "upload", org["id"], config.RL_UPLOAD)
     q = db.get_questionnaire(qid, org["id"])
     if not q:
         raise HTTPException(status_code=404, detail="Not found")
@@ -603,16 +605,23 @@ def _prepare_answer_run(qid: int, body: dict, org: dict) -> dict:
     """Shared setup for both the batch and streaming answer endpoints: apply
     exclusions, lock the over-quota overflow among unanswered rows, and resolve
     the drafting gate. Returns the run context."""
+    ordered = db.list_items(qid)
+    # Only this questionnaire's own rows may be excluded. The caller owns `qid`,
+    # but the item ids in the body are attacker-controlled, so scope them to this
+    # questionnaire. Never trust a raw item id to belong to the caller.
+    own_ids = {it["id"] for it in ordered}
     exclude_ids = set()
     for ex in body.get("exclude") or []:
         iid = ex.get("id")
         if iid is None:
             continue
-        db.set_item_exclusion(int(iid), True, (ex.get("reason") or "").strip())
-        exclude_ids.add(int(iid))
+        iid = int(iid)
+        if iid not in own_ids:
+            continue  # cross-tenant or stray id: ignore silently
+        db.set_item_exclusion(iid, True, (ex.get("reason") or "").strip())
+        exclude_ids.add(iid)
 
     state = _quota_state(org)
-    ordered = db.list_items(qid)
     unanswered = [
         it for it in ordered
         if it["id"] not in exclude_ids and not it.get("excluded") and not it.get("locked")
