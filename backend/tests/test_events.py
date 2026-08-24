@@ -101,6 +101,17 @@ def test_internal_page_is_guarded(client, monkeypatch):
     assert set(db.EVENT_NAMES) <= set(js.json()["counts"].keys())
 
 
+def test_internal_page_accepts_header_token_and_survives_bad_input(client, monkeypatch):
+    monkeypatch.setattr(config, "ADMIN_TOKEN", "s3cret")
+    # Header token works, keeping the secret out of the URL / access logs.
+    assert client.get("/internal", headers={"X-Admin-Token": "s3cret"}).status_code == 200
+    assert client.get("/v1/internal/metrics", headers={"X-Admin-Token": "s3cret"}).status_code == 200
+    # Wrong header is a 404, not a reveal.
+    assert client.get("/internal", headers={"X-Admin-Token": "nope"}).status_code == 404
+    # A non-ASCII key in the URL must be a clean 404, never a 500 from compare_digest.
+    assert client.get("/internal?key=café").status_code == 404
+
+
 def test_median_big_run_only_counts_over_100_rows():
     since = time.time() - 60
     db.record_event("run_completed", props={"rows": 50, "wall_seconds": 10})

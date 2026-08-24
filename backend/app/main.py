@@ -818,27 +818,40 @@ def _internal_metrics(days: int = 30) -> dict:
     }
 
 
-def _require_admin(key: str) -> None:
+def _admin_ok(candidate: str | None) -> bool:
+    """Constant-time check of one admin-token candidate. Safe on any input: a
+    missing, empty, or non-ASCII value is simply 'no match' (compare_digest raises
+    on non-ASCII), never a 500."""
+    if not config.ADMIN_TOKEN or not candidate or not candidate.isascii():
+        return False
+    return secrets.compare_digest(candidate, config.ADMIN_TOKEN)
+
+
+def _require_admin(key: str = "", header_token: str | None = None) -> None:
     """Gate the internal page. Disabled entirely (404) when no admin token is set,
-    so it's never world-readable by default; wrong key is also 404 (no reveal)."""
-    if not config.ADMIN_TOKEN or not key or not secrets.compare_digest(key, config.ADMIN_TOKEN):
+    so it's never world-readable by default; a wrong token is also 404 (no reveal).
+    Accepts the token from the X-Admin-Token header (preferred: stays out of URLs
+    and access logs) or the ?key= query param (convenient for a browser bookmark)."""
+    if not (_admin_ok(header_token) or _admin_ok(key)):
         raise HTTPException(status_code=404, detail="Not found")
 
 
 @app.get("/v1/internal/metrics")
-def internal_metrics(key: str = "", days: int = 30) -> dict:
-    _require_admin(key)
+def internal_metrics(key: str = "", days: int = 30,
+                     x_admin_token: str | None = Header(default=None)) -> dict:
+    _require_admin(key, x_admin_token)
     return _internal_metrics(max(1, min(days, 365)))
 
 
 @app.get("/internal", response_class=HTMLResponse)
-def internal_page(key: str = "", days: int = 30) -> HTMLResponse:
-    _require_admin(key)
+def internal_page(key: str = "", days: int = 30,
+                  x_admin_token: str | None = Header(default=None)) -> HTMLResponse:
+    _require_admin(key, x_admin_token)
     m = _internal_metrics(max(1, min(days, 365)))
-    return HTMLResponse(_render_internal_html(m, key))
+    return HTMLResponse(_render_internal_html(m))
 
 
-def _render_internal_html(m: dict, key: str) -> str:
+def _render_internal_html(m: dict) -> str:
     import html as _html
 
     c = m["counts"]
