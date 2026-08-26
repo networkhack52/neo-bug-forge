@@ -8,12 +8,9 @@ from __future__ import annotations
 
 import datetime as _dt
 import io
-import json
 import logging
 import secrets
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
@@ -691,34 +688,6 @@ def answer_questionnaire_endpoint(
         org["id"], qid, allow_draft=ctx["allow_draft"], block_message=ctx["block_message"]
     )
     return _finalize_answer_run(qid, q, org, ctx, produced)
-
-
-@app.post("/v1/questionnaires/{qid}/answer/stream")
-def answer_questionnaire_stream(
-    qid: int, body: dict, request: Request, org: dict = Depends(require_org)
-) -> StreamingResponse:
-    """Same as /answer, but streams NDJSON so the UI can show answers landing one
-    by one: a `start` line, an `item` line per answer as it's ready, then a
-    `done` line carrying the final summary."""
-    rate_limit_request_and_account(request, "answer", org["id"], config.RL_ANSWER)
-    q = db.get_questionnaire(qid, org["id"])
-    if not q:
-        raise HTTPException(status_code=404, detail="Not found")
-    ctx = _prepare_answer_run(qid, body, org)
-
-    def gen():
-        yield json.dumps({"type": "start", "to_answer": ctx["to_answer"]}) + "\n"
-        produced = []
-        for ai in engine.stream_answer_questionnaire(
-            org["id"], qid, allow_draft=ctx["allow_draft"], block_message=ctx["block_message"]
-        ):
-            produced.append(ai)
-            item = db.get_item(ai.item_id) or {}
-            yield json.dumps({"type": "item", "item": item}) + "\n"
-        summary = _finalize_answer_run(qid, q, org, ctx, produced)
-        yield json.dumps({"type": "done", "summary": summary}) + "\n"
-
-    return StreamingResponse(gen(), media_type="application/x-ndjson")
 
 
 @app.post("/v1/questionnaires/{qid}/run")

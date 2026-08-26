@@ -690,25 +690,6 @@ def add_answer(
     return dict(row)
 
 
-def set_answer_embedding(answer_id: int, blob: bytes) -> None:
-    with cursor() as cur:
-        cur.execute("UPDATE answers SET embedding = ? WHERE id = ?", (blob, answer_id))
-
-
-def answers_missing_embeddings(org_id: int, limit: int = 200) -> list[dict]:
-    with cursor() as cur:
-        rows = cur.execute(
-            "SELECT id, question FROM answers WHERE org_id = ? AND embedding IS NULL LIMIT ?",
-            (org_id, limit),
-        ).fetchall()
-    return [dict(r) for r in rows]
-
-
-def set_chunk_embedding(chunk_id: int, blob: bytes) -> None:
-    with cursor() as cur:
-        cur.execute("UPDATE document_chunks SET embedding = ? WHERE id = ?", (blob, chunk_id))
-
-
 def rows_missing_embeddings(table: str, text_col: str) -> list[dict]:
     """All rows (across orgs) in ``table`` whose embedding is NULL.
 
