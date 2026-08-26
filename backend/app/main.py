@@ -59,6 +59,10 @@ async def security_headers(request: Request, call_next):
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("X-Frame-Options", "DENY")
     resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    # This API serves per-account data, exports, and the internal page. Mark it
+    # uncacheable so a CDN in front (Cloudflare) or any intermediary never stores
+    # or cross-serves an authenticated response.
+    resp.headers.setdefault("Cache-Control", "no-store")
     return resp
 
 
