@@ -1495,6 +1495,7 @@ function Documents() {
   const [enabled, setEnabled] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(true);
 
   async function load() {
     const r = await api.documents();
@@ -1502,7 +1503,9 @@ function Documents() {
     setEnabled(r.embeddings_enabled);
   }
   useEffect(() => {
-    load().catch((e) => setErr(e.message));
+    load()
+      .catch((e) => setErr(e.message))
+      .finally(() => setLoading(false));
   }, []);
 
   async function onFile(e) {
@@ -1545,7 +1548,7 @@ function Documents() {
         </p>
       </div>
       <div>
-        <h3>{docs.length} document{docs.length === 1 ? "" : "s"}</h3>
+        <h3>{loading ? "Loading documents…" : `${docs.length} document${docs.length === 1 ? "" : "s"}`}</h3>
         <div className="stack">
           {docs.map((d) => (
             <div key={d.id} className="card compact">
@@ -1571,7 +1574,8 @@ function Documents() {
               </button>
             </div>
           ))}
-          {docs.length === 0 && <p className="muted small">No documents yet.</p>}
+          {loading && <p className="muted small">Loading your documents…</p>}
+          {!loading && docs.length === 0 && <p className="muted small">No documents yet.</p>}
         </div>
       </div>
     </div>
@@ -1585,12 +1589,15 @@ function Bank({ me, onChange }) {
   const [err, setErr] = useState("");
   const [seeding, setSeeding] = useState(false);
   const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(true);
 
   async function load() {
     setAnswers((await api.answers()).answers);
   }
   useEffect(() => {
-    load();
+    load()
+      .catch((e) => setErr(e.message))
+      .finally(() => setLoading(false));
   }, []);
 
   async function add(e) {
@@ -1652,8 +1659,9 @@ function Bank({ me, onChange }) {
         </div>
       </div>
       <div>
-        <h3>{answers.length} approved answers</h3>
+        <h3>{loading ? "Loading answers…" : `${answers.length} approved answers`}</h3>
         <div className="stack">
+          {loading && <p className="muted small">Loading your library…</p>}
           {answers.map((x) => (
             <div key={x.id} className="card compact">
               <div className="q small">{x.question}</div>
@@ -1671,8 +1679,12 @@ function Bank({ me, onChange }) {
 
 function History() {
   const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
-    api.listQuestionnaires().then((r) => setRows(r.questionnaires));
+    api
+      .listQuestionnaires()
+      .then((r) => setRows(r.questionnaires))
+      .finally(() => setLoading(false));
   }, []);
 
   // Speed SLA: surface questionnaires still open (not exported) and how long
@@ -1754,7 +1766,14 @@ function History() {
             </tr>
             );
           })}
-          {rows.length === 0 && (
+          {loading && (
+            <tr>
+              <td colSpan={5} className="muted">
+                Loading your questionnaires…
+              </td>
+            </tr>
+          )}
+          {!loading && rows.length === 0 && (
             <tr>
               <td colSpan={5} className="muted">
                 No questionnaires yet.
