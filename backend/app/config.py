@@ -24,6 +24,13 @@ DB_PATH = os.environ.get("ATTESTLY_DB_PATH", str(DATA_DIR / "attestly.db"))
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 USE_POSTGRES = bool(DATABASE_URL)
 
+# Postgres connection pool bounds. A process-wide pool keeps warm connections so
+# each query skips the TCP+TLS handshake to the database (which was adding seconds
+# to simple reads). Safe with a transaction-mode pooler (Supabase 6543 / pgbouncer),
+# which the app pool sits in front of. Ignored on SQLite.
+DB_POOL_MIN = int(os.environ.get("ATTESTLY_DB_POOL_MIN", "1"))
+DB_POOL_MAX = int(os.environ.get("ATTESTLY_DB_POOL_MAX", "10"))
+
 # Reject oversized uploads before parsing them — untrusted files (PDF/xlsx) are
 # a DoS surface (parser blow-ups, embedding cost), so cap the bytes we accept.
 MAX_UPLOAD_MB = int(os.environ.get("ATTESTLY_MAX_UPLOAD_MB", "20"))

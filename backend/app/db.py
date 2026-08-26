@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+import threading
 import time
 from contextlib import contextmanager
 from typing import Iterator, Optional
@@ -201,18 +202,58 @@ _MIGRATIONS = {
 }
 
 
-def _pg_connect():
-    import psycopg
+def _pg_kwargs() -> dict:
     from psycopg.rows import dict_row
 
-    kwargs = {"row_factory": dict_row}
+    kwargs = {
+        "row_factory": dict_row,
+        # Disable server-side prepared statements. Required when DATABASE_URL points
+        # at a transaction-mode pooler (Supabase port 6543 / pgbouncer), which reuses
+        # server connections across clients and cannot carry prepared statements.
+        "prepare_threshold": None,
+    }
     # Enforce TLS to the database unless the URL already sets an sslmode.
     if "sslmode" not in config.DATABASE_URL:
         kwargs["sslmode"] = "require"
-    return psycopg.connect(config.DATABASE_URL, **kwargs)
+    return kwargs
+
+
+def _pg_connect():
+    """A single, unpooled Postgres connection (used for one-time schema init)."""
+    import psycopg
+
+    return psycopg.connect(config.DATABASE_URL, **_pg_kwargs())
+
+
+# Process-wide Postgres connection pool, created lazily on first use. Reusing warm
+# connections removes the per-query TCP+TLS handshake to the database, which was
+# adding seconds to simple reads under load. SQLite (local/tests) needs no pool.
+_pool = None
+_pool_lock = threading.Lock()
+
+
+def _get_pool():
+    global _pool
+    if _pool is None:
+        with _pool_lock:
+            if _pool is None:
+                from psycopg_pool import ConnectionPool
+
+                _pool = ConnectionPool(
+                    config.DATABASE_URL,
+                    min_size=config.DB_POOL_MIN,
+                    max_size=config.DB_POOL_MAX,
+                    kwargs=_pg_kwargs(),
+                    timeout=30,
+                    name="attestly-db",
+                    open=True,
+                )
+    return _pool
 
 
 def connect():
+    """Open a single (unpooled) connection. Used for one-time work such as schema
+    init; regular queries borrow a pooled connection through ``cursor()``."""
     if PG:
         return _pg_connect()
     conn = sqlite3.connect(config.DB_PATH, timeout=30)
@@ -260,6 +301,13 @@ class _Cursor:
 
 @contextmanager
 def cursor() -> Iterator[_Cursor]:
+    if PG:
+        # Borrow a pooled connection. The pool's context manager commits on a clean
+        # exit, rolls back on exception, and returns the connection to the pool
+        # either way — so callers get connection reuse with the same semantics.
+        with _get_pool().connection() as conn:
+            yield _Cursor(conn.cursor())
+        return
     conn = connect()
     try:
         cur = conn.cursor()
