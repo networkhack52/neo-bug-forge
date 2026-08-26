@@ -92,9 +92,15 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">
+        <button
+          type="button"
+          className="brand brand-home"
+          onClick={() => setTab("upload")}
+          title="Back to Answer a questionnaire"
+          aria-label="Attestly home"
+        >
           <span className="logo">◆</span> Attestly
-        </div>
+        </button>
         <div className="usage">
           <span className="pill">{me.tier_name}</span>
           <span className="muted">
