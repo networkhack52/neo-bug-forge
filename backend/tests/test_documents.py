@@ -33,6 +33,33 @@ def test_ingest_and_lexical_search(monkeypatch):
     assert hits[0].doc_name == "security_policy.txt"
 
 
+def test_search_gives_each_document_a_fair_share(monkeypatch):
+    # Regression for the coverage-run finding: with several documents, a query's
+    # supporting passage must not be crowded out of the window by one wordy doc.
+    monkeypatch.setattr(documents, "MAX_GROUND_CHUNKS", 6)
+    monkeypatch.setattr(documents, "DOC_PER_DOC_CHUNKS", 2)
+    db.init_db()
+    org = db.create_org("Corpus Co")
+    # One long, encryption-heavy document (many passages mentioning "encrypt").
+    big = "\n\n".join(
+        f"Section {i}: We encrypt data and manage encryption keys carefully. Encryption is applied broadly."
+        for i in range(12)
+    ).encode()
+    documents.ingest(org["id"], "big_encryption_policy.txt", big)
+    # A separate short document that holds the specific fact being asked about.
+    documents.ingest(
+        org["id"], "incident_policy.txt",
+        b"Incident Response\n\nWe notify affected customers within 72 hours of a confirmed breach.",
+    )
+    hits = documents.search(org["id"], "Do you notify customers of a breach within 72 hours?")
+    names = {h.doc_name for h in hits}
+    # The wordy document must not monopolise the window; the incident doc's passage
+    # (the actual answer) is retrieved.
+    assert "incident_policy.txt" in names, names
+    assert sum(1 for h in hits if h.doc_name == "big_encryption_policy.txt") <= 2
+    assert any("72 hours" in h.text for h in hits)
+
+
 def test_delete_document_is_scoped():
     db.init_db()
     org = db.create_org("Del Co")

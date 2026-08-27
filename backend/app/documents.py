@@ -25,12 +25,18 @@ from . import dates, db, embeddings, fuzzy
 # that a citation points at something specific.
 CHUNK_CHARS = 900
 CHUNK_OVERLAP = 150
-# How many document passages to ground each drafted answer in. Raised from 3 to
-# 5 on eval evidence (v3, 2026-08-18): over a realistic 59-passage corpus, top-3
-# retrieval missed the right control on ~22% of supported questions, so the model
-# abstained on answers it could have given. Top-5 lifted supported coverage
-# 39/50 -> 43/50 with NO new false confidence and ~$0.0002 more per answer.
-MAX_GROUND_CHUNKS = int(os.environ.get("ATTESTLY_DOC_TOP_K", "5"))
+# How many document passages to ground each drafted answer in. A fixed global
+# top-5 does not scale with the corpus: with one document the right chunk is
+# almost always in the window, but with several documents the specific chunk for
+# a question gets crowded out, so the model abstains on facts the docs clearly
+# state (observed on the Meridian coverage run: "encrypted at rest" grounded with
+# 1 doc, abstained with 4). Raised to 8, and paired with a per-document cap below
+# so no single verbose document can fill the window.
+MAX_GROUND_CHUNKS = int(os.environ.get("ATTESTLY_DOC_TOP_K", "8"))
+# Cap on passages taken from any ONE document before the global top-k is applied.
+# Guarantees every uploaded document contributes its best passages, so a query's
+# supporting chunk is a candidate even when other documents are wordier.
+DOC_PER_DOC_CHUNKS = int(os.environ.get("ATTESTLY_DOC_PER_DOC", "3"))
 
 
 @dataclass
@@ -179,10 +185,22 @@ def search(org_id: int, question: str, k: int = MAX_GROUND_CHUNKS,
             score = fuzzy.partial_ratio(question, r["text"])
         scored.append((score, r))
     scored.sort(key=lambda pair: pair[0], reverse=True)
-    out: list[DocMatch] = []
-    for score, r in scored[:k]:
+    # Per-document cap first, so one wordy document can't fill the whole window and
+    # crowd out the passage that actually answers the question; then take the
+    # global top-k from what each document contributed.
+    per_doc = max(1, DOC_PER_DOC_CHUNKS)
+    taken_per_doc: dict[str, int] = {}
+    candidates: list[tuple[float, dict]] = []
+    for score, r in scored:
         if score <= 0:
             continue
+        doc = r["doc_name"]
+        if taken_per_doc.get(doc, 0) >= per_doc:
+            continue
+        taken_per_doc[doc] = taken_per_doc.get(doc, 0) + 1
+        candidates.append((score, r))
+    out: list[DocMatch] = []
+    for score, r in candidates[:k]:
         out.append(DocMatch(
             chunk_id=r["id"], doc_name=r["doc_name"], text=r["text"], score=float(score),
             source_date=r.get("doc_source_date"), date_basis=r.get("doc_date_basis") or "",
