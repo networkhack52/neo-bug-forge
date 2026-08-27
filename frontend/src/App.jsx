@@ -1496,6 +1496,22 @@ function Documents() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
+  const [probeQ, setProbeQ] = useState("");
+  const [probe, setProbe] = useState(null); // { passages } from a retrieval test
+  const [probing, setProbing] = useState(false);
+
+  async function testRetrieval(e) {
+    e.preventDefault();
+    if (!probeQ.trim()) return;
+    setProbing(true);
+    setErr("");
+    try {
+      setProbe(await api.searchDocuments(probeQ.trim()));
+    } catch (e) {
+      setErr(e.message);
+    }
+    setProbing(false);
+  }
 
   async function load() {
     const r = await api.documents();
@@ -1546,6 +1562,42 @@ function Documents() {
             ? "Semantic search is ON. Passages are matched by meaning."
             : "Semantic search is OFF (no embeddings key). Passages are matched lexically. Set VOYAGE_API_KEY to enable meaning-based grounding."}
         </p>
+
+        <div className="probe">
+          <h4>Test retrieval</h4>
+          <p className="muted small">
+            See which passages a question would ground on, with match scores. No answer is drafted.
+          </p>
+          <form onSubmit={testRetrieval} className="proberow">
+            <input
+              placeholder="e.g. Is customer data encrypted at rest?"
+              value={probeQ}
+              onChange={(e) => setProbeQ(e.target.value)}
+            />
+            <button className="secondary" disabled={probing}>
+              {probing ? "Searching…" : "Test"}
+            </button>
+          </form>
+          {probe && (
+            <div className="probe-results">
+              {probe.passages.length === 0 ? (
+                <p className="muted small">
+                  No passage matched. The answerer would abstain on this question.
+                </p>
+              ) : (
+                probe.passages.map((p, i) => (
+                  <div key={i} className="probe-hit">
+                    <div className="probe-hit-head">
+                      <span className="tag blue">{p.doc_name}</span>
+                      <span className="muted xsmall">score {p.score}</span>
+                    </div>
+                    <div className="muted small clamp">{p.text}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
       <div>
         <h3>{loading ? "Loading documents…" : `${docs.length} document${docs.length === 1 ? "" : "s"}`}</h3>

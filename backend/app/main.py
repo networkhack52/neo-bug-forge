@@ -460,6 +460,25 @@ def delete_document(doc_id: int, org: dict = Depends(require_org)) -> dict:
     return {"deleted": True}
 
 
+@app.post("/v1/documents/search")
+def search_documents(body: dict, org: dict = Depends(require_org)) -> dict:
+    """Show which trust-document passages a question would ground on, with scores.
+    No model call: this is the retrieval step alone, so you can see exactly what
+    the answerer would (or would not) have to work with for a given question."""
+    question = (body.get("question") or "").strip()
+    if not question:
+        raise HTTPException(status_code=422, detail="Enter a question to test.")
+    hits = documents.search(org["id"], question)
+    return {
+        "question": question,
+        "semantic": config.EMBEDDINGS_ENABLED,
+        "passages": [
+            {"doc_name": h.doc_name, "score": round(h.score, 1), "text": h.text}
+            for h in hits
+        ],
+    }
+
+
 # --------------------------------------------------------------------------
 # Questionnaires
 # --------------------------------------------------------------------------

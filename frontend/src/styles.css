@@ -303,6 +303,15 @@ button, .primary, .secondary {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .inlinesource.stale .q-src { color: var(--amber); font-weight: 600; }
 
+/* Test-retrieval box on the Trust Documents tab: see what a question grounds on. */
+.probe { margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--line); }
+.probe h4 { margin: 0 0 4px; }
+.proberow { display: flex; gap: 8px; margin: 10px 0; }
+.proberow input { flex: 1; }
+.probe-results { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.probe-hit { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.probe-hit-head { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+
 /* Speed / SLA timer */
 .sla { font-size: 13px; font-weight: 600; color: var(--muted); }
 .sla.late { color: var(--amber); background: var(--amber-bg); padding: 2px 8px; border-radius: 999px; }
